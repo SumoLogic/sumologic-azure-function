@@ -18,6 +18,7 @@ Once all the above environment variables are defined, create your function as fo
 2. Once the function is created, click on its name, then *View files > Upload*. Upload all files under the [sumo-function-utils](https://github.com/SumoLogic/sumologic-azure-function/tree/sumo-function-utils/sumo-function-utils/lib) there. 
 3. Go back to the default content under index.js, then replace it with our index.js content. Make sure the urlString parameter value inside the function matches the name of the Sumo Endpoint environment variable (KEEP prefix *process.env.APPSETTINGS*).  
 4. Change the function integration: select Integrate under the function, go to Advanced Editor and add an storage output binding to the *bindings* array:
+
     {
           "type": "blob",
           "name": "outputBlob",
@@ -25,6 +26,7 @@ Once all the above environment variables are defined, create your function as fo
           "connection": "<USE THE NAME OF ENV VARIABLE FOR THE STORAGE ACCOUNT>",
           "direction": "out"
     }
+
 Note: here "azureaudit-failover" is the name of the container to host the failover data created under the previous section. If you use a different name.
 
 Your final bindings array should look something like this: 

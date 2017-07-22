@@ -23,7 +23,7 @@ Once all the above environment variables are defined, create your function as fo
           "type": "blob",
           "name": "outputBlob",
           "path": "azureaudit-failover/{rand-guid}",
-          "connection": "<USE THE NAME OF ENV VARIABLE FOR THE STORAGE ACCOUNT>",
+          "connection": "_THE_NAME_THE_ENV_VARIABLE_FOR_THE_STORAGE_ACCOUNT",
           "direction": "out"
     }
 

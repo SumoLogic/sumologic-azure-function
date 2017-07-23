@@ -171,7 +171,11 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
         let message;
         while (targetBuffer.getSize()>0) {
             message = targetBuffer.pop();
-            msgArray.push(JSON.stringify(message));
+            if (message instanceof Object) {
+                msgArray.push(JSON.stringify(message));
+            } else {
+                msgArray.push(message);
+            }
         }
 
         if (curOptions.compress_data) {

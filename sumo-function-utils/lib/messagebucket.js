@@ -1,8 +1,8 @@
 /*jshint esversion: 6 */
 /**
  * Created by duc on 6/29/17.
- * Class to contain a set of messages that will be sent to Sumo with the same set of headersObj. Headers should be
- * @param headers object contains all the headersObj
+ * Class to contain a set of messages that will be sent to Sumo with the same set of headers.
+ * @param headers object contains all the headers
  **/
 
 function MessageBucket(headers) {

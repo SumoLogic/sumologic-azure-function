@@ -9,7 +9,7 @@ We will define the required information for the function under the hosting Funct
 - A variable (e.g. named SumoEndpoint) containing the Sumo HTTP endpoint url.
 - A variable (e.g. named AzureEventHubConnectionString) containing a connection string for the source EventHub. To get the connection string, from the Azure portal, click *More services > Event Hubs* then select the EventHub *namespace* containing the source Event Hub. Continue to select *SETTINGS > Shared access policies* then either create a new or select an existing access policy with Send and Listen permission. Use any connection string under that policy.
 - A variable (e.g. named StorageConnectionString) containing a connection string for a storage account. We'll use this storage account to store any data that failed to be sent to Sumo on rare occasions.To get a connection string, from the Azure portal, click *More services > Storage accounts* then select the storage account, and continue to *SETTINGS > Access keys* and select any connection string.
-NOTE: You also need to create a blob container under that storage account, for example: *azureaudit-failover*.
+NOTE: You also need to create a blob container under that storage account, for example: *azureaudit-failover*. To do so, go to the storage account, continue to *BLOB SERVICE > Containers* then add a new container. 
 
 
 ## Deploy the function:
@@ -20,14 +20,14 @@ Once all the above environment variables are defined, create your function as fo
 4. Change the function integration: select Integrate under the function, go to Advanced Editor and add an storage output binding to the *bindings* array:
 
     {
-          "type": "blob",
-          "name": "outputBlob",
-          "path": "azureaudit-failover/{rand-guid}",
-          "connection": "_THE_NAME_THE_ENV_VARIABLE_FOR_THE_STORAGE_ACCOUNT",
-          "direction": "out"
+      "type": "blob",
+      "name": "outputBlob",
+      "path": "azureaudit-failover/\{rand-guid\}",
+      "connection": "NAME_OF_THE_ENV_VARIABLE_FOR_THE_STORAGE_ACCOUNT",
+      "direction": "out"
     }
-
-Note: here "azureaudit-failover" is the name of the container to host the failover data created under the previous section. If you use a different name.
+    
+NOTE: here "azureaudit-failover" is the name of the container to host the failover data mentioned in the previous section. If you use a different name, user it there. KEEP the string *{rand-guid}* AS IS.
 
 Your final bindings array should look something like this: 
 
@@ -53,4 +53,4 @@ Your final bindings array should look something like this:
       "disabled": false
     }
 
-5. Finally, test the function by going to index.js and click Run. On the Sumo side, use [Sumo LiveTail](https://help.sumologic.com/Search/Live-Tail) on the target endpoint to see the data.
+5. Finally, test the function by going to index.js and click Run. On the Sumo side, use [Sumo LiveTail](https://help.sumologic.com/Search/Live-Tail) on the receiving endpoint to see the data immediately.

@@ -8,39 +8,6 @@ var mocha = require('mocha');
 var sumoutils = require('../lib/sumoutils');
 chai.should();
 
-
-/*Promise.retryMax = function(fn, retry, interval) {
-    return new Promise((fulfill, reject)=> {
-        var MaxRetry = retry;
-        var finalError = {'message':"Max retry reached"};
-
-        var mainLoop = function(attempt) {
-            if (attempt >= MaxRetry) {
-                reject(finalError);
-            } else {
-                fn().then((rs)=> {
-                    fulfill(rs);
-                }).catch((err) => {
-                    finalError = err;
-                    //console.log(" Retry: "+attempt);
-                    setTimeout(mainLoop,interval,attempt+1);
-                })
-            }
-        }
-        mainLoop(0);
-    });
-}*/
-
-
-/*var promiseTest = sumoutils.p_wait(1000);
-promiseTest.then(()=>{
-    console.log("Handler 1:"+Date.now());
-});
-
-promiseTest.then(()=>{
-    console.log("Handler 2:"+Date.now());
-});*/
-
 describe('PromiseTest',function () {
 
     this.timeout(5000);

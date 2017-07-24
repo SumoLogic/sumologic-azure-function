@@ -1,8 +1,8 @@
 /*jshint esversion: 6 */
 /**
  * Created by duc on 6/29/17.
- * Class to contain a set of messages that will be sent to Sumo with the same set of headers.
- * @param headers object contains all the headers
+ * Class to contain a set of messages that will be sent to Sumo with the same set of headersObj. Headers should be
+ * @param headers object contains all the headersObj
  **/
 
 function MessageBucket(headers) {
@@ -28,7 +28,7 @@ MessageBucket.prototype.setHeadersObject = function(headers) {
  * Evic and return the first element if buffer is not empty, return null otherwise.
  * @returns {*}
  */
-MessageBucket.prototype.pop= function() {
+MessageBucket.prototype.remove= function () {
     if (this.queue.length>0) {
         let element = this.queue.shift();
         return element;

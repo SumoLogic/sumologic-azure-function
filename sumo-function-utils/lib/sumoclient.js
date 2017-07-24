@@ -156,12 +156,11 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     }
 
     if (targetBuffer) {
-        let headerArray = metaKey.split(':');
         curOptions.headers = targetBuffer.getHeadersObject();
         let msgArray = [];
         let message;
         while (targetBuffer.getSize()>0) {
-            message = targetBuffer.pop();
+            message = targetBuffer.remove();
             if (message instanceof Object) {
                 msgArray.push(JSON.stringify(message));
             } else {

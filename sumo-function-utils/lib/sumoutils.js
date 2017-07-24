@@ -48,30 +48,6 @@ Promise.retryTillTimeout = function(fn, timeLimit,interval,fnParams) {
     return mainLoop();
 }
 
-/*
-Promise.retryTillTimeout = function(fn, timeLimit,interval) {
-    var startTime = Date.now();
-    return new Promise((fulfill, reject)=> {
-        var MaxTime = timeLimit;
-        var finalError = {'message':'Max timeout reached.'};
-        var mainLoop = function() {
-            if (Date.now()-startTime > timeLimit) {
-                reject(finalError);
-            } else {
-                fn().then((rs) => {
-                    fulfill(rs);
-            }).catch( (err) => {
-                    finalError = err;
-                console.log(" Retry at: "+Date.now());
-                setTimeout(mainLoop,interval);
-            });
-            }
-        }
-        mainLoop(0);
-    });
-}
-*/
-
 module.exports = {
     "p_retryMax" : Promise.retryMax,
     "p_wait" : Promise.wait,

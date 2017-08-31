@@ -15,7 +15,7 @@ NOTE: You also need to create a blob container under that storage account, for e
 ## Deploy the function:
 Once all the above environment variables are defined, create your function as follows: 
 1. Select a Function App to host the funtion. From there, select *Functions > +*, select JavaScript as the language, and EventHubTrigger. Provide a name for your function, for the Event Hub name, select the source Event Hub name (for example, *insights-operational-logs*); for the Event Hub connection, select the variable defining the connection string for the event hub in the step above from the dropdown list. Click Create to finish.
-2. Once the function is created, click on its name, then *View files > Upload*. Upload all files under the [sumo-function-utils](https://github.com/SumoLogic/sumologic-azure-function/tree/sumo-function-utils/sumo-function-utils/lib) there. 
+2. Once the function is created, click on its name, then *View files > Upload*. Upload all files under the [sumo-function-utils](https://github.com/SumoLogic/sumologic-azure-function/tree/master/sumo-function-utils/lib) there. 
 3. Go back to the default content under index.js, then replace it with our index.js content. Make sure the urlString parameter value inside the function matches the name of the Sumo Endpoint environment variable (KEEP prefix *process.env.APPSETTINGS*).  
 4. Change the function integration: select Integrate under the function, go to Advanced Editor and add an storage output binding to the *bindings* array:
 

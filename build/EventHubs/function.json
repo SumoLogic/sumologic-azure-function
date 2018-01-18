@@ -5,7 +5,7 @@
      "name": "eventHubMessages",
      "direction": "in",
      "path": "insights-operational-logs",
-     "connection": "AzureLabsEventHub_DevSharedAccess_EVENTHUB",
+     "connection": "SumoAzureAudit_RootManageSharedAccessKey_EVENTHUB",
      "cardinality": "many",
      "consumerGroup": "$Default"
    },

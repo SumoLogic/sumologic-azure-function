@@ -1,0 +1,34 @@
+{
+    "aggregator": {
+        "batchSize": 100,
+        "flushTimeout": "00:00:30"
+    },
+    "applicationInsights": {
+        "sampling": {
+          "isEnabled": true,
+          "maxTelemetryItemsPerSecond" : 5
+        }
+    },
+    "eventHub": {
+      "maxBatchSize": 64,
+      "prefetchCount": 256,
+      "batchCheckpointFrequency": 1
+    },
+    "functions": [ "EventHubs" ],
+    "functionTimeout": "00:05:00",
+    "id": "9f4ea53c5136457d883d685e57164f08",
+    "logger": {
+        "categoryFilter": {
+            "defaultLevel": "Information",
+            "categoryLevels": {
+                "Host": "Error",
+                "Function": "Error",
+                "Host.Aggregator": "Information"
+            }
+        }
+    },
+    "tracing": {
+      "consoleLevel": "verbose",
+      "fileLoggingMode": "debugOnly"
+    }
+}

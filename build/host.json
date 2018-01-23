@@ -7,10 +7,5 @@
   "functions": [
     "EventHubs"
   ],
-  "functionTimeout": "00:05:00",
-  "id": "9f4ea53c5136457d883d685e57164f08",
-  "tracing": {
-    "consoleLevel": "verbose",
-    "fileLoggingMode": "debugOnly"
-  }
+  "functionTimeout": "00:05:00"
 }

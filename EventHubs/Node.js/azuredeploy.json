@@ -43,11 +43,11 @@
             "type": "String"
         },
         "sourceCodeRepositoryURL": {
-            "defaultValue":"https://github.com/himanshu219/sumologic-azure-function",
+            "defaultValue":"https://github.com/SumoLogic/sumologic-azure-function",
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"hpal_azure_deploy_template",
+            "defaultValue":"master",
             "type": "String"
         },
         "sourceCodeManualIntegration": {

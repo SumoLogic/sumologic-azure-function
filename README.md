@@ -18,3 +18,7 @@ EventHubs:
 *  Click on Storage Account Service and select sumoazureauditfaildata storage account.
 *  Then select container under Blob and create a container by clicking on + button.
 *  Input azureaudit-failover as name and choose private in public access level
+
+##Building the function
+Currently ARM template is integrated with github and for each functions build/<function-name> is root directory
+from where it picks up the code for deployment

@@ -50,7 +50,7 @@ SumoMetricClient.prototype.generateHeaders = function(message) {
     let metricDimensions = (this.options.metadata)? (this.options.metadata.metricdimension || ''):'';
     let metricMetadata = (this.options.metadata)? (this.options.metadata.metricmetadata || ''):'';
     //let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost,'X-Sumo-Dimensions':metricDimensions,'X-Sumo-Metadata':metricMetadata};
-    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost};
+    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': 'azure-function'};
     if (metricDimensions !='') {
         headerObj['X-Sumo-Dimensions'] = metricDimensions;
     }

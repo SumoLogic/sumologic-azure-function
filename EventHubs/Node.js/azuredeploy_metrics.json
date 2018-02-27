@@ -192,7 +192,7 @@
                 "properties": {
                   "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureMetricAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureMetricAppLogs_name')),'2015-05-01-preview').key1)]",
                   "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureMetricAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureMetricAppLogs_name')),'2015-05-01-preview').key1)]",
-                  "SumoLabsMetricEndpoint": "https://nite-events.sumologic.net/receiver/v1/http/ZaVnC4dhaV3TX35BbDZHEZZ40YHtJPcw2guZYNsz_VEXWaQHTBbqwfNwd4sVTNeD_DRWcS0tlJG63Eycdr-Wr2sszY42kcQ5PwAX-WGWRCp_vchYILJtXw==",
+                  "SumoLabsMetricEndpoint": "https://nite-events.sumologic.net/receiver/v1/http/ZaVnC4dhaV2bGSAvW5JlUZ3g3rX7LneULkURymlapj9ipC6HC6yS32M5oAWjVOmgmhqORVUTAWMfTJUkpumISyFt09j2WkOB2hK-8Lxy0WcGrwhm8W1Mgw==",
                   "AzureEventHubConnectionString": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoAzureMetric_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString]",
                   "StorageConnectionString": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureMetric_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureMetric_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.windows.net')]"
                 }

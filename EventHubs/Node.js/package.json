@@ -7,7 +7,7 @@
   "devDependencies": {},
   "scripts": {
     "test": "",
-    "build": "cp index.js ../../logs_build/EventHubs/ && cp index_metrics.js ../../metrics_build/EventHubs_Metrics/ && cp ../../sumo-function-utils/lib/*.js ../../logs_build/EventHubs/ && cp ../../sumo-function-utils/lib/*.js ../../metrics_build/EventHubs_Metrics/"
+    "build": "cp index.js ../../logs_build/EventHubs/ && cp index_metrics.js ../../metrics_build/EventHubs_Metrics/index.js && cp ../../sumo-function-utils/lib/*.js ../../logs_build/EventHubs/ && cp ../../sumo-function-utils/lib/*.js ../../metrics_build/EventHubs_Metrics/"
   },
   "author": "Himanshu Pal",
   "license": "Apache-2.0"

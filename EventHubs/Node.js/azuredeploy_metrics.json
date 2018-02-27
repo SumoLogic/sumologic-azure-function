@@ -175,7 +175,7 @@
                     "alwaysOn": true,
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
-                        { "name": "Project", "value": "build/" }
+                        { "name": "Project", "value": "metrics_build/" }
                     ]
                 }
             },

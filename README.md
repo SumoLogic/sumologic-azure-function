@@ -9,6 +9,8 @@ Click on + icon on left and search for template deployment.Click on it.Then in n
 Now choose build your own template in the editor option and in new window upload azuredeploy.json file and click on save.
 In new window check the T&C and click on Purchase.
 
+If you get any error it may be due to multiple deployments of this function so delete old deployments before creating new one.
+
 This will most of the resources and configurations. Some specific Azure integration require extra configuration.
 
 EventHubs:

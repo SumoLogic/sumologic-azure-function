@@ -4,7 +4,7 @@
      "type": "eventHubTrigger",
      "name": "eventHubMessages",
      "direction": "in",
-     "path": "insights_metrics_pt1m_name",
+     "path": "insights-metrics-pt1m",
      "connection": "AzureEventHubConnectionString",
      "cardinality": "many",
      "consumerGroup": "$Default"
@@ -12,7 +12,7 @@
    {
      "type": "blob",
      "name": "outputBlob",
-     "path": "sumomet-failover/{rand-guid}",
+     "path": "azureaudit-failover/{rand-guid}",
      "connection": "StorageConnectionString",
      "direction": "out"
    }

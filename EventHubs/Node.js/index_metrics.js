@@ -35,10 +35,7 @@ function selectStatsForMetric(msg) {
 module.exports = function (context, eventHubMessages) {
     //var options ={ 'urlString':process.env.APPSETTING_SumoSelfEventHubBadEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true};
     var options ={ 'urlString':process.env.APPSETTING_SumoLabsMetricEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true, 'metric_type':'carbon20'};
-    
-    
-   
-    
+
     sumoMetricClient = new sumoMetricHttp.SumoMetricClient(options,context,failureHandler,successHandler);
     var transformer = new dataTransformer.Transformer();
     var messageArray = transformer.azureAudit(eventHubMessages);
@@ -51,7 +48,7 @@ module.exports = function (context, eventHubMessages) {
         } else {
             context.log("Not metric data, will ignore");
             //logRawArray.push(msg);
-        }        
+        }
     });
 
     // generate metric array from the raw Azure metric data
@@ -62,20 +59,20 @@ module.exports = function (context, eventHubMessages) {
 
     // handlers for success and failures
     function failureHandler(msgArray,ctx) {
-        ctx.log("Failed to send metrics to Sumo"); 
-        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {            
-            //context.bindings.outputBlob = logRawArray.map(function(x) { return JSON.stringify(x);}).join("\n");            
+        ctx.log("Failed to send metrics to Sumo");
+        if (sumoMetricClient.messagesAttempted === sumoMetricClient.messagesReceived) {
+            context.bindings.outputBlob = messageArray.map(function(x) { return JSON.stringify(x);}).join("\n");
             context.done();
         }
     }
     function successHandler(ctx) {
         ctx.log('Successfully sent to Sumo');
         if (sumoMetricClient.messagesAttempted === sumoMetricClient.messagesReceived) {
-            ctx.log('Sent all metric data to Sumo. Exit now.');        
+            ctx.log('Sent all metric data to Sumo. Exit now.');
             context.done();
-        }    
+        }
     }
-    
+
     context.log("Flushing the rest of the buffers:");
     sumoMetricClient.flushAll();
 };

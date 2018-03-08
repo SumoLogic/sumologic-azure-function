@@ -79,7 +79,7 @@ SumoClient.prototype.generateHeaders = function(message) {
     let sourceCategory = (this.options.metadata)? (this.options.metadata.category || '') :'';
     let sourceName = (this.options.metadata)? (this.options.metadata.name || ''):'' ;
     let sourceHost = (this.options.metadata)? (this.options.metadata.host || ''):'';
-    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost};
+    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': 'eventhublogs-azure-function'};
 
     if (message.hasOwnProperty('_sumo_metadata')) {
         let metadataOverride = message._sumo_metadata;

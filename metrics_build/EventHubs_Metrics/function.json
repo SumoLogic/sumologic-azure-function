@@ -12,7 +12,7 @@
    {
      "type": "blob",
      "name": "outputBlob",
-     "path": "azureaudit-failover/{rand-guid}",
+     "path": "sumomet-failover/{rand-guid}",
      "connection": "StorageConnectionString",
      "direction": "out"
    }

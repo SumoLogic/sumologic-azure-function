@@ -33,23 +33,15 @@ class TestEventHubLogs(BaseTest):
         print("Testing Stack Creation")
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
         self.insert_mock_logs_in_EventHub()
-        import ipdb;ipdb.set_trace()
         # self.check_consumed_messages_count()
 
     def deploy_template(self):
-        # parameters = {
-        #     'sshKeyData': self.pub_ssh_key,
-        #     'vmName': 'azure-deployment-sample-vm',
-        #     'dnsLabelPrefix': self.dns_label_prefix
-        # }
-        # parameters = {k: {'value': v} for k, v in parameters.items()}
         deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime(
             "%d-%m-%y-%H-%M-%S"), self.directory_name)
         template_data = self._parse_template()
         deployment_properties = {
             'mode': DeploymentMode.incremental,
             'template': template_data
-            # 'parameters': parameters
         }
 
         deployresp = self.resource_client.deployments.create_or_update(
@@ -69,11 +61,6 @@ class TestEventHubLogs(BaseTest):
         eventhub_client = EventHubManagementClient(self.credentials,
                                                    self.subscription_id)
 
-        # rule = eventhub_client.namespaces.get_authorization_rule(
-        #     self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
-        # evh = eventhub_client.event_hubs.get(self.RESOURCE_GROUP_NAME,
-        #                                      namespace_name, eventhub_name)
-
         ehkeys = eventhub_client.namespaces.list_keys(
             self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
 
@@ -91,11 +78,7 @@ class TestEventHubLogs(BaseTest):
 
     def check_consumed_messages_count(self):
         sleep(120)
-        final_message_count = self._get_message_count()
-        print("Testing number of consumed messages initial: %s final: %s processed: %s" % (
-            self.initial_log_count, final_message_count,
-            self.initial_log_count - final_message_count))
-        self.assertGreater(self.initial_log_count, final_message_count)
+        # currently checking manually todo: find way of reading invocation logs
 
     def _parse_template(self):
         template_path = os.path.join(os.path.abspath('..'),

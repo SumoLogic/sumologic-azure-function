@@ -50,7 +50,7 @@ SumoMetricClient.prototype.generateHeaders = function(message) {
     let metricDimensions = (this.options.metadata)? (this.options.metadata.metricdimension || ''):'';
     let metricMetadata = (this.options.metadata)? (this.options.metadata.metricmetadata || ''):'';
     //let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost,'X-Sumo-Dimensions':metricDimensions,'X-Sumo-Metadata':metricMetadata};
-    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': 'azure-function'};
+    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': 'eventhubmetrics-azure-function'};
     if (metricDimensions !='') {
         headerObj['X-Sumo-Dimensions'] = metricDimensions;
     }
@@ -120,7 +120,9 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
     this.context.log("Flush METRIC buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
+
         return new Promise( (resolve,reject) => {
+
                 var req = https.request(curOptions, function (res) {
                     var body = '';
                     res.setEncoding('utf8');

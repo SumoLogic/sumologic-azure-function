@@ -14,15 +14,33 @@ If you get any error it may be due to multiple deployments of this function so d
 This will most of the resources and configurations. Some specific Azure integration require extra configuration.
 
 EventHubs:
-*  Click on Storage Account Service and select sumoazureauditfaildata(for EventHubs function) or sumometfaildata(for EventHubs_metrics function) storage account.
+*  Click on Storage Account Service and select sumoazureauditfaildata(for EventHubs function) or sumometricsfaildata(for EventHubs_metrics function) storage account.
 *  Then select container under Blob and create a container by clicking on + button.
 *  Input azureaudit-failover(for EventHubs function) or sumomet-failover(for EventHubs_metrics function) as name and choose private in public access level
 
-##Building the function
+## Exporting Logs to EventHub
+*Metrics*
+* Login to Azure Portal
+* Click on all services in left panel -> search monitor and click on it -> on left side under settings you will find diagnostic settings -> List of resources -> Select a resource
+* In the new window select ALL Metrics option and click on configure eventhub
+* Select SumoMetricsNamespace as Eventhub namespace, insights-metrics-pt1m as Eventhub name and  RootManageSharedAccessKey as eventhub policy name. Click ok.
+* Save the setting
+
+*Acitivity Logs*
+* Login to Azure Portal
+* Click on all services in left panel -> search activity logs and click on it
+* Click on export button and in the new window check the export to eventhub checkbox and select SumoAzureAudit as Eventhub namespace and RootManageSharedAccessKey as eventhub policy name.Click ok.
+* Save the setting
+
+
+## Building the function
 Currently ARM template is integrated with github and for each functions
 logs_build/EventHubs - Function for ingesting Activity Logs
 metrics_build/EventHubs_Metrics - Function for ingesting Metrics Data
 
-##For Developers
+## For Developers
 `npm run build`
 This command copies required files in two directories logs_build(used for activity logs ingestions) and metrics_build(used for metrics data(in diagnostic settings) ingestion)
+
+Integrations tests are in tests folder and unit tests are in sumo-function-utils/tests folder
+

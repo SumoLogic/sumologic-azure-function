@@ -42,16 +42,12 @@
             "defaultValue": "$Default",
             "type": "String"
         },
-        "sites_SumoMetricsFunction_serverFarmId": {
-            "defaultValue": "/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/AG-SUMO/providers/Microsoft.Web/serverfarms/SumoWest",
-            "type": "String"
-        },
         "sourceCodeRepositoryURL": {
-            "defaultValue":"https://github.com/himanshu219/sumologic-azure-function",
+            "defaultValue":"https://github.com/Sumologic/sumologic-azure-function",
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"hpal_azure_deploy_template",
+            "defaultValue":"master",
             "type": "String"
         },
         "sourceCodeManualIntegration": {
@@ -200,7 +196,7 @@
                         "hostType": "Repository"
                     }
                 ],
-                "serverFarmId": "[parameters('sites_SumoMetricsFunction_serverFarmId')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
                     "alwaysOn": true,
@@ -232,7 +228,7 @@
                   "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2015-05-01-preview').key1)]",
                   "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2015-05-01-preview').key1)]",
                   "SumoLabsMetricEndpoint": "https://nite-events.sumologic.net/receiver/v1/http/ZaVnC4dhaV2bGSAvW5JlUZ3g3rX7LneULkURymlapj9ipC6HC6yS32M5oAWjVOmgmhqORVUTAWMfTJUkpumISyFt09j2WkOB2hK-8Lxy0WcGrwhm8W1Mgw==",
-                  "AzureEventHubConnectionString": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoMetNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString]",
+                  "AzureEventHubConnectionString": "[concat([listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoMetNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString],';EntityPath=parameters('eventhubs_insights_metrics_pt1m_name')')]",
                   "StorageConnectionString": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometricsfunc83e3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometricsfunc83e3_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.windows.net')]"
                 }
              },

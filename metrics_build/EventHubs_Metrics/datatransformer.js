@@ -54,7 +54,7 @@ Transformer.prototype.generateRawMetricObjectsFromAzureRawMetricRecord = functio
     core['metric'] = msg['metricName'];
 
     for (stat_method of selectStatsForMetricFn(msg)) {
-        if (stat_method in msg) {
+        if (msg && stat_method in msg) {
             // in case some metrics don't have this statistic
             let newDatapoint = Object.assign({},core);
             newDatapoint['statistic']=stat_method;

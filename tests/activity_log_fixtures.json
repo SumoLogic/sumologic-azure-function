@@ -1,4 +1,4 @@
-[ {"records":[
+{"records":[
     {
         "time":"2018-03-07T14:23:51.991Z",
         "resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/TESTEVENTHUBLOGS/PROVIDERS/MICROSOFT.WEB/SITES/SUMOAZUREAUDITAPP/CONFIG/APPSETTINGS",
@@ -22,4 +22,4 @@
         },
         "level":"Information", "location":"westus"
     }
-]}]
+]}

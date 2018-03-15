@@ -1,0 +1,10 @@
+{
+    "records":[
+        {"count":4,"total":9,"minimum":1,"maximum":4,"average":2.25,"resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/AZURELABS/PROVIDERS/MICROSOFT.EVENTHUB/NAMESPACES/AZURELABSEVENTHUB","time":"2018-03-07T01:35:00.000Z","metricName":"IncomingRequests","timeGrain":"PT1M"},
+        {"count":4,"total":12,"minimum":2,"maximum":4,"average":3,"resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/AZURELABS/PROVIDERS/MICROSOFT.EVENTHUB/NAMESPACES/AZURELABSEVENTHUB","time":"2018-03-07T01:36:00.000Z","metricName":"IncomingRequests","timeGrain":"PT1M"},
+        {"count":4,"total":12,"minimum":2,"maximum":4,"average":3,"resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/AZURELABS/PROVIDERS/MICROSOFT.EVENTHUB/NAMESPACES/AZURELABSEVENTHUB","time":"2018-03-07T01:37:00.000Z","metricName":"IncomingRequests","timeGrain":"PT1M"},
+        {"count":4,"total":12,"minimum":2,"maximum":4,"average":3,"resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/AZURELABS/PROVIDERS/MICROSOFT.EVENTHUB/NAMESPACES/AZURELABSEVENTHUB","time":"2018-03-07T01:38:00.000Z","metricName":"IncomingRequests","timeGrain":"PT1M"},
+        {"count":4,"total":12,"minimum":2,"maximum":4,"average":3,"resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/AZURELABS/PROVIDERS/MICROSOFT.EVENTHUB/NAMESPACES/AZURELABSEVENTHUB","time":"2018-03-07T01:39:00.000Z","metricName":"IncomingRequests","timeGrain":"PT1M"},
+        {"count":0,"total":0,"minimum":0,"maximum":0,"average":0,"resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/AZURELABS/PROVIDERS/MICROSOFT.EVENTHUB/NAMESPACES/AZURELABSEVENTHUB","time":"2018-03-07T01:35:00.000Z","metricName":"IncomingMessages","timeGrain":"PT1M"}
+    ]
+}

@@ -1,0 +1,11 @@
+{
+  "eventHub": {
+    "maxBatchSize": 64,
+    "prefetchCount": 256,
+    "batchCheckpointFrequency": 1
+  },
+  "functions": [
+    "EventHubs_Metrics"
+  ],
+  "functionTimeout": "00:05:00"
+}

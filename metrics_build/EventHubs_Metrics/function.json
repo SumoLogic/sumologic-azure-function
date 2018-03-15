@@ -1,0 +1,21 @@
+{
+ "bindings": [
+   {
+     "type": "eventHubTrigger",
+     "name": "eventHubMessages",
+     "direction": "in",
+     "path": "insights-metrics-pt1m",
+     "connection": "AzureEventHubConnectionString",
+     "cardinality": "many",
+     "consumerGroup": "$Default"
+   },
+   {
+     "type": "blob",
+     "name": "outputBlob",
+     "path": "sumomet-failover/{rand-guid}",
+     "connection": "StorageConnectionString",
+     "direction": "out"
+   }
+ ],
+ "disabled": false
+}

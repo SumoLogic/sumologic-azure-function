@@ -1,0 +1,14 @@
+{
+  "name": "EventHubs",
+  "version": "1.0.0",
+  "description": "Azure function for reading data from EventHub and then forward it to Sumo collector HTTP endpoint.",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "test": "",
+    "build": "cp index.js ../../logs_build/EventHubs_Logs/ && cp index_metrics.js ../../metrics_build/EventHubs_Metrics/index.js && cp ../../sumo-function-utils/lib/*.js ../../logs_build/EventHubs_Logs/ && cp ../../sumo-function-utils/lib/*.js ../../metrics_build/EventHubs_Metrics/"
+  },
+  "author": "Himanshu Pal",
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,21 @@
+{
+ "bindings": [
+   {
+     "type": "eventHubTrigger",
+     "name": "eventHubMessages",
+     "direction": "in",
+     "path": "insights-operational-logs",
+     "connection": "AzureEventHubConnectionString",
+     "cardinality": "many",
+     "consumerGroup": "$Default"
+   },
+   {
+     "type": "blob",
+     "name": "outputBlob",
+     "path": "azureaudit-failover/{rand-guid}",
+     "connection": "StorageConnectionString",
+     "direction": "out"
+   }
+ ],
+ "disabled": false
+}

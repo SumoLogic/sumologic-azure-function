@@ -3,12 +3,12 @@
         "time":"2018-03-07T14:23:51.991Z",
         "resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/TESTEVENTHUBLOGS/PROVIDERS/MICROSOFT.WEB/SITES/SUMOAZUREAUDITAPP/CONFIG/APPSETTINGS",
         "operationName":"MICROSOFT.WEB/SITES/CONFIG/WRITE",
-        "category":"Write","resultType":"Start","resultSignature":"Started.","durationMs":0,"callerIpAddress":"111.93.54.106","correlationId":"cdab1f54-3d65-4d32-91ce-829db00381ae",
+        "category":"Write","resultType":"Start","resultSignature":"Started.","durationMs":0,"callerIpAddress":"111.93.54.106","correlationId":"cdab1f54-adff-4d32-91ce-829db00381ae",
         "identity":{
             "authorization":{
                 "scope":"/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/TestEventHubLogs/providers/Microsoft.Web/sites/SumoAzureAuditApp/config/appsettings",
                 "action":"Microsoft.Web/sites/config/write",
-                "evidence":{"role":"Owner","roleAssignmentScope":"/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a","roleAssignmentId":"5c6afc93f94942b38879b1ed60aca922","roleDefinitionId":"8e3af657a8ff443ca75c2fe8c4bcb635","principalId":"95fdefa0a7b847a3b969046862c9a979","principalType":"User"
+                "evidence":{"role":"Owner","roleAssignmentScope":"/subscriptions/c08846-d352-42ad-a4b6-9a542d28ad2a","roleAssignmentId":"5c6afc93f94942b38df879b1ed60aca2","roleDefinitionId":"8e3af657a8ff443ca75c2fe8c4bcb635","princixyzId":"95fdefa0a7b847b969df046862c9a979","princixyzType":"User"
                 }
             },
             "claims":{
@@ -17,7 +17,7 @@
                 "exp":"1520434256",
                 "http://schemas.microsoft.com/claims/authnclassreference":"1","aio":"Y2NgYDgv1K/hPiFd+27SQn2lsKBIz8+rvPUk1y/1femdVL7390kA",
                 "http://schemas.microsoft.com/claims/authnmethodsreferences":"pwd",
-                "appid":"f64071b9-a79b-4655-9dad-3b3535e00b84","appidacr":"2","e_exp":"263099","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname":"Pal","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname":"Himanshu","ipaddr":"111.93.54.106","name":"Himanshu Pal","http://schemas.microsoft.com/identity/claims/objectidentifier":"95fdefa0-a7b8-47a3-b969-046862c9a979","puid":"10030000A77E725E","http://schemas.microsoft.com/identity/claims/scope":"user_impersonation","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"mucf8YYRxalNePxQtx2t_Vp7WtIYsjrE68K5r0JCo9k","http://schemas.microsoft.com/identity/claims/tenantid":"a39bedba-be8f-4c0f-bfe2-b8c7913501ea","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name":"himanshu@itsumologic.onmicrosoft.com","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn":"himanshu@itsumologic.onmicrosoft.com","uti":"kINdgmA35kmIMsXXinoXAA","ver":"1.0"
+                "appid":"f64071b9-a79b-4655-9dad-3b3535e00b84","appidacr":"2","e_exp":"263099","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname":"xyz","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname":"abc","ipaddr":"111.93.54.106","name":"abc xyz","http://schemas.microsoft.com/identity/claims/objectidentifier":"95fdefa0-a7b8-47a3-b969-046862c9a979","puid":"10030000A77E725E","http://schemas.microsoft.com/identity/claims/scope":"user_impersonation","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"mucf8YYRxalNePxQtx2t_Vp7WtIYsjrE68K5r0JCo9k","http://schemas.microsoft.com/identity/claims/tenantid":"a39bedba-be8f-4c0f-bfe2-b8c7913501ea","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name":"abc@itsumologic.onmicrosoft.com","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn":"abc@itsumologic.onmicrosoft.com","uti":"kINdgmA35kmIMsXXinoXAA","ver":"1.0"
             }
         },
         "level":"Information", "location":"westus"

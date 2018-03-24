@@ -16,7 +16,8 @@ class TestEventHubMetrics(BaseTest):
     def setUp(self):
 
         self.create_credentials()
-        self.RESOURCE_GROUP_NAME = "TestEventHubMetrics"
+        self.RESOURCE_GROUP_NAME = "TestEventHubMetrics-%s" % (
+            datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
 
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)
@@ -54,9 +55,15 @@ class TestEventHubMetrics(BaseTest):
         deployresp.wait()
         print("Deploying Template", deployresp.status())
 
+    def get_eventhub_namespace(self):
+        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+            if (item.name.startswith("SumoMetricsNamespace") and item.type == "Microsoft.EventHub/namespaces"):
+                return item.name
+        return "SumoAzureAudit"
+
     def insert_mock_logs_in_EventHub(self):
         print("Inserting fake logs in EventHub")
-        namespace_name = 'SumoMetricsNamespace'
+        namespace_name = self.get_eventhub_namespace()
         eventhub_name = 'insights-metrics-pt1m'
         defaultauthorule_name = "RootManageSharedAccessKey"
 

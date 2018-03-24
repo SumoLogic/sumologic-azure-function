@@ -3,19 +3,19 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_SumoMetricsFunction_name": {
-            "defaultValue": "SumoMetricsFunction",
+            "defaultValue": "[concat('SumoMetricsFunction', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "namespaces_SumoMetNamespace_name": {
-            "defaultValue": "SumoMetricsNamespace",
+            "defaultValue": "[concat('SumoMetricsNamespace', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "storageAccounts_sumometapplogs_name": {
-            "defaultValue": "sumometapplogs",
+            "defaultValue": "[concat('sumometlogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_SumoMetricsAppServicePlan_name": {
-            "defaultValue": "SumoMetricsAppServicePlan",
+            "defaultValue": "[concat('SumoMetricsAppServicePlan', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "config_web_name": {
@@ -23,7 +23,7 @@
             "type": "String"
         },
         "storageAccounts_sumometricsfunc83e3_name": {
-            "defaultValue": "sumometricsfaildata",
+            "defaultValue": "[concat('sumometfail', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "eventhubs_insights_metrics_pt1m_name": {
@@ -35,7 +35,7 @@
             "type": "String"
         },
         "hostNameBindings_sumometricsfunction.azurewebsites.net_name": {
-            "defaultValue": "sumometricsfunction.azurewebsites.net",
+            "defaultValue": "[concat('sumometricsfunction', uniqueString(resourceGroup().id),'.azurewebsites.net')]",
             "type": "String"
         },
         "consumergroups_$Default_name": {

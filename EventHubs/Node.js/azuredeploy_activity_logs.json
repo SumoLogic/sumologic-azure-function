@@ -3,19 +3,19 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_SumoAzureAuditApp_name": {
-            "defaultValue": "SumoAzureAuditApp",
+            "defaultValue": "[concat('SumoAzureAuditApp', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "storageAccounts_SumoAzureAudit_name": {
-            "defaultValue": "sumoazureauditfaildata",
+            "defaultValue": "[concat('sumoaudfail',uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "namespaces_SumoAzureAudit_name": {
-            "defaultValue": "SumoAzureAudit",
+            "defaultValue": "[concat('SumoAzureAudit', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_SumoAzureAuditAppServicePlan_name": {
-            "defaultValue": "SumoAzureAuditAppServicePlan",
+            "defaultValue": "[concat('SumoAzureAuditAppServicePlan', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "config_web_name": {
@@ -23,7 +23,7 @@
             "type": "String"
         },
         "storageAccounts_SumoAzureAuditAppLogs_name": {
-            "defaultValue": "sumoazureauditapplogs",
+            "defaultValue": "[concat('sumoaudlogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "eventhubs_insights_operational_logs_name": {
@@ -35,7 +35,7 @@
             "type": "String"
         },
         "hostNameBindings_sumoazureauditapp.azurewebsites.net_name": {
-            "defaultValue": "sumoazureauditapp.azurewebsites.net",
+            "defaultValue": "[concat('sumoazureauditapp', uniqueString(resourceGroup().id),'.azurewebsites.net')]",
             "type": "String"
         },
         "consumergroups_$Default_name": {
@@ -165,9 +165,6 @@
             "name": "[parameters('sites_SumoAzureAuditApp_name')]",
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
-            "tags": {
-                "hidden-related:/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/Default-EventHub-EastUS/providers/Microsoft.Web/serverfarms/SumoAzureAuditAppServicePlan": "empty"
-            },
             "scale": null,
             "properties": {
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoAzureAuditAppServicePlan_name'))]",
@@ -277,9 +274,6 @@
             "name": "[concat(parameters('sites_SumoAzureAuditApp_name'), '/', parameters('config_web_name'))]",
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
-            "tags": {
-                "hidden-related:/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/Default-EventHub-EastUS/providers/Microsoft.Web/serverfarms/SumoAzureAuditAppServicePlan": "empty"
-            },
             "scale": null,
             "properties": {
                 "numberOfWorkers": 1,

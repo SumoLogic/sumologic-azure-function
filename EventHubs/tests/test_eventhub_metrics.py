@@ -21,7 +21,7 @@ class TestEventHubMetrics(BaseTest):
 
         self.create_credentials()
         self.RESOURCE_GROUP_NAME = "TestEventHubMetrics-%s" % (
-                datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
+            datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.function_name_prefix = "EventHubs_Metrics"
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)

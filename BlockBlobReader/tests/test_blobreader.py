@@ -46,6 +46,11 @@ class TestBlobReaderFlow(BaseTest):
         self.test_container_name = "testcontainer-%s" % (
             datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.test_filename = "testblob"
+        try:
+            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
+            self.storage_connection_string = os.environ["StorageAcccountConnectionString"]
+        except KeyError:
+            raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
 
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
@@ -68,9 +73,12 @@ class TestBlobReaderFlow(BaseTest):
         self.create_container()
         self.create_event_subscription()
         sleep(5)
-        # self.insert_mock_logs_in_BlobStorage("log")
-        # self.insert_mock_logs_in_BlobStorage("csv")
-        self.insert_mock_json_in_BlobStorage()
+        log_type = os.environ.get("LOG_TYPE", "logs")
+        print("Inserting mock %s data in BlobStorage" % log_type)
+        if log_type in ("csv", "json"):
+            self.insert_mock_logs_in_BlobStorage(log_type)
+        else:
+            self.insert_mock_json_in_BlobStorage()
         sleep(15)
         self.print_invocation_logs()
         self.check_error_logs()
@@ -246,7 +254,6 @@ class TestBlobReaderFlow(BaseTest):
         return [all_lines[:2], all_lines[2:5], all_lines[5:7], all_lines[7:]]
 
     def insert_mock_logs_in_BlobStorage(self, file_ext):
-        print("Inserting mock logs in BlobStorage")
         blocks = []
         datahandler = {'log': 'get_log_data', 'csv': 'get_csv_data'}
         test_filename = self.test_filename + "." + file_ext
@@ -293,7 +300,7 @@ class TestBlobReaderFlow(BaseTest):
             if row["FunctionName"].startswith(("TaskProducer", "TaskConsumer", "DLQProcessor")) and row["HasError"]:
                 haserr = True
 
-        self.assertTrue(not haserr)
+        self.assertFalse(haserr)
 
     def _parse_template(self):
         template_path = os.path.join(os.path.abspath('..'), 'src',
@@ -303,6 +310,8 @@ class TestBlobReaderFlow(BaseTest):
         with open(template_path, 'r') as template_file_fd:
             template_data = json.load(template_file_fd)
 
+        template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
+        template_data["parameters"]["StorageAcccountConnectionString"]["defaultValue"] = self.storage_connection_string
         return template_data
 
 if __name__ == '__main__':

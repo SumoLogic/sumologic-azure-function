@@ -1,0 +1,22 @@
+{
+  "bindings": [
+    {
+      "type": "eventHubTrigger",
+      "name": "eventHubMessages",
+      "direction": "in",
+      "path": "blobreadereventhub",
+      "connection": "AzureEventHubConnectionString",
+      "cardinality": "one",
+      "consumerGroup": "$Default"
+    },
+    {
+      "type": "serviceBus",
+      "connection": "TaskQueueConnectionString",
+      "name": "tasks",
+      "queueName": "blobrangetaskqueue",
+      "accessRights": "Manage",
+      "direction": "out"
+    }
+  ],
+  "disabled": false
+}

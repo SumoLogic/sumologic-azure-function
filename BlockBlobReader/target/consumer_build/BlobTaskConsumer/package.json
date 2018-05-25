@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "azure-sb": "^0.10.6",
+    "azure-storage": "^2.8.2"
+  }
+}

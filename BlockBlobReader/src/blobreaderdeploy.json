@@ -1,0 +1,841 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sites_BlobReader_name": {
+            "defaultValue": "[concat('SUMOBRTaskProducer', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "sites_blobreaderconsumer_name": {
+            "defaultValue": "[concat('SUMOBRTaskConsumer', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "sites_DLQProcessor_name": {
+            "defaultValue": "[concat('SUMOBRDLQProcessor', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "serverfarms_ConsumerPlan_name": {
+            "defaultValue": "[concat('SUMOBRConsumerPlan', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "serverfarms_BlobReaderPlan_name": {
+            "defaultValue": "[concat('SUMOBRProducerPlan', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "config_web_name": {
+            "defaultValue": "web",
+            "type": "String"
+        },
+        "storageAccounts_blobreaderaea3_name": {
+            "defaultValue": "[concat('sumobrlogs', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "namespaces_BlobReaderNamespace_name": {
+            "defaultValue": "[concat('SUMOBREventHubNamespace', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "namespaces_blobreadertaskqueue_name": {
+            "defaultValue": "[concat('SUMOBRTaskQueueNamespace', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "eventgridsubscription_name": {
+            "defaultValue": "[concat('SUMOBRSubscription', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "queues_rangetaskqueue_name": {
+            "defaultValue": "blobrangetaskqueue",
+            "type": "String"
+        },
+        "eventhubs_blobreadereventhub_name": {
+            "defaultValue": "blobreadereventhub",
+            "type": "String"
+        },
+        "AuthorizationRules_RootManageSharedAccessKey_EventHub_name": {
+            "defaultValue": "RootManageSharedAccessKey",
+            "type": "String"
+        },
+        "AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name": {
+            "defaultValue": "RootManageSharedAccessKey",
+            "type": "String"
+        },
+        "consumergroups_$Default_name": {
+            "defaultValue": "$Default",
+            "type": "String"
+        },
+        "sourceCodeRepositoryURL": {
+            "defaultValue":"https://github.com/SumoLogic/sumologic-azure-function",
+            "type": "String"
+        },
+        "sourceCodeBranch": {
+            "defaultValue":"master",
+            "type": "String"
+        },
+        "sourceCodeManualIntegration": {
+            "defaultValue": "true",
+            "type": "String"
+        },
+        "SumoEndpointURL": {
+            "defaultValue": "Enter HTTP Source URL"
+        },
+        "StorageAcccountConnectionString": {
+            "defaultValue":"Enter Storage Account Connection String(where logs are exported)"
+        },
+        "TABLE_NAME": {
+            "defaultValue": "FileOffsetMap",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace'.",
+            "type": "Microsoft.EventHub/namespaces",
+            "sku": {
+                "name": "Standard",
+                "tier": "Standard",
+                "capacity": 1
+            },
+            "name": "[parameters('namespaces_BlobReaderNamespace_name')]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "scale": null,
+            "properties": {
+                "isAutoInflateEnabled": true,
+                "maximumThroughputUnits": 20
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.ServiceBus/namespaces/blobreadertaskqueue'.",
+            "type": "Microsoft.ServiceBus/namespaces",
+            "sku": {
+                "name": "Standard",
+                "tier": "Standard"
+            },
+            "name": "[parameters('namespaces_blobreadertaskqueue_name')]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "scale": null,
+            "properties": {
+                "provisioningState": "Succeeded",
+                "metricId": "[concat('c088dc46-d692-42ad-a4b6-9a542d28ad2a:', parameters('namespaces_blobreadertaskqueue_name'))]",
+                "createdAt": "2018-04-19T11:36:44.05Z",
+                "updatedAt": "2018-04-19T11:37:12.307Z",
+                "serviceBusEndpoint": "[concat('https://', parameters('namespaces_blobreadertaskqueue_name'),'.servicebus.windows.net:443/')]",
+                "status": "Active"
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Storage/storageAccounts/blobreaderaea3'.",
+            "type": "Microsoft.Storage/storageAccounts",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "Storage",
+            "name": "[parameters('storageAccounts_blobreaderaea3_name')]",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "scale": null,
+            "properties": {
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
+                "supportsHttpsTrafficOnly": false,
+                "encryption": {
+                    "services": {
+                        "file": {
+                            "enabled": true
+                        },
+                        "blob": {
+                            "enabled": true
+                        }
+                    },
+                    "keySource": "Microsoft.Storage"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/BlobReaderPlan'.",
+            "type": "Microsoft.Web/serverfarms",
+            "sku": {
+                "name": "S1",
+                "tier": "Standard",
+                "size": "S1",
+                "family": "S",
+                "capacity": 1
+            },
+            "kind": "app",
+            "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
+            "apiVersion": "2016-09-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
+                "workerTierName": null,
+                "adminSiteName": null,
+                "hostingEnvironmentProfile": null,
+                "perSiteScaling": false,
+                "reserved": false,
+                "targetWorkerCount": 0,
+                "targetWorkerSizeId": 0
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/ConsumerPlan'.",
+            "type": "Microsoft.Web/serverfarms",
+            "sku": {
+                "name": "Y1",
+                "tier": "Dynamic",
+                "size": "Y1",
+                "family": "Y",
+                "capacity": 0
+            },
+            "kind": "functionapp",
+            "name": "[parameters('serverfarms_ConsumerPlan_name')]",
+            "apiVersion": "2016-09-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "name": "[parameters('serverfarms_ConsumerPlan_name')]",
+                "workerTierName": null,
+                "adminSiteName": null,
+                "hostingEnvironmentProfile": null,
+                "perSiteScaling": false,
+                "reserved": false,
+                "targetWorkerCount": 0,
+                "targetWorkerSizeId": 0
+            },
+            "dependsOn": []
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/sites/BlobReader'.",
+            "type": "Microsoft.Web/sites",
+            "kind": "functionapp",
+            "name": "[parameters('sites_BlobReader_name')]",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "hidden-related:/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/BlobReaderPlan": "empty"
+            },
+            "scale": null,
+            "properties": {
+                "enabled": true,
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
+                "reserved": false,
+                "siteConfig": {
+                    "alwaysOn": true,
+                    "appSettings": [
+                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
+                        { "name": "Project", "value": "BlockBlobReader/target/producer_build/" }
+                    ]
+                }
+            },
+            "resources": [{
+                "apiVersion": "2015-08-01",
+                "name": "appsettings",
+                "type": "config",
+                "dependsOn": [
+                  "[resourceId('Microsoft.Web/Sites', parameters('sites_BlobReader_name'))]",
+                  "[resourceId('Microsoft.Web/Sites/sourcecontrols', parameters('sites_BlobReader_name'), 'web')]",
+                  "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name'))]"
+                ],
+                "properties": {
+                  "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]",
+                  "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]",
+                  "TABLE_NAME": "[parameters('TABLE_NAME')]",
+                  "AzureEventHubConnectionString": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_BlobReaderNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name')), '2017-04-01').primaryConnectionString]",
+                  "TaskQueueConnectionString": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]",
+                  "WEBSITE_NODE_DEFAULT_VERSION": "6.5.0",
+                  "APPINSIGHTS_INSTRUMENTATIONKEY":"b562a827-ead9-4059-8e62-accb8cd66c99",
+                  "FUNCTION_APP_EDIT_MODE": "readwrite"
+                }
+             },
+             {
+                  "apiVersion": "2015-08-01",
+                  "name": "web",
+                  "type": "sourcecontrols",
+                  "dependsOn": [
+                    "[resourceId('Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]"
+                  ],
+                  "properties": {
+                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
+                    "branch": "[parameters('sourceCodeBranch')]",
+                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
+                  }
+            }],
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/sites/blobreaderconsumer'.",
+            "type": "Microsoft.Web/sites",
+            "kind": "functionapp",
+            "name": "[parameters('sites_blobreaderconsumer_name')]",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "enabled": true,
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
+                "reserved": false,
+                "siteConfig": {
+                    "appSettings": [
+                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
+                        { "name": "Project", "value": "BlockBlobReader/target/consumer_build/" }
+                    ]
+                }
+            },
+            "resources": [{
+                "apiVersion": "2015-08-01",
+                "name": "appsettings",
+                "type": "config",
+                "dependsOn": [
+                  "[resourceId('Microsoft.Web/Sites', parameters('sites_blobreaderconsumer_name'))]",
+                  "[resourceId('Microsoft.Web/Sites/sourcecontrols', parameters('sites_blobreaderconsumer_name'), 'web')]",
+                  "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name'))]"
+                ],
+                "properties": {
+                  "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]",
+                  "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]",
+                  "SumoLogEndpoint": "[parameters('SumoEndpointURL')]",
+                  "TaskQueueConnectionString": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]",
+                  "StorageAcccountConnectionString": "[parameters('StorageAcccountConnectionString')]",
+                  "WEBSITE_NODE_DEFAULT_VERSION": "6.5.0",
+                  "APPINSIGHTS_INSTRUMENTATIONKEY":"b562a827-ead9-4059-8e62-accb8cd66c99",
+                  "FUNCTION_APP_EDIT_MODE": "readwrite"
+                }
+             },
+             {
+                  "apiVersion": "2015-08-01",
+                  "name": "web",
+                  "type": "sourcecontrols",
+                  "dependsOn": [
+                    "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
+                  ],
+                  "properties": {
+                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
+                    "branch": "[parameters('sourceCodeBranch')]",
+                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
+                  }
+            }],
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/ArmTestingWest/providers/Microsoft.Web/sites/DLQProcessor'.",
+            "type": "Microsoft.Web/sites",
+            "kind": "functionapp",
+            "name": "[parameters('sites_DLQProcessor_name')]",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "enabled": true,
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms',parameters('serverfarms_ConsumerPlan_name'))]",
+                "reserved": false,
+                "siteConfig": {
+                    "appSettings": [
+                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
+                        { "name": "Project", "value": "BlockBlobReader/target/dlqprocessor_build/" }
+                    ]
+                }
+            },
+            "resources": [{
+                "apiVersion": "2015-08-01",
+                "name": "appsettings",
+                "type": "config",
+                "dependsOn": [
+                  "[resourceId('Microsoft.Web/Sites', parameters('sites_DLQProcessor_name'))]",
+                  "[resourceId('Microsoft.Web/Sites/sourcecontrols', parameters('sites_DLQProcessor_name'), 'web')]",
+                  "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name'))]"
+                ],
+                "properties": {
+                  "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]",
+                  "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]",
+                  "SumoLogEndpoint": "[parameters('SumoEndpointURL')]",
+                  "TaskQueueConnectionString": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]",
+                  "StorageAcccountConnectionString": "[parameters('StorageAcccountConnectionString')]",
+                  "TASKQUEUE_NAME": "[parameters('queues_rangetaskqueue_name')]",
+                  "WEBSITE_NODE_DEFAULT_VERSION": "6.5.0",
+                  "APPINSIGHTS_INSTRUMENTATIONKEY":"b562a827-ead9-4059-8e62-accb8cd66c99",
+                  "FUNCTION_APP_EDIT_MODE": "readwrite"
+                }
+             },
+             {
+                  "apiVersion": "2015-08-01",
+                  "name": "web",
+                  "type": "sourcecontrols",
+                  "dependsOn": [
+                    "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]"
+                  ],
+                  "properties": {
+                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
+                    "branch": "[parameters('sourceCodeBranch')]",
+                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
+                  }
+            }],
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
+            ]
+        },
+
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/AuthorizationRules/RootManageSharedAccessKey'.",
+            "type": "Microsoft.EventHub/namespaces/AuthorizationRules",
+            "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name'))]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "rights": [
+                    "Listen",
+                    "Manage",
+                    "Send"
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_BlobReaderNamespace_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub'.",
+            "type": "Microsoft.EventHub/namespaces/eventhubs",
+            "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'))]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "messageRetentionInDays": 7,
+                "partitionCount": 2,
+                "status": "Active"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_BlobReaderNamespace_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub/consumergroups/$Default'.",
+            "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
+            "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'), '/', parameters('consumergroups_$Default_name'))]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {},
+            "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_BlobReaderNamespace_name'))]",
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.ServiceBus/namespaces/blobreadertaskqueue/AuthorizationRules/RootManageSharedAccessKey'.",
+            "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+            "name": "[concat(parameters('namespaces_blobreadertaskqueue_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name'))]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "rights": [
+                    "Listen",
+                    "Manage",
+                    "Send"
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_blobreadertaskqueue_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.ServiceBus/namespaces/blobreadertaskqueue/queues/rangetaskqueue'.",
+            "type": "Microsoft.ServiceBus/namespaces/queues",
+            "name": "[concat(parameters('namespaces_blobreadertaskqueue_name'), '/', parameters('queues_rangetaskqueue_name'))]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "lockDuration": "PT5M",
+                "maxSizeInMegabytes": 2048,
+                "requiresDuplicateDetection": false,
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P14D",
+                "deadLetteringOnMessageExpiration": true,
+                "enableBatchedOperations": true,
+                "duplicateDetectionHistoryTimeWindow": "PT10M",
+                "maxDeliveryCount": 10,
+                "status": "Active",
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+                "enablePartitioning": true,
+                "enableExpress": false
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', parameters('namespaces_blobreadertaskqueue_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/sites/BlobReader/config/web'.",
+            "type": "Microsoft.Web/sites/config",
+            "name": "[concat(parameters('sites_BlobReader_name'), '/', parameters('config_web_name'))]",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "hidden-related:/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/BlobReaderPlan": "empty"
+            },
+            "scale": null,
+            "properties": {
+                "numberOfWorkers": 1,
+                "defaultDocuments": [
+                    "Default.htm",
+                    "Default.html",
+                    "Default.asp",
+                    "index.htm",
+                    "index.html",
+                    "iisstart.htm",
+                    "default.aspx",
+                    "index.php"
+                ],
+                "netFrameworkVersion": "v4.0",
+                "phpVersion": "",
+                "pythonVersion": "",
+                "nodeVersion": "",
+                "linuxFxVersion": "",
+                "requestTracingEnabled": false,
+                "remoteDebuggingEnabled": false,
+                "remoteDebuggingVersion": "VS2012",
+                "httpLoggingEnabled": false,
+                "logsDirectorySizeLimit": 35,
+                "detailedErrorLoggingEnabled": false,
+                "publishingUsername": "$BlobReader",
+                "publishingPassword": null,
+                "appSettings": null,
+                "metadata": null,
+                "connectionStrings": null,
+                "machineKey": null,
+                "handlerMappings": null,
+                "documentRoot": null,
+                "scmType": "None",
+                "use32BitWorkerProcess": true,
+                "webSocketsEnabled": false,
+                "alwaysOn": true,
+                "javaVersion": null,
+                "javaContainer": null,
+                "javaContainerVersion": null,
+                "appCommandLine": "",
+                "managedPipelineMode": "Integrated",
+                "virtualApplications": [
+                    {
+                        "virtualPath": "/",
+                        "physicalPath": "site\\wwwroot",
+                        "preloadEnabled": true,
+                        "virtualDirectories": null
+                    }
+                ],
+                "winAuthAdminState": 0,
+                "winAuthTenantState": 0,
+                "customAppPoolIdentityAdminState": false,
+                "customAppPoolIdentityTenantState": false,
+                "runtimeADUser": null,
+                "runtimeADUserPassword": null,
+                "loadBalancing": "LeastRequests",
+                "routingRules": [],
+                "experiments": {
+                    "rampUpRules": []
+                },
+                "limits": null,
+                "autoHealEnabled": false,
+                "autoHealRules": null,
+                "tracingOptions": null,
+                "vnetName": "",
+                "siteAuthEnabled": false,
+                "siteAuthSettings": {
+                    "enabled": null,
+                    "unauthenticatedClientAction": null,
+                    "tokenStoreEnabled": null,
+                    "allowedExternalRedirectUrls": null,
+                    "defaultProvider": null,
+                    "clientId": null,
+                    "clientSecret": null,
+                    "issuer": null,
+                    "allowedAudiences": null,
+                    "additionalLoginParams": null,
+                    "isAadAutoProvisioned": false,
+                    "googleClientId": null,
+                    "googleClientSecret": null,
+                    "googleOAuthScopes": null,
+                    "facebookAppId": null,
+                    "facebookAppSecret": null,
+                    "facebookOAuthScopes": null,
+                    "twitterConsumerKey": null,
+                    "twitterConsumerSecret": null,
+                    "microsoftAccountClientId": null,
+                    "microsoftAccountClientSecret": null,
+                    "microsoftAccountOAuthScopes": null
+                },
+                "cors": {
+                    "allowedOrigins": [
+                        "https://functions.azure.com",
+                        "https://functions-staging.azure.com",
+                        "https://functions-next.azure.com"
+                    ]
+                },
+                "push": null,
+                "apiDefinition": null,
+                "autoSwapSlotName": null,
+                "localMySqlEnabled": false,
+                "managedServiceIdentityId": null,
+                "xManagedServiceIdentityId": null,
+                "ipSecurityRestrictions": null,
+                "http20Enabled": false,
+                "minTlsVersion": "1.0"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_BlobReader_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/sites/blobreaderconsumer/config/web'.",
+            "type": "Microsoft.Web/sites/config",
+            "name": "[concat(parameters('sites_blobreaderconsumer_name'), '/', parameters('config_web_name'))]",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "numberOfWorkers": 1,
+                "defaultDocuments": [
+                    "Default.htm",
+                    "Default.html",
+                    "Default.asp",
+                    "index.htm",
+                    "index.html",
+                    "iisstart.htm",
+                    "default.aspx",
+                    "index.php"
+                ],
+                "netFrameworkVersion": "v4.0",
+                "phpVersion": "",
+                "pythonVersion": "",
+                "nodeVersion": "",
+                "linuxFxVersion": "",
+                "requestTracingEnabled": false,
+                "remoteDebuggingEnabled": false,
+                "remoteDebuggingVersion": "VS2012",
+                "httpLoggingEnabled": false,
+                "logsDirectorySizeLimit": 35,
+                "detailedErrorLoggingEnabled": false,
+                "publishingUsername": "$blobreaderconsumer",
+                "publishingPassword": null,
+                "appSettings": null,
+                "metadata": null,
+                "connectionStrings": null,
+                "machineKey": null,
+                "handlerMappings": null,
+                "documentRoot": null,
+                "scmType": "None",
+                "use32BitWorkerProcess": true,
+                "webSocketsEnabled": false,
+                "alwaysOn": false,
+                "javaVersion": null,
+                "javaContainer": null,
+                "javaContainerVersion": null,
+                "appCommandLine": "",
+                "managedPipelineMode": "Integrated",
+                "virtualApplications": [
+                    {
+                        "virtualPath": "/",
+                        "physicalPath": "site\\wwwroot",
+                        "preloadEnabled": false,
+                        "virtualDirectories": null
+                    }
+                ],
+                "winAuthAdminState": 0,
+                "winAuthTenantState": 0,
+                "customAppPoolIdentityAdminState": false,
+                "customAppPoolIdentityTenantState": false,
+                "runtimeADUser": null,
+                "runtimeADUserPassword": null,
+                "loadBalancing": "LeastRequests",
+                "routingRules": [],
+                "experiments": {
+                    "rampUpRules": []
+                },
+                "limits": null,
+                "autoHealEnabled": false,
+                "autoHealRules": null,
+                "tracingOptions": null,
+                "vnetName": "",
+                "siteAuthEnabled": false,
+                "siteAuthSettings": {
+                    "enabled": null,
+                    "unauthenticatedClientAction": null,
+                    "tokenStoreEnabled": null,
+                    "allowedExternalRedirectUrls": null,
+                    "defaultProvider": null,
+                    "clientId": null,
+                    "clientSecret": null,
+                    "issuer": null,
+                    "allowedAudiences": null,
+                    "additionalLoginParams": null,
+                    "isAadAutoProvisioned": false,
+                    "googleClientId": null,
+                    "googleClientSecret": null,
+                    "googleOAuthScopes": null,
+                    "facebookAppId": null,
+                    "facebookAppSecret": null,
+                    "facebookOAuthScopes": null,
+                    "twitterConsumerKey": null,
+                    "twitterConsumerSecret": null,
+                    "microsoftAccountClientId": null,
+                    "microsoftAccountClientSecret": null,
+                    "microsoftAccountOAuthScopes": null
+                },
+                "cors": {
+                    "allowedOrigins": [
+                        "https://functions.azure.com",
+                        "https://functions-staging.azure.com",
+                        "https://functions-next.azure.com"
+                    ]
+                },
+                "push": null,
+                "apiDefinition": null,
+                "autoSwapSlotName": null,
+                "localMySqlEnabled": false,
+                "managedServiceIdentityId": null,
+                "xManagedServiceIdentityId": null,
+                "ipSecurityRestrictions": null,
+                "http20Enabled": false,
+                "minTlsVersion": "1.0"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name'))]"
+            ]
+        },
+        {
+            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/ArmTestingWest/providers/Microsoft.Web/sites/DLQProcessor/config/web'.",
+            "type": "Microsoft.Web/sites/config",
+            "name": "[concat(parameters('sites_DLQProcessor_name'), '/', parameters('config_web_name'))]",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "scale": null,
+            "properties": {
+                "numberOfWorkers": 1,
+                "defaultDocuments": [
+                    "Default.htm",
+                    "Default.html",
+                    "Default.asp",
+                    "index.htm",
+                    "index.html",
+                    "iisstart.htm",
+                    "default.aspx",
+                    "index.php"
+                ],
+                "netFrameworkVersion": "v4.0",
+                "phpVersion": "",
+                "pythonVersion": "",
+                "nodeVersion": "",
+                "linuxFxVersion": "",
+                "requestTracingEnabled": false,
+                "remoteDebuggingEnabled": false,
+                "remoteDebuggingVersion": "VS2012",
+                "httpLoggingEnabled": false,
+                "logsDirectorySizeLimit": 35,
+                "detailedErrorLoggingEnabled": false,
+                "publishingUsername": "$DLQProcessor",
+                "publishingPassword": null,
+                "appSettings": null,
+                "metadata": null,
+                "connectionStrings": null,
+                "machineKey": null,
+                "handlerMappings": null,
+                "documentRoot": null,
+                "scmType": "None",
+                "use32BitWorkerProcess": true,
+                "webSocketsEnabled": false,
+                "alwaysOn": false,
+                "javaVersion": null,
+                "javaContainer": null,
+                "javaContainerVersion": null,
+                "appCommandLine": "",
+                "managedPipelineMode": "Integrated",
+                "virtualApplications": [
+                    {
+                        "virtualPath": "/",
+                        "physicalPath": "site\\wwwroot",
+                        "preloadEnabled": false,
+                        "virtualDirectories": null
+                    }
+                ],
+                "winAuthAdminState": 0,
+                "winAuthTenantState": 0,
+                "customAppPoolIdentityAdminState": false,
+                "customAppPoolIdentityTenantState": false,
+                "runtimeADUser": null,
+                "runtimeADUserPassword": null,
+                "loadBalancing": "LeastRequests",
+                "routingRules": [],
+                "experiments": {
+                    "rampUpRules": []
+                },
+                "limits": null,
+                "autoHealEnabled": false,
+                "autoHealRules": null,
+                "tracingOptions": null,
+                "vnetName": "",
+                "siteAuthEnabled": false,
+                "siteAuthSettings": {
+                    "enabled": null,
+                    "unauthenticatedClientAction": null,
+                    "tokenStoreEnabled": null,
+                    "allowedExternalRedirectUrls": null,
+                    "defaultProvider": null,
+                    "clientId": null,
+                    "clientSecret": null,
+                    "issuer": null,
+                    "allowedAudiences": null,
+                    "additionalLoginParams": null,
+                    "isAadAutoProvisioned": false,
+                    "googleClientId": null,
+                    "googleClientSecret": null,
+                    "googleOAuthScopes": null,
+                    "facebookAppId": null,
+                    "facebookAppSecret": null,
+                    "facebookOAuthScopes": null,
+                    "twitterConsumerKey": null,
+                    "twitterConsumerSecret": null,
+                    "microsoftAccountClientId": null,
+                    "microsoftAccountClientSecret": null,
+                    "microsoftAccountOAuthScopes": null
+                },
+                "cors": {
+                    "allowedOrigins": [
+                        "https://functions.azure.com",
+                        "https://functions-staging.azure.com",
+                        "https://functions-next.azure.com"
+                    ]
+                },
+                "push": null,
+                "apiDefinition": null,
+                "autoSwapSlotName": null,
+                "localMySqlEnabled": false,
+                "managedServiceIdentityId": null,
+                "xManagedServiceIdentityId": null,
+                "ipSecurityRestrictions": null,
+                "http20Enabled": false,
+                "minTlsVersion": "1.0"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('sites_DLQProcessor_name'))]"
+            ]
+        }
+
+    ]
+}

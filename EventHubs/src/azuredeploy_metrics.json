@@ -43,11 +43,11 @@
             "type": "String"
         },
         "sourceCodeRepositoryURL": {
-            "defaultValue":"https://github.com/Sumologic/sumologic-azure-function",
+            "defaultValue":"https://github.com/himanshu219/sumologic-azure-function",
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"master",
+            "defaultValue":"hpal_blobreader_function",
             "type": "String"
         },
         "sourceCodeManualIntegration": {
@@ -202,7 +202,7 @@
                     "alwaysOn": true,
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
-                        { "name": "Project", "value": "metrics_build/" }
+                        { "name": "Project", "value": "EventHubs/target/metrics_build/" }
                     ]
                 },
                 "scmSiteAlsoStopped": false,
@@ -315,7 +315,7 @@
                     "index.php"
                 ],
                 "netFrameworkVersion": "v4.0",
-                "phpVersion": "5.6",
+                "phpVersion": "",
                 "pythonVersion": "",
                 "nodeVersion": "",
                 "linuxFxVersion": "",

@@ -4,6 +4,7 @@ import string
 import datetime
 import unittest
 import json
+import uuid
 from time import sleep
 import sys
 from azure.storage.blob import BlockBlobService
@@ -20,7 +21,7 @@ from azure.mgmt.eventgrid.models import (
     EventSubscription
 )
 
-# from azure.servicebus import ServiceBusService
+
 sys.path.insert(0, '../../test_utils')
 from basetest import BaseTest
 
@@ -49,7 +50,7 @@ class TestBlobReaderFlow(BaseTest):
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
             self.delete_resource_group()
-        self.delete_event_subscription()
+            self.delete_event_subscription()
         self.delete_container()
 
     def test_pipeline(self):
@@ -59,15 +60,18 @@ class TestBlobReaderFlow(BaseTest):
         print("Testing Stack Creation")
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
         self.table_service = self.get_table_service()
-        self.block_blob_service = self.get_teststorage_blockblob_service()
+        self.block_blob_service = self.get_blockblob_service(
+            self.test_storage_res_group, self.test_storageaccount_name)
+
         self.create_offset_table()
+
         self.create_container()
         self.create_event_subscription()
-        # import ipdb;ipdb.set_trace()
-        self.insert_mock_logs_in_BlobStorage("log")
-        self.insert_mock_logs_in_BlobStorage("csv")
-        # import ipdb;ipdb.set_trace()
-        sleep(120)
+        sleep(5)
+        # self.insert_mock_logs_in_BlobStorage("log")
+        # self.insert_mock_logs_in_BlobStorage("csv")
+        self.insert_mock_json_in_BlobStorage()
+        sleep(15)
         self.print_invocation_logs()
         self.check_error_logs()
 
@@ -108,15 +112,16 @@ class TestBlobReaderFlow(BaseTest):
         raise Exception("%s Resource Not Found" % (resprefix))
 
     def get_random_name(self, length=32):
-        return ''.join(random.choice(string.ascii_lowercase) for i in range(length))
+        return str(uuid.uuid4())
+        # return ''.join(random.choice(string.ascii_lowercase) for i in range(length))
 
-    def get_teststorage_blockblob_service(self):
+    def get_blockblob_service(self, resource_group, account_name):
         storage_client = StorageManagementClient(self.credentials,
                                                  self.subscription_id)
         storage_keys = storage_client.storage_accounts.list_keys(
-            self.test_storage_res_group, self.test_storageaccount_name)
+            resource_group, account_name)
         acckey = storage_keys.keys[0].value
-        block_blob_service = BlockBlobService(account_name=self.test_storageaccount_name,
+        block_blob_service = BlockBlobService(account_name=account_name,
                                               account_key=acckey)
         return block_blob_service
 
@@ -144,7 +149,8 @@ class TestBlobReaderFlow(BaseTest):
         print("creating FileOffsetMap table")
         self.table_service.create_table(self.offsetmap_table_name)
 
-    def create_storage_account():
+    def create_test_storage_account():
+        # Todo: remove storage account allbloblogs dependency
         pass
 
     def create_container(self):
@@ -155,6 +161,7 @@ class TestBlobReaderFlow(BaseTest):
     def delete_container(self):
         if self.block_blob_service.exists(self.test_container_name):
             self.block_blob_service.delete_container(self.test_container_name)
+            print("Deleting container %s" % self.test_container_name)
 
     def create_event_subscription(self):
         print("creating event subscription")
@@ -186,18 +193,42 @@ class TestBlobReaderFlow(BaseTest):
         self.block_blob_service.put_block_list(container_name, file_name, blocks)
         return blocks
 
-    def get_current_blocks(self, test_filename):
+    def get_current_blocks(self, test_container_name, test_filename):
         blocks = []
-        if self.block_blob_service.exists(self.test_container_name,
+        if self.block_blob_service.exists(test_container_name,
                                           test_filename):
             blockslist = self.block_blob_service.get_block_list(
-                self.test_container_name, test_filename, None, 'all')
+                test_container_name, test_filename, None, 'all')
             for block in blockslist.committed_blocks:
                 blocks.append(BlobBlock(id=block.id))
         return blocks
 
     def get_json_data(self):
-        pass
+        json_data = json.load(open("blob_fixtures.json"))["records"]
+        return [json_data[:2], json_data[2:5], json_data[5:7], json_data[7:]]
+
+    def insert_empty_json(self, container_name, file_name):
+        json_data = ['{"records":[', ']}']
+        blocks = []
+        for file_bytes in json_data:
+            file_bytes = file_bytes.encode()
+            block_id = self.get_random_name()
+            self.block_blob_service.put_block(container_name, file_name, file_bytes, block_id)
+            blocks.append(BlobBlock(id=block_id))
+            self.block_blob_service.put_block_list(container_name, file_name, blocks)
+        return blocks
+
+    def insert_mock_json_in_BlobStorage(self):
+        test_filename = self.test_filename + ".json"
+        blocks = self.insert_empty_json(self.test_container_name, test_filename)
+        for i, data_block in enumerate(self.get_json_data()):
+            block_id = self.get_random_name()
+            file_bytes = json.dumps(data_block)
+            file_bytes = (file_bytes[1:-1] if i == 0 else "," + file_bytes[1:-1]).encode()
+            self.block_blob_service.put_block(self.test_container_name, test_filename, file_bytes, block_id)
+            blocks.insert(len(blocks)-1, BlobBlock(id=block_id))
+            self.block_blob_service.put_block_list(self.test_container_name, test_filename, blocks)
+        print("inserted %s" % (blocks))
 
     def get_csv_data(self):
         all_lines = []
@@ -217,11 +248,9 @@ class TestBlobReaderFlow(BaseTest):
     def insert_mock_logs_in_BlobStorage(self, file_ext):
         print("Inserting mock logs in BlobStorage")
         blocks = []
-        datahandler = {'log': 'get_log_data',
-                       'csv': 'get_csv_data',
-                       'json': 'get_json_data'}
+        datahandler = {'log': 'get_log_data', 'csv': 'get_csv_data'}
         test_filename = self.test_filename + "." + file_ext
-        blocks = self.get_current_blocks(test_filename)
+        blocks = self.get_current_blocks(self.test_container_name, test_filename)
         for data_block in getattr(self, datahandler.get(file_ext))():
             blocks = self.create_or_update_blockblob(self.test_container_name,
                                                      test_filename,
@@ -229,7 +258,22 @@ class TestBlobReaderFlow(BaseTest):
 
         print("inserted %s" % (blocks))
 
+    def is_task_consumer_invoked(self):
+        rows = self.table_service.query_entities(
+            self.log_table_name, filter="PartitionKey eq 'I'",
+            select='FunctionName')
+        is_task_consumer_func_invoked = False
+        for row in rows.items:
+            if row.get("FunctionName") == "BlobTaskConsumer":
+                is_task_consumer_func_invoked = True
+                break
+        return is_task_consumer_func_invoked
+
     def print_invocation_logs(self):
+
+        while(not self.is_task_consumer_invoked()):
+            sleep(15)
+
         rows = self.table_service.query_entities(
             self.log_table_name, filter="PartitionKey eq 'I'")
 

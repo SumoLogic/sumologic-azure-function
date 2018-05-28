@@ -6,30 +6,31 @@ var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 var storage = require('azure-storage');
 var servicebus = require('azure-sb');
+var DEFAULT_CSV_SEPARATOR = ",";
+var MAX_CHUNK_SIZE = 1024;
+var JSON_BLOB_HEAD_BYTES = 12;
+var JSON_BLOB_TAIL_BYTES = 2;
 
-function CSVToArray( strData, strDelimiter ){
+function csvToArray( strData, strDelimiter ){
     strDelimiter = (strDelimiter || ",");
     var objPattern = new RegExp(
         (
-            // Delimiters.
-            "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
-
-            // Quoted fields.
-            "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
-
-            // Standard fields.
-            "([^\"\\" + strDelimiter + "\\r\\n]*))"
+            "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +           // Delimiters.
+            "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +                  // Quoted fields.
+            "([^\"\\" + strDelimiter + "\\r\\n]*))"              // Standard fields.
         ),
         "gi"
         );
     var arrData = [[]];
     var arrMatches = null;
+    var strMatchedValue;
+    var strMatchedDelimiter;
     while (arrMatches = objPattern.exec( strData )){
-        var strMatchedDelimiter = arrMatches[ 1 ];
+        strMatchedDelimiter = arrMatches[ 1 ];
         if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter ){
             arrData.push( [] );
         }
-        var strMatchedValue;
+
         if (arrMatches[ 2 ]){
             strMatchedValue = arrMatches[ 2 ].replace( //unescape any double quotes.
                 new RegExp( "\"\"", "g" ),
@@ -60,11 +61,11 @@ function getHeaderRecursively(headertext, task, connectionString, context) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
             if (onlyheadertext) {
-                var csvHeaders = CSVToArray(onlyheadertext, ",");
-                if (csvHeaders && csvHeaders[0].length > 0)
+                var csvHeaders = csvToArray(onlyheadertext, DEFAULT_CSV_SEPARATOR);
+                if (csvHeaders && csvHeaders[0].length > 0) {
                     resolve(csvHeaders[0]);
-                else {
-                    reject("Error in CSVToArray parsing: " + csvHeaders)
+                } else {
+                    reject("Error in csvToArray parsing: " + csvHeaders);
                 }
             } else {
                 task.startByte = task.endByte + 1;
@@ -86,7 +87,7 @@ function getHeaderRecursively(headertext, task, connectionString, context) {
 function getcsvHeader(containerName, blobName, context, connectionString) {
     // Todo optimize to avoid multiple request
     var blobService = storage.createBlobService(connectionString);
-    var bytesOffset = 1024;
+    var bytesOffset = MAX_CHUNK_SIZE;
     var task = {
         containerName: containerName,
         blobName: blobName,
@@ -98,7 +99,7 @@ function getcsvHeader(containerName, blobName, context, connectionString) {
 }
 
 function csvHandler(msgtext, headers) {
-    var messages = CSVToArray(msgtext, ",");
+    var messages = csvToArray(msgtext, DEFAULT_CSV_SEPARATOR);
     var messageArray = [];
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
         messages = messages.slice(1); //removing header row
@@ -115,10 +116,14 @@ function csvHandler(msgtext, headers) {
     return messageArray;
 }
 
-function jsonHandler(msg) {
+function jsonHandler(msg, task) {
+    // it's assumed that json is well formed {},{}
+    var jsonArray = [];
 
+    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    jsonArray = JSON.parse("[" + msg + "]");
+    return jsonArray;
 }
-
 
 function logHandler(msg) {
     return [msg];
@@ -152,7 +157,20 @@ function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
     if (!(file_ext in msghandler)) {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
     }
+    if (file_ext == "json") {
+        // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
+        if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES+JSON_BLOB_TAIL_BYTES) {
+            context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
+            return;
+        }
+        serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
+        if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
+            serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
+        } else {
+            serviceBusTask.startByte -= JSON_BLOB_TAIL_BYTES;
+        }
 
+    }
     getData(serviceBusTask, connectionString, context).then(function(msg) {
         context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
         var messageArray;
@@ -169,10 +187,12 @@ function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
                 context.log("Error in creating json from csv " + err);
                 context.done(err);
             })
-        } else if (file_ext == "json") {
-
-        } else {
-            messageArray = msghandler[file_ext](msg)
+        } else  {
+            if (file_ext == "json") {
+                messageArray = msghandler[file_ext](msg, serviceBusTask);
+            } else {
+                messageArray = msghandler[file_ext](msg);
+            }
             messageArray.forEach( function(msg) {
                 sumoClient.addData(msg);
             });
@@ -181,7 +201,7 @@ function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
 
 
     }).catch(function(err) {
-        context.log("Failed to downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+        context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
         context.done(err);
     });
 }

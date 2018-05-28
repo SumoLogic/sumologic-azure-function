@@ -55,7 +55,7 @@
             "type": "String"
         },
         "SumoEndpointURL": {
-            "defaultValue": "https://nite-events.sumologic.net/receiver/v1/http/ZaVnC4dhaV3TX35BbDZHEZZ40YHtJPcw2guZYNsz_VEXWaQHTBbqwfNwd4sVTNeD_DRWcS0tlJG63Eycdr-Wr2sszY42kcQ5PwAX-WGWRCp_vchYILJtXw==",
+            "defaultValue": "Enter HTTP Source URL",
             "type": "String"
         }
     },

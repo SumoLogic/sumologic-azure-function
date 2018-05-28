@@ -75,10 +75,12 @@
             "type": "String"
         },
         "SumoEndpointURL": {
-            "defaultValue": "Enter HTTP Source URL"
+            "defaultValue": "Enter HTTP Source URL",
+            "type": "String"
         },
         "StorageAcccountConnectionString": {
-            "defaultValue":"Enter Storage Account Connection String(where logs are exported)"
+            "defaultValue": "Enter Storage Account Connection String",
+            "type": "String"
         },
         "TABLE_NAME": {
             "defaultValue": "FileOffsetMap",

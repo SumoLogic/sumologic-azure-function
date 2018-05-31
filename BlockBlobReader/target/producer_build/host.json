@@ -1,0 +1,9 @@
+{
+    "eventHub": {
+        "maxBatchSize": 3,
+        "prefetchCount": 15,
+        "batchCheckpointFrequency": 1
+    },
+    "functionTimeout": "00:10:00",
+    "functions": ["BlobTaskProducer"]
+}

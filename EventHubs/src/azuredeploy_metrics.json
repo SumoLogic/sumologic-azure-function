@@ -2,40 +2,40 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "sites_SumoAzureAuditApp_name": {
-            "defaultValue": "[concat('SumoAzureAuditApp', uniqueString(resourceGroup().id))]",
+        "sites_SumoMetricsFunction_name": {
+            "defaultValue": "[concat('SumoMetricsFunction', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "storageAccounts_SumoAzureAudit_name": {
-            "defaultValue": "[concat('sumoaudfail',uniqueString(resourceGroup().id))]",
+        "namespaces_SumoMetNamespace_name": {
+            "defaultValue": "[concat('SumoMetricsNamespace', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "namespaces_SumoAzureAudit_name": {
-            "defaultValue": "[concat('SumoAzureAudit', uniqueString(resourceGroup().id))]",
+        "storageAccounts_sumometapplogs_name": {
+            "defaultValue": "[concat('sumometlogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "serverfarms_SumoAzureAuditAppServicePlan_name": {
-            "defaultValue": "[concat('SumoAzureAuditAppServicePlan', uniqueString(resourceGroup().id))]",
+        "serverfarms_SumoMetricsAppServicePlan_name": {
+            "defaultValue": "[concat('SumoMetricsAppServicePlan', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "config_web_name": {
             "defaultValue": "web",
             "type": "String"
         },
-        "storageAccounts_SumoAzureAuditAppLogs_name": {
-            "defaultValue": "[concat('sumoaudlogs', uniqueString(resourceGroup().id))]",
+        "storageAccounts_sumometricsfunc83e3_name": {
+            "defaultValue": "[concat('sumometfail', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "eventhubs_insights_operational_logs_name": {
-            "defaultValue": "insights-operational-logs",
+        "eventhubs_insights_metrics_pt1m_name": {
+            "defaultValue": "insights-metrics-pt1m",
             "type": "String"
         },
         "AuthorizationRules_RootManageSharedAccessKey_name": {
             "defaultValue": "RootManageSharedAccessKey",
             "type": "String"
         },
-        "hostNameBindings_sumoazureauditapp.azurewebsites.net_name": {
-            "defaultValue": "[concat('sumoazureauditapp', uniqueString(resourceGroup().id),'.azurewebsites.net')]",
+        "hostNameBindings_sumometricsfunction.azurewebsites.net_name": {
+            "defaultValue": "[concat('sumometricsfunction', uniqueString(resourceGroup().id),'.azurewebsites.net')]",
             "type": "String"
         },
         "consumergroups_$Default_name": {
@@ -43,7 +43,7 @@
             "type": "String"
         },
         "sourceCodeRepositoryURL": {
-            "defaultValue":"https://github.com/Sumologic/sumologic-azure-function",
+            "defaultValue":"https://github.com/SumoLogic/sumologic-azure-function",
             "type": "String"
         },
         "sourceCodeBranch": {
@@ -52,6 +52,10 @@
         },
         "sourceCodeManualIntegration": {
             "defaultValue": "true",
+            "type": "String"
+        },
+        "SumoEndpointURL": {
+            "defaultValue": "Enter HTTP Source URL",
             "type": "String"
         }
     },
@@ -64,19 +68,14 @@
                 "tier": "Standard",
                 "capacity": 1
             },
-            "name": "[parameters('namespaces_SumoAzureAudit_name')]",
+            "name": "[parameters('namespaces_SumoMetNamespace_name')]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "tags": {},
             "scale": null,
             "properties": {
                 "isAutoInflateEnabled": true,
-                "maximumThroughputUnits": 20,
-                "provisioningState": "Succeeded",
-                "metricId": "[concat('c088dc46-d692-42ad-a4b6-9a542d28ad2a:sumoazureaudit', parameters('namespaces_SumoAzureAudit_name'))]",
-                "createdAt": "2018-01-17T09:33:37.26Z",
-                "updatedAt": "2018-01-17T09:34:00.52Z",
-                "serviceBusEndpoint": "[concat('https://', parameters('namespaces_SumoAzureAudit_name'),'.servicebus.windows.net:443/')]"
+                "maximumThroughputUnits": 20
             },
             "dependsOn": []
         },
@@ -87,11 +86,18 @@
                 "tier": "Standard"
             },
             "kind": "Storage",
-            "name": "[parameters('storageAccounts_SumoAzureAudit_name')]",
-            "apiVersion": "2017-06-01",
+            "name": "[parameters('storageAccounts_sumometapplogs_name')]",
+            "apiVersion": "2017-10-01",
             "location": "[resourceGroup().location]",
+            "tags": {},
             "scale": null,
             "properties": {
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
                 "supportsHttpsTrafficOnly": false,
                 "encryption": {
                     "services": {
@@ -114,11 +120,19 @@
                 "tier": "Standard"
             },
             "kind": "Storage",
-            "name": "[parameters('storageAccounts_SumoAzureAuditAppLogs_name')]",
-            "apiVersion": "2017-06-01",
+            "name": "[parameters('storageAccounts_sumometricsfunc83e3_name')]",
+            "apiVersion": "2017-10-01",
             "location": "[resourceGroup().location]",
+            "tags": {},
             "scale": null,
             "properties": {
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
+                "supportsHttpsTrafficOnly": false,
                 "encryption": {
                     "services": {
                         "file": {
@@ -143,12 +157,12 @@
                 "capacity": 1
             },
             "kind": "app",
-            "name": "[parameters('serverfarms_SumoAzureAuditAppServicePlan_name')]",
+            "name": "[parameters('serverfarms_SumoMetricsAppServicePlan_name')]",
             "apiVersion": "2016-09-01",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
-                "name": "[parameters('serverfarms_SumoAzureAuditAppServicePlan_name')]",
+                "name": "[parameters('serverfarms_SumoMetricsAppServicePlan_name')]",
                 "workerTierName": null,
                 "adminSiteName": null,
                 "hostingEnvironmentProfile": null,
@@ -162,19 +176,47 @@
         {
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
-            "name": "[parameters('sites_SumoAzureAuditApp_name')]",
+            "name": "[parameters('sites_SumoMetricsFunction_name')]",
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
-                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoAzureAuditAppServicePlan_name'))]",
+                "enabled": true,
+                "hostNameSslStates": [
+                    {
+                        "name": "[concat(parameters('sites_SumoMetricsFunction_name'),'sumometricsfunction.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "virtualIP": null,
+                        "thumbprint": null,
+                        "toUpdate": null,
+                        "hostType": "Standard"
+                    },
+                    {
+                        "name": "[concat(parameters('sites_SumoMetricsFunction_name'),'sumometricsfunction.scm.azurewebsites.net')]",
+                        "sslState": "Disabled",
+                        "virtualIP": null,
+                        "thumbprint": null,
+                        "toUpdate": null,
+                        "hostType": "Repository"
+                    }
+                ],
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
+                "reserved": false,
                 "siteConfig": {
                     "alwaysOn": true,
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
-                        { "name": "Project", "value": "logs_build/" }
+                        { "name": "Project", "value": "EventHubs/target/metrics_build/" }
                     ]
-                }
+                },
+                "scmSiteAlsoStopped": false,
+                "hostingEnvironmentProfile": null,
+                "clientAffinityEnabled": false,
+                "clientCertEnabled": false,
+                "hostNamesDisabled": false,
+                "containerSize": 1536,
+                "dailyMemoryTimeQuota": 0,
+                "cloningInfo": null
             },
             "resources": [
              {
@@ -182,16 +224,16 @@
                 "name": "appsettings",
                 "type": "config",
                 "dependsOn": [
-                  "[resourceId('Microsoft.Web/Sites', parameters('sites_SumoAzureAuditApp_name'))]",
-                  "[resourceId('Microsoft.Web/Sites/sourcecontrols', parameters('sites_SumoAzureAuditApp_name'), 'web')]",
-                  "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAuditAppLogs_name'))]"
+                  "[resourceId('Microsoft.Web/Sites', parameters('sites_SumoMetricsFunction_name'))]",
+                  "[resourceId('Microsoft.Web/Sites/sourcecontrols', parameters('sites_SumoMetricsFunction_name'), 'web')]",
+                  "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name'))]"
                 ],
                 "properties": {
-                  "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAuditAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAuditAppLogs_name')),'2015-05-01-preview').key1)]",
-                  "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAuditAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAuditAppLogs_name')),'2015-05-01-preview').key1)]",
-                  "SumoAuditEndpoint": "https://nite-events.sumologic.net/receiver/v1/http/ZaVnC4dhaV3TX35BbDZHEZZ40YHtJPcw2guZYNsz_VEXWaQHTBbqwfNwd4sVTNeD_DRWcS0tlJG63Eycdr-Wr2sszY42kcQ5PwAX-WGWRCp_vchYILJtXw==",
-                  "AzureEventHubConnectionString": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoAzureAudit_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString]",
-                  "StorageConnectionString": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAudit_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAudit_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.windows.net')]"
+                  "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2015-05-01-preview').key1)]",
+                  "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2015-05-01-preview').key1)]",
+                  "SumoLabsMetricEndpoint":  "[parameters('SumoEndpointURL')]",
+                  "AzureEventHubConnectionString": "[concat(listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoMetNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString,';EntityPath=',parameters('eventhubs_insights_metrics_pt1m_name'))]",
+                  "StorageConnectionString": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometricsfunc83e3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometricsfunc83e3_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.windows.net')]"
                 }
              },
              {
@@ -199,7 +241,7 @@
                   "name": "web",
                   "type": "sourcecontrols",
                   "dependsOn": [
-                    "[resourceId('Microsoft.Web/sites/', parameters('sites_SumoAzureAuditApp_name'))]"
+                    "[resourceId('Microsoft.Web/sites/', parameters('sites_SumoMetricsFunction_name'))]"
                   ],
                   "properties": {
                     "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
@@ -209,14 +251,14 @@
              }
             ],
             "dependsOn": [
-                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoAzureAuditAppServicePlan_name'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAuditAppLogs_name'))]",
-                "[concat('Microsoft.EventHub/namespaces/', parameters('namespaces_SumoAzureAudit_name'))]"
+                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name'))]",
+                "[concat('Microsoft.EventHub/namespaces/', parameters('namespaces_SumoMetNamespace_name'))]"
             ]
         },
         {
             "type": "Microsoft.EventHub/namespaces/AuthorizationRules",
-            "name": "[concat(parameters('namespaces_SumoAzureAudit_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_name'))]",
+            "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_name'))]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "scale": null,
@@ -228,50 +270,39 @@
                 ]
             },
             "dependsOn": [
-                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoAzureAudit_name'))]"
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetNamespace_name'))]"
             ]
         },
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs",
-            "name": "[concat(parameters('namespaces_SumoAzureAudit_name'), '/', parameters('eventhubs_insights_operational_logs_name'))]",
+            "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('eventhubs_insights_metrics_pt1m_name'))]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
                 "messageRetentionInDays": 7,
                 "partitionCount": 4,
-                "status": "Active",
-                "createdAt": "2018-01-17T10:00:54.703",
-                "updatedAt": "2018-01-17T10:01:02.42",
-                "partitionIds": [
-                    "0",
-                    "1",
-                    "2",
-                    "3"
-                ]
+                "status": "Active"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoAzureAudit_name'))]"
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetNamespace_name'))]"
             ]
         },
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
-            "name": "[concat(parameters('namespaces_SumoAzureAudit_name'), '/', parameters('eventhubs_insights_operational_logs_name'), '/', parameters('consumergroups_$Default_name'))]",
+            "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('eventhubs_insights_metrics_pt1m_name'), '/', parameters('consumergroups_$Default_name'))]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "scale": null,
-            "properties": {
-                "createdAt": "2018-01-17T10:01:00.7812081",
-                "updatedAt": "2018-01-17T10:01:00.7812081"
-            },
+            "properties": {},
             "dependsOn": [
-                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoAzureAudit_name'))]",
-                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_SumoAzureAudit_name'), parameters('eventhubs_insights_operational_logs_name'))]"
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetNamespace_name'))]",
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_SumoMetNamespace_name'), parameters('eventhubs_insights_metrics_pt1m_name'))]"
             ]
         },
         {
             "type": "Microsoft.Web/sites/config",
-            "name": "[concat(parameters('sites_SumoAzureAuditApp_name'), '/', parameters('config_web_name'))]",
+            "name": "[concat(parameters('sites_SumoMetricsFunction_name'), '/', parameters('config_web_name'))]",
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
             "scale": null,
@@ -288,7 +319,7 @@
                     "index.php"
                 ],
                 "netFrameworkVersion": "v4.0",
-                "phpVersion": "5.6",
+                "phpVersion": "",
                 "pythonVersion": "",
                 "nodeVersion": "",
                 "linuxFxVersion": "",
@@ -298,7 +329,7 @@
                 "httpLoggingEnabled": false,
                 "logsDirectorySizeLimit": 35,
                 "detailedErrorLoggingEnabled": false,
-                "publishingUsername": "$SumoAzureAuditApp",
+                "publishingUsername": "$SumoMetricsFunction",
                 "publishingPassword": null,
                 "appSettings": null,
                 "metadata": null,
@@ -379,22 +410,22 @@
                 "ipSecurityRestrictions": null
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Web/sites', parameters('sites_SumoAzureAuditApp_name'))]"
+                "[resourceId('Microsoft.Web/sites', parameters('sites_SumoMetricsFunction_name'))]"
             ]
         },
         {
             "type": "Microsoft.Web/sites/hostNameBindings",
-            "name": "[concat(parameters('sites_SumoAzureAuditApp_name'), '/', parameters('hostNameBindings_sumoazureauditapp.azurewebsites.net_name'))]",
+            "name": "[concat(parameters('sites_SumoMetricsFunction_name'), '/', parameters('hostNameBindings_sumometricsfunction.azurewebsites.net_name'))]",
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
-                "siteName": "parameters('sites_SumoAzureAuditApp_name')",
+                "siteName": "parameters('sites_SumoMetricsFunction_name')",
                 "domainId": null,
                 "hostNameType": "Verified"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.Web/sites', parameters('sites_SumoAzureAuditApp_name'))]"
+                "[resourceId('Microsoft.Web/sites', parameters('sites_SumoMetricsFunction_name'))]"
             ]
         }
     ]

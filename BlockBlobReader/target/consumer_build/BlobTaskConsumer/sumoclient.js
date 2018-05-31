@@ -79,7 +79,7 @@ SumoClient.prototype.generateHeaders = function(message) {
     let sourceCategory = (this.options.metadata)? (this.options.metadata.category || '') :'';
     let sourceName = (this.options.metadata)? (this.options.metadata.name || ''):'' ;
     let sourceHost = (this.options.metadata)? (this.options.metadata.host || ''):'';
-    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': 'eventhublogs-azure-function'};
+    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': this.options.clientHeader || 'eventhublogs-azure-function'};
 
     if (message.hasOwnProperty('_sumo_metadata')) {
         let metadataOverride = message._sumo_metadata;
@@ -185,6 +185,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         self.failure_callback(msgArray,self.context);
                     });
                 } else {
+                    self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.failure_callback(msgArray,self.context);
                 }

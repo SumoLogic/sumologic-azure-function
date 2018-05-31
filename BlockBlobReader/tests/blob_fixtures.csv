@@ -1,0 +1,12 @@
+date,level,applicationName,instanceId,eventTickCount,eventId,pid,tid,message,activityId
+2018-05-04T07:00:01,Information,AzureAuditEventHub,de36e6,636610146177421672,0,1980,3,Sending response: 200.0 OK,
+2018-05-04T07:00:02,Information,AzureAuditEventHub,de36e6,636610146177421672,0,1980,30,Sending response: 200.0 OK,
+2018-05-04T07:00:03,Information,AzureAuditEventHub,de36e6,636610146177421672,0,1980,29,Sending response: 200.0 OK,
+2018-05-04T07:00:04,Information,AzureAuditEventHub,de36e6,636610146209931430,0,1980,3,Sending response: 200.0 OK,
+2018-05-04T07:00:05,Information,AzureAuditEventHub,de36e6,636610146209931430,0,1980,3,Sending response: 200.0 OK,
+2018-05-04T07:00:06,Information,AzureAuditEventHub,de36e6,636610150295423571,0,1980,20,Sending response: 200.0 OK,
+2018-05-04T07:00:07,Information,AzureAuditEventHub,de36e6,636610150352022024,0,1980,20,Sending response: 200.0 OK,
+2018-05-04T07:00:08,Information,AzureAuditEventHub,de36e6,636610150405207282,0,1980,20,Sending response: 200.0 OK,
+2018-05-04T07:00:09,Information,AzureAuditEventHub,de36e6,636610150466963018,0,1980,20,Sending response: 200.0 OK,
+2018-05-04T07:00:10,Information,AzureAuditEventHub,de36e6,636610150525214864,0,1980,20,Sending response: 200.0 OK,
+2018-05-04T07:00:11,Information,AzureAuditEventHub,de36e6,636610150584430790,0,1980,20,Sending response: 200.0 OK,

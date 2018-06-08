@@ -1,5 +1,5 @@
-azure-storage-blob==1.0.0
-azure-mgmt-resource-1.2.2
+azure-storage-blob==1.1.0
+azure-mgmt-resource==1.2.2
 azure-mgmt-storage==1.0.0
 azure-storage==0.34.3
 azure-mgmt-eventgrid==1.0.0

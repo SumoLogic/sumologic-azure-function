@@ -1,6 +1,9 @@
 import unittest
 import os
 import json
+import datetime
+import subprocess
+from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.common.credentials import ServicePrincipalCredentials
 
 
@@ -57,3 +60,39 @@ class BaseTest(unittest.TestCase):
         print('Creating {}'.format(
             self.RESOURCE_GROUP_NAME),
             resp.properties.provisioning_state)
+
+    def deploy_template(self):
+        print("Deploying template")
+        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime(
+            "%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
+        template_data = self._parse_template()
+        deployment_properties = {
+            'mode': DeploymentMode.incremental,
+            'template': template_data
+        }
+
+        deployresp = self.resource_client.deployments.create_or_update(
+            self.RESOURCE_GROUP_NAME,
+            deployment_name,
+            deployment_properties
+        )
+        deployresp.wait()
+        print("ARM Template deployed", deployresp.status())
+
+    def get_git_info(self):
+        repo_slug = "SumoLogic/sumologic-azure-function"
+        if os.environ.get("TRAVIS_EVENT_TYPE") == "pull_request":
+            branch_name = os.environ["TRAVIS_PULL_REQUEST_BRANCH"]
+            repo_slug = os.environ["TRAVIS_PULL_REQUEST_SLUG"]
+        elif os.environ.get("TRAVIS_EVENT_TYPE") == "push":
+            branch_name = os.environ["TRAVIS_BRANCH"]
+            repo_slug = os.environ["TRAVIS_REPO_SLUG"]
+        else:
+            git_cmd = "git rev-parse --abbrev-ref HEAD" # will not work in detached state
+            branch_name = subprocess.Popen(git_cmd, shell=True, stdout=subprocess.PIPE).stdout.read().strip()
+
+        repo_name = "https://github.com/%s" % (repo_slug)
+        if not branch_name or branch_name == "undefined" or not repo_name:
+            raise Exception("No branch Found")
+        print("Testing for repo %s in branch %s" % (repo_name, branch_name))
+        return repo_name, branch_name

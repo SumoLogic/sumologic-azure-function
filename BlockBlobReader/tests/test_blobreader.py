@@ -1,6 +1,4 @@
 import os
-import random
-import string
 import datetime
 import unittest
 import json
@@ -10,7 +8,6 @@ import sys
 from azure.storage.blob import BlockBlobService
 from azure.storage.blob.models import BlobBlock
 from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
 from azure.mgmt.eventgrid import EventGridManagementClient
@@ -46,6 +43,13 @@ class TestBlobReaderFlow(BaseTest):
         self.test_container_name = "testcontainer-%s" % (
             datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.test_filename = "testblob"
+        try:
+            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
+            self.storage_connection_string = os.environ["StorageAcccountConnectionString"]
+        except KeyError:
+            raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
+
+        self.repo_name, self.branch_name = self.get_git_info()
 
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
@@ -68,9 +72,12 @@ class TestBlobReaderFlow(BaseTest):
         self.create_container()
         self.create_event_subscription()
         sleep(5)
-        # self.insert_mock_logs_in_BlobStorage("log")
-        # self.insert_mock_logs_in_BlobStorage("csv")
-        self.insert_mock_json_in_BlobStorage()
+        log_type = os.environ.get("LOG_TYPE", "log")
+        print("Inserting mock %s data in BlobStorage" % log_type)
+        if log_type in ("csv", "log"):
+            self.insert_mock_logs_in_BlobStorage(log_type)
+        else:
+            self.insert_mock_json_in_BlobStorage()
         sleep(15)
         self.print_invocation_logs()
         self.check_error_logs()
@@ -87,24 +94,6 @@ class TestBlobReaderFlow(BaseTest):
     def check_one_to_one_task_mapping():
         pass
 
-    def deploy_template(self):
-        print("Deploying template")
-        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime(
-            "%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
-        template_data = self._parse_template()
-        deployment_properties = {
-            'mode': DeploymentMode.incremental,
-            'template': template_data
-        }
-
-        deployresp = self.resource_client.deployments.create_or_update(
-            self.RESOURCE_GROUP_NAME,
-            deployment_name,
-            deployment_properties
-        )
-        deployresp.wait()
-        print("ARM Template deployed", deployresp.status())
-
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
             if (item.name.startswith(resprefix) and item.type == restype):
@@ -113,7 +102,6 @@ class TestBlobReaderFlow(BaseTest):
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())
-        # return ''.join(random.choice(string.ascii_lowercase) for i in range(length))
 
     def get_blockblob_service(self, resource_group, account_name):
         storage_client = StorageManagementClient(self.credentials,
@@ -246,7 +234,6 @@ class TestBlobReaderFlow(BaseTest):
         return [all_lines[:2], all_lines[2:5], all_lines[5:7], all_lines[7:]]
 
     def insert_mock_logs_in_BlobStorage(self, file_ext):
-        print("Inserting mock logs in BlobStorage")
         blocks = []
         datahandler = {'log': 'get_log_data', 'csv': 'get_csv_data'}
         test_filename = self.test_filename + "." + file_ext
@@ -293,7 +280,7 @@ class TestBlobReaderFlow(BaseTest):
             if row["FunctionName"].startswith(("TaskProducer", "TaskConsumer", "DLQProcessor")) and row["HasError"]:
                 haserr = True
 
-        self.assertTrue(not haserr)
+        self.assertFalse(haserr)
 
     def _parse_template(self):
         template_path = os.path.join(os.path.abspath('..'), 'src',
@@ -302,6 +289,11 @@ class TestBlobReaderFlow(BaseTest):
         print("Reading template from %s" % template_path)
         with open(template_path, 'r') as template_file_fd:
             template_data = json.load(template_file_fd)
+
+        template_data["parameters"]["StorageAcccountConnectionString"]["defaultValue"] = self.storage_connection_string
+        template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
+        template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
+        template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
 
         return template_data
 

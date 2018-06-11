@@ -21,11 +21,17 @@ class TestEventHubMetrics(BaseTest):
 
         self.create_credentials()
         self.RESOURCE_GROUP_NAME = "TestEventHubMetrics-%s" % (
-                datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
+            datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.function_name_prefix = "EventHubs_Metrics"
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)
         self.template_name = 'azuredeploy_metrics.json'
+        try:
+            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
+        except KeyError:
+            raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
+
+        self.repo_name, self.branch_name = self.get_git_info()
 
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
@@ -39,24 +45,6 @@ class TestEventHubMetrics(BaseTest):
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
         self.insert_mock_logs_in_EventHub()
         self.check_error_logs()
-
-    def deploy_template(self):
-
-        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime(
-            "%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
-        template_data = self._parse_template()
-        deployment_properties = {
-            'mode': DeploymentMode.incremental,
-            'template': template_data
-        }
-
-        deployresp = self.resource_client.deployments.create_or_update(
-            self.RESOURCE_GROUP_NAME,
-            deployment_name,
-            deployment_properties
-        )
-        deployresp.wait()
-        print("Deploying Template", deployresp.status())
 
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
@@ -119,6 +107,10 @@ class TestEventHubMetrics(BaseTest):
         print("Reading template from %s" % template_path)
         with open(template_path, 'r') as template_file_fd:
             template_data = json.load(template_file_fd)
+
+        template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
+        template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
+        template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
 
         return template_data
 

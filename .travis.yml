@@ -1,0 +1,32 @@
+sudo: required
+dist: trusty
+language: node_js
+python:
+- '2.7'
+jobs:
+  include:
+  - stage: EventHub Node 6
+    node_js: '6.10'
+    env: FUNCTION_DIR=EventHubs/tests TEST_FILE=test_eventhub_logs.py
+  - stage: EventHub Node 6
+    node_js: '6.10'
+    env: FUNCTION_DIR=EventHubs/tests TEST_FILE=test_eventhub_metrics.py
+  - stage: BlockBlobReader Node 6
+    node_js: '6.10'
+    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=logs
+  - stage: BlockBlobReader Node 6
+    node_js: '6.10'
+    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=csv
+  - stage: BlockBlobReader Node 6
+    node_js: '6.10'
+    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=json
+before_install:
+- sudo apt-get install python-pip
+- cd $FUNCTION_DIR
+- sudo pip install -r requirements.txt
+script:
+- python $TEST_FILE
+env:
+  global:
+  - secure: mv+B5a3KSV6tEXpQkpNIGWwC7ZKnLU3TqOZM8DwbkNtjkXRDmuEybRh8e31oz6GHfyFwl2U31FpW9pUNOHOBXQIGUWekE0VXzLfL88bCRI1dFDKQyF6UvcEx+hRpllOAwSSKyuBQpMcCWuS7f4m1Vb0HZ+1MIcDYhOU99pAIKhc76RHmrm8NeoNWZm0iuiuMmeyEtMj2iSrpgznBqz5/aot8uIKJDNmAktEKperGZBZ43fsYEp1FEKAU5iJhMQxgD2zGOpW287xsP/wnhdaE7tdZSN42p/UZrsu94MV7y81r4A2Vc/7IeGZBoUa1Xrt2QbB3xNPNmfUe/NMDLvKXIYDg55fY4JnTP04tfbTAlyPASZR7yJtZMwlqbyrSrs2NQMdE488moaa9DyJJgxgRZkRU+ev+UHwj9rqlsDw8kaXslN24Le90qZhSC55uTW0YTtDj3Y6MhplZw58VfUvQnNo4nou2aNFAITKs5qDko1u9+y4d52wLn0RbBvcnl55pRrzGvba/bKbxzPFre4zD9fY+qI8JT75quIdu3zwATd8ORFJ7wkAEa9e4FXNwr/7qFneDtJIWzfu6xc8l7ZY0Fd5lKmBXRwZIe1hNWI2V/SAElxgZ9oTuB25DZecxQ17kWJzkrwjtmoo7YNzveNtBjAHy4pYXevEt+AX3X4NgZVw=
+  - secure: GeWGXQO+kKEeweleHw+6G3xjOqnWXz2QU1swbqRBlaZI9zPib8asFN2IVl7N8XBxN9JU5Kk/OP7TnV2pAiC+zZNPkj2Dgtzp5W3zb5Fq8dgM6CjZhgOaI9G3eVJa+XUNijrObXuuaHoi4AJmCORDxpr3rkCQ/DisBEAiCIxSQ+GC3yAkRJhkY7ptdJHlnll7cC6NgH98AA6d/3cN9jZym8Lg39Poyb7eIWU4eGC3bHjRpt4u0SBSV9ln4HMukMjeNWC9k+kPqHBPhbmfoMTetnceJI727Go9qznncTvelyh6+ogGN9gVEpHCNAFhZlqmkfg8FlLPm4+Yl+TraAGG2+VYh+mbsA8xXg7EGb/u+j+A93Z7NxAq+iqoKq6uPUG5rVE3t0H7nVb5tpsorL3axLHfrx5lj8e/XAfJd+6HM9ozEPLlFWzk5GnpxOFDIUZJ6tVmKU8rpgAqaoso8OUcyvSZ5vqFm1mQYAyyMdSokaH+Ho91ZsO9cIjcZFD5qUyZox46OG2b2ESBHpp4bQztFyNRHuybwzeyePbLqJgaUj1aHqGUVfglHjzsaAoYDwKxaJvj6qDzAlE1dIDeebVqKLCkrlOsnEvunBEdAsixAzdpBHdMWpJ5LmEc4kzhi/4j80EBM39yJFVTip8K243qbhVWzQo0fRpFUOkKTiJtnho=

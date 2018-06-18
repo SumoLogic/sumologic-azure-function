@@ -6,7 +6,6 @@ import sys
 sys.path.insert(0, '../../test_utils')
 from basetest import BaseTest
 from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.eventhub import EventHubManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
@@ -23,17 +22,18 @@ class TestEventHubLogs(BaseTest):
         self.RESOURCE_GROUP_NAME = "TestEventHubLogs-%s" % (
             datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
 
-        self.STORAGE_ACCOUNT_NAME = "sumoazureauditapplogs"
+        self.STORAGE_ACCOUNT_NAME = "sumoapplogs"
 
         self.function_name_prefix = "EventHubs_Logs"
 
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)
         self.template_name = 'azuredeploy_activity_logs.json'
+        self.event_hub_namespace_prefix = "SumoAzureLogsNamespaces"
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
-            raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
+            raise Exception("SumoEndpointURL environment variables are not set")
 
         self.repo_name, self.branch_name = self.get_git_info()
 
@@ -58,7 +58,7 @@ class TestEventHubLogs(BaseTest):
 
     def insert_mock_logs_in_EventHub(self):
         print("Inserting fake logs in EventHub")
-        namespace_name = self.get_resource_name("SumoAzureAudit", "Microsoft.EventHub/namespaces")
+        namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
         eventhub_name = 'insights-operational-logs'
         defaultauthorule_name = "RootManageSharedAccessKey"
 
@@ -84,7 +84,7 @@ class TestEventHubLogs(BaseTest):
         sleep(60)
         storage_client = StorageManagementClient(self.credentials,
                                                  self.subscription_id)
-        STORAGE_ACCOUNT_NAME = self.get_resource_name("sumoaudlogs", "Microsoft.Storage/storageAccounts")
+        STORAGE_ACCOUNT_NAME = self.get_resource_name(self.STORAGE_ACCOUNT_NAME, "Microsoft.Storage/storageAccounts")
         storage_keys = storage_client.storage_accounts.list_keys(
             self.RESOURCE_GROUP_NAME, STORAGE_ACCOUNT_NAME)
         acckey = storage_keys.keys[0].value

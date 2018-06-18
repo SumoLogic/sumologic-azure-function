@@ -6,7 +6,6 @@ import sys
 sys.path.insert(0, '../../test_utils')
 from basetest import BaseTest
 from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.eventhub import EventHubManagementClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
@@ -29,7 +28,7 @@ class TestEventHubMetrics(BaseTest):
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
-            raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
+            raise Exception("SumoEndpointURL environment variables are not set")
 
         self.repo_name, self.branch_name = self.get_git_info()
 

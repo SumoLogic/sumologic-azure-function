@@ -78,7 +78,7 @@ class TestBlobReaderFlow(BaseTest):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
-        sleep(15)
+        sleep(60)  # waiting for function executions and table creation
         self.print_invocation_logs()
         self.check_error_logs()
 
@@ -267,7 +267,7 @@ class TestBlobReaderFlow(BaseTest):
         for row in sorted(rows.items, key=lambda k: k['FunctionName']):
             print(row.get("FunctionName"), str(row.get('StartTime')), str(row.get('EndTime')))
             print(row.get("ErrorDetails"))
-            print(row.get('LogOutput'))
+            print(row.get('LogOutput', '').encode('utf-8'))
 
     def check_error_logs(self):
 
@@ -277,7 +277,7 @@ class TestBlobReaderFlow(BaseTest):
         haserr = False
         for row in rows.items:
             print("LogRow: ", row["FunctionName"], row["HasError"])
-            if row["FunctionName"].startswith(("TaskProducer", "TaskConsumer", "DLQProcessor")) and row["HasError"]:
+            if row["FunctionName"].startswith(("BlobTaskProducer", "BlobTaskConsumer", "DLQTaskConsumer")) and row["HasError"]:
                 haserr = True
 
         self.assertFalse(haserr)

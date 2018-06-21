@@ -1,3 +1,6 @@
+Sumo Logic Azure Functions [![Build Status](https://travis-ci.org/SumoLogic/sumologic-azure-function.svg?branch=master)](https://travis-ci.org/SumoLogic/sumologic-azure-function)
+==============================
+
 # Introduction
 This repository contains a collection of Azure functions to collect data and send to Sumo Logic cloud service, and a library called sumo-function-utils for these functions.
 

@@ -21,9 +21,9 @@ jobs:
     node_js: '6.10'
     env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=json
 before_install:
-- curl https://bootstrap.pypa.io/get-pip.py | python
+- curl https://bootstrap.pypa.io/get-pip.py | sudo python
 - cd $FUNCTION_DIR
-- sudo pip install -r requirements.txt
+- pip install --user -r ../requirements.txt
 script:
 - python $TEST_FILE
 env:

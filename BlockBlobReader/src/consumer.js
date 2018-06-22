@@ -116,11 +116,22 @@ function csvHandler(msgtext, headers) {
     return messageArray;
 }
 
-function jsonHandler(msg, task) {
+function jsonHandler(msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
 
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    jsonArray = JSON.parse("[" + msg + "]");
+    return jsonArray;
+}
+
+function blobHandler(msg) {
+    // it's assumed that .blob files contains json separated by \n
+    //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
+
+    var jsonArray = [];
+    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    msg = msg.replace(/(\r?\n|\r)/g, ",");
     jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;
 }
@@ -153,7 +164,7 @@ function getData(task, connectionString, context) {
 
 function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
     file_ext = serviceBusTask.blobName.split(".").pop();
-    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler};
+    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
     if (!(file_ext in msghandler)) {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
     }
@@ -188,18 +199,12 @@ function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
                 context.done(err);
             })
         } else  {
-            if (file_ext == "json") {
-                messageArray = msghandler[file_ext](msg, serviceBusTask);
-            } else {
-                messageArray = msghandler[file_ext](msg);
-            }
+            messageArray = msghandler[file_ext](msg);
             messageArray.forEach( function(msg) {
                 sumoClient.addData(msg);
             });
             sumoClient.flushAll();
         }
-
-
     }).catch(function(err) {
         context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
         context.done(err);

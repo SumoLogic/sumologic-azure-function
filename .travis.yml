@@ -24,6 +24,7 @@ before_install:
 - curl https://bootstrap.pypa.io/get-pip.py | sudo python
 - cd $FUNCTION_DIR
 - pip install --user -r ../requirements.txt
+- pip install --user requests[security]
 script:
 - python $TEST_FILE
 env:

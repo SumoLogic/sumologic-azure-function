@@ -78,7 +78,6 @@ class TestBlobReaderFlow(BaseTest):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
-        sleep(60)  # waiting for function executions and table creation
         self.print_invocation_logs()
         self.check_error_logs()
 
@@ -252,6 +251,9 @@ class TestBlobReaderFlow(BaseTest):
         print("inserted %s" % (blocks))
 
     def is_task_consumer_invoked(self):
+        if (not self.table_service.exists(self.log_table_name)):
+            return False
+
         rows = self.table_service.query_entities(
             self.log_table_name, filter="PartitionKey eq 'I'",
             select='FunctionName')
@@ -263,9 +265,11 @@ class TestBlobReaderFlow(BaseTest):
         return is_task_consumer_func_invoked
 
     def print_invocation_logs(self):
-
-        while(not self.is_task_consumer_invoked()):
+        max_retries = 50
+        while(max_retries > 0 and (not self.is_task_consumer_invoked())):
+            print("waiting for invocation logs...", max_retries, self.is_task_consumer_invoked())
             sleep(15)
+            max_retries -= 1
 
         rows = self.table_service.query_entities(
             self.log_table_name, filter="PartitionKey eq 'I'")

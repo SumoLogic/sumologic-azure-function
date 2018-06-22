@@ -20,6 +20,9 @@ jobs:
   - stage: BlockBlobReader Node 6.5
     node_js: '6.5'
     env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=json
+  - stage: BlockBlobReader Node 6.5
+    node_js: '6.5'
+    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=blob
 before_install:
 - curl https://bootstrap.pypa.io/get-pip.py | sudo python
 - cd $FUNCTION_DIR

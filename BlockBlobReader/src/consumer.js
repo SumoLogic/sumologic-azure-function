@@ -167,6 +167,7 @@ function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
     if (!(file_ext in msghandler)) {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
+        return;
     }
     if (file_ext == "json") {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos

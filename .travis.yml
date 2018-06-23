@@ -5,28 +5,33 @@ python:
 - '2.7'
 jobs:
   include:
-  - stage: EventHub Node 6
-    node_js: '6.10'
+  - stage: EventHub Node 6.5
+    node_js: '6.5'
     env: FUNCTION_DIR=EventHubs/tests TEST_FILE=test_eventhub_logs.py
-  - stage: EventHub Node 6
-    node_js: '6.10'
+  - stage: EventHub Node 6.5
+    node_js: '6.5'
     env: FUNCTION_DIR=EventHubs/tests TEST_FILE=test_eventhub_metrics.py
-  - stage: BlockBlobReader Node 6
-    node_js: '6.10'
-    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=logs
-  - stage: BlockBlobReader Node 6
-    node_js: '6.10'
+  - stage: BlockBlobReader Node 6.5
+    node_js: '6.5'
+    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=log
+  - stage: BlockBlobReader Node 6.5
+    node_js: '6.5'
     env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=csv
-  - stage: BlockBlobReader Node 6
-    node_js: '6.10'
+  - stage: BlockBlobReader Node 6.5
+    node_js: '6.5'
     env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=json
+  - stage: BlockBlobReader Node 6.5
+    node_js: '6.5'
+    env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=blob
 before_install:
-- sudo apt-get install python-pip
+- curl https://bootstrap.pypa.io/get-pip.py | sudo python
 - cd $FUNCTION_DIR
-- sudo pip install -r requirements.txt
+- pip install --user -r ../requirements.txt
+- pip install --user requests[security]
 script:
 - python $TEST_FILE
 env:
   global:
-  - secure: mv+B5a3KSV6tEXpQkpNIGWwC7ZKnLU3TqOZM8DwbkNtjkXRDmuEybRh8e31oz6GHfyFwl2U31FpW9pUNOHOBXQIGUWekE0VXzLfL88bCRI1dFDKQyF6UvcEx+hRpllOAwSSKyuBQpMcCWuS7f4m1Vb0HZ+1MIcDYhOU99pAIKhc76RHmrm8NeoNWZm0iuiuMmeyEtMj2iSrpgznBqz5/aot8uIKJDNmAktEKperGZBZ43fsYEp1FEKAU5iJhMQxgD2zGOpW287xsP/wnhdaE7tdZSN42p/UZrsu94MV7y81r4A2Vc/7IeGZBoUa1Xrt2QbB3xNPNmfUe/NMDLvKXIYDg55fY4JnTP04tfbTAlyPASZR7yJtZMwlqbyrSrs2NQMdE488moaa9DyJJgxgRZkRU+ev+UHwj9rqlsDw8kaXslN24Le90qZhSC55uTW0YTtDj3Y6MhplZw58VfUvQnNo4nou2aNFAITKs5qDko1u9+y4d52wLn0RbBvcnl55pRrzGvba/bKbxzPFre4zD9fY+qI8JT75quIdu3zwATd8ORFJ7wkAEa9e4FXNwr/7qFneDtJIWzfu6xc8l7ZY0Fd5lKmBXRwZIe1hNWI2V/SAElxgZ9oTuB25DZecxQ17kWJzkrwjtmoo7YNzveNtBjAHy4pYXevEt+AX3X4NgZVw=
-  - secure: GeWGXQO+kKEeweleHw+6G3xjOqnWXz2QU1swbqRBlaZI9zPib8asFN2IVl7N8XBxN9JU5Kk/OP7TnV2pAiC+zZNPkj2Dgtzp5W3zb5Fq8dgM6CjZhgOaI9G3eVJa+XUNijrObXuuaHoi4AJmCORDxpr3rkCQ/DisBEAiCIxSQ+GC3yAkRJhkY7ptdJHlnll7cC6NgH98AA6d/3cN9jZym8Lg39Poyb7eIWU4eGC3bHjRpt4u0SBSV9ln4HMukMjeNWC9k+kPqHBPhbmfoMTetnceJI727Go9qznncTvelyh6+ogGN9gVEpHCNAFhZlqmkfg8FlLPm4+Yl+TraAGG2+VYh+mbsA8xXg7EGb/u+j+A93Z7NxAq+iqoKq6uPUG5rVE3t0H7nVb5tpsorL3axLHfrx5lj8e/XAfJd+6HM9ozEPLlFWzk5GnpxOFDIUZJ6tVmKU8rpgAqaoso8OUcyvSZ5vqFm1mQYAyyMdSokaH+Ho91ZsO9cIjcZFD5qUyZox46OG2b2ESBHpp4bQztFyNRHuybwzeyePbLqJgaUj1aHqGUVfglHjzsaAoYDwKxaJvj6qDzAlE1dIDeebVqKLCkrlOsnEvunBEdAsixAzdpBHdMWpJ5LmEc4kzhi/4j80EBM39yJFVTip8K243qbhVWzQo0fRpFUOkKTiJtnho=
+  - secure: q6CBd89cZCuSOLmv32K0zRB/VWsIOfqKA7hOf3z48KOrNz3WbAlcJZnDw+GQTF8IZwzTbMq3bFSGlmZg2rKhg3+kfTkisNHghIeVjbX62LYq0LrgsZuVWgyis1/QtBMzOhh5NMf3gVgP9TCu2yWfhNbBsdMOIfPeUtBGhXaUFvV+FLdo9VTFpy9RVQr+8zq0k1YPh4pV9NUz6dYqH3MLtqDWwqsHazNnGJDwnrpE90BTb9QeTxzZGSjyol3w6V//EsyhLTdxbHqwOBeB9580QI8088+tKCp1i9ZeQcLw8G/65St91hsF7eU+gaUA3dYVbEbqP2Dc5TgP65kFDkpU6dDeGo8mVRVzhY1vMtkQFF3iZpyssG/3M0neYIIUyWVDRLTO2ixIDK7DuD/00aOdcmf5RDd8a2l1rxPiwJ5whi0qNAgODa89mFo3ivUuYkbCRb6tGoU33wO1oqs1yQ2g0TFhcOXj8QSANXnocJqk9lcgyB9LXa0/i/JPYds1zcu1Sfxucx4ty4CPGmKMvwiY/yi92ePielQfUdEYERf8iPQ+Kc5Q6t2+F2Vgkxeqq5WYGs8nVoaxsebgBiUzgj75Lr9CO7yafoG1ZAAtwFxWlb8jQfJJo11KnKHnJovaLDE/CYhDp6dgc8OrSoLPJcFs/1X5DSML9tSMBl1T30q9Sd4=
+  - secure: YX7ZP0aDz1tvQoXe31MmEFNjHEXWKQ+VybjxyGuNdDqQzHMYhVww3vv0socR9SaSNzVcvEzcyclj1x5r3DMpV1BmE82agJ/htkOwJN4t2qtKKJeBnR7KPiowroGKDnFDuF+FgYwIKtjsZZoyZR/1K+58dC52hVgxRVIpWShvO77R346jV3eQAs9tPx5lHzcPbyiYFnVluIns3XgQrBN0IaJLIJpn721Oe4IVy9/RlROc5JzoHW7VD/1O8gQPF8wYfYk1MQnyAQ+7p+hdi6iPgDiq5MNSXlRPldP1fm6LiJqGa7Ad0PGcuxMccdxsvAtsvuf4sfDkQtFh+iikP3rf/nEvTLUnbuGvf//ggMiawNM15jzopnmKyb4oDMpd71lCCl/+Y9Bs4J+bYKUEUz5q6+XEiPOvEBJgEmuLbvzbEQjuvJBEHL9sSCVNSODtXGh2TP055QPRBsW45FtmtzeQHG3uGjtmFbKIAXVpSgzX4HhhOwYVnl3Q0oTOOJC/eafmcQdrOIAwr/hSvE9jcf7PgQaeC1Jz9st+XTQ4nYe6GrimYPRD2+3Tq+P2zOsZAkHZoJjF4cHVEXJ4YPf1EWTj36Fj+SuWpBMzBx8QN2De18Bf5dM8xLrFCXfMzTauuJziF8GGh+VQ1xup9HDMimZuAn6kwiA54mKaEOerYXUI//c=
+  - secure: ed6r73ajIVOh0EamMv0NuTX+BpxGoyq5bVV/RKcIPhTLNVNq16W+jno8WMp5RqZvhn+8w95M0lWafwv9TkMx3lCYyMyD+LNL6PRtesCJu2IsDQhdyPLuTyPpFKeahG8DYhsw5s651jL+yqa6vtmYQkcaBQEofDku0zK3iFEn1QtfR3xOVg7u/+zkkMJujhx0VY/vClIskIA1O40v5SNug5+nXYfJL5HJAp24Isgafwy/ZMhNkLSHjSCa3RtuP0Q7GfW2dipivhaSiERkzs2MdILaILr3criVcJQPYyLqFJCihb9xF7X5AntHdzZXEMmnRbEf8FMqx+q0AfXGSBvcIiGuQowL8/tvWe8UasADLyckqWiAvvc9vSyC9Ed4PaaF6f9VK4Biu9CTFX9L+8cMGZnqZPumARlGbyZSjNhylmUKeMhyN6H41p9+bdTV0nFjeeM3p6WL0eraeV+ZIBwfb1TPe4LqST25i0rbIe5bItSomg9mYhGG9PT208Epo7C25xHzPTn3qiqw7anA1d4g1qB/eYsUIjDZ4tEF5aFuQx5RYOcY7cgXgwA02J5tX6Z++zd3JnJJgvyslPOYUnI5atD3uRI/oWR+PXcHgzUTlYJlSHT69aaWhnvdCdDpmUWvTqmcnQSJ+vYdwk9w3/9qDNQDedTDzGODx8SGMhwR0tg=

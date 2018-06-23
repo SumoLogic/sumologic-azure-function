@@ -74,11 +74,10 @@ class TestBlobReaderFlow(BaseTest):
         sleep(5)
         log_type = os.environ.get("LOG_TYPE", "log")
         print("Inserting mock %s data in BlobStorage" % log_type)
-        if log_type in ("csv", "log"):
+        if log_type in ("csv", "log",  "blob"):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
-        sleep(15)
         self.print_invocation_logs()
         self.check_error_logs()
 
@@ -233,9 +232,15 @@ class TestBlobReaderFlow(BaseTest):
             all_lines = logfile.readlines()
         return [all_lines[:2], all_lines[2:5], all_lines[5:7], all_lines[7:]]
 
+    def get_blob_formatted_data(self):
+        all_lines = []
+        with open("blob_fixtures.blob") as logfile:
+            all_lines = logfile.readlines()
+        return [all_lines[:2], all_lines[2:5], all_lines[5:7]] + self.get_chunks(all_lines[7:], 2)
+
     def insert_mock_logs_in_BlobStorage(self, file_ext):
         blocks = []
-        datahandler = {'log': 'get_log_data', 'csv': 'get_csv_data'}
+        datahandler = {'log': 'get_log_data', 'csv': 'get_csv_data', 'blob': 'get_blob_formatted_data'}
         test_filename = self.test_filename + "." + file_ext
         blocks = self.get_current_blocks(self.test_container_name, test_filename)
         for data_block in getattr(self, datahandler.get(file_ext))():
@@ -246,6 +251,9 @@ class TestBlobReaderFlow(BaseTest):
         print("inserted %s" % (blocks))
 
     def is_task_consumer_invoked(self):
+        if (not self.table_service.exists(self.log_table_name)):
+            return False
+
         rows = self.table_service.query_entities(
             self.log_table_name, filter="PartitionKey eq 'I'",
             select='FunctionName')
@@ -257,9 +265,11 @@ class TestBlobReaderFlow(BaseTest):
         return is_task_consumer_func_invoked
 
     def print_invocation_logs(self):
-
-        while(not self.is_task_consumer_invoked()):
+        max_retries = 50
+        while(max_retries > 0 and (not self.is_task_consumer_invoked())):
+            print("waiting for invocation logs...", max_retries, self.is_task_consumer_invoked())
             sleep(15)
+            max_retries -= 1
 
         rows = self.table_service.query_entities(
             self.log_table_name, filter="PartitionKey eq 'I'")
@@ -267,7 +277,7 @@ class TestBlobReaderFlow(BaseTest):
         for row in sorted(rows.items, key=lambda k: k['FunctionName']):
             print(row.get("FunctionName"), str(row.get('StartTime')), str(row.get('EndTime')))
             print(row.get("ErrorDetails"))
-            print(row.get('LogOutput'))
+            print(row.get('LogOutput', '').encode('utf-8'))
 
     def check_error_logs(self):
 
@@ -277,7 +287,7 @@ class TestBlobReaderFlow(BaseTest):
         haserr = False
         for row in rows.items:
             print("LogRow: ", row["FunctionName"], row["HasError"])
-            if row["FunctionName"].startswith(("TaskProducer", "TaskConsumer", "DLQProcessor")) and row["HasError"]:
+            if row["FunctionName"].startswith(("BlobTaskProducer", "BlobTaskConsumer", "DLQTaskConsumer")) and row["HasError"]:
                 haserr = True
 
         self.assertFalse(haserr)

@@ -28,8 +28,8 @@ class TestEventHubLogs(BaseTest):
 
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)
-        self.template_name = 'azuredeploy_activity_logs.json'
-        self.event_hub_namespace_prefix = "SumoAzureLogsNamespaces"
+        self.template_name = 'azuredeploy_logs.json'
+        self.event_hub_namespace_prefix = "SumoAzureLogsNamespace"
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:

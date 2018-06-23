@@ -191,7 +191,7 @@
                 "properties": {
                   "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAppLogs_name')),'2015-05-01-preview').key1)]",
                   "AzureWebJobsDashboard": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAppLogs_name')),'2015-05-01-preview').key1)]",
-                  "SumoAuditEndpoint": "[parameters('SumoEndpointURL')]",
+                  "SumoLogsEndpoint": "[parameters('SumoEndpointURL')]",
                   "AzureEventHubConnectionString": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoAzureLogs_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString]",
                   "StorageConnectionString": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureFailedMsg_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureFailedMsg_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.windows.net')]"
                 }

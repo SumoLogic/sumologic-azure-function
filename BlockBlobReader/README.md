@@ -15,9 +15,9 @@ For more details checkout the [documentation.](https://help.sumologic.com/Send-D
 
 ## Building the function
 Currently ARM template is integrated with github and for each functions
-BlockBlobReader/target/producer_build/BlobTaskProducer - Function for Creating tasks(json object with start and end bytes).
-BlockBlobReader/target/consumer_build/BlobTaskConsumer - Function for Downloading block blobs and ingesting to Sumo
-BlockBlobReader/target/dlqprocessor_build/BlobTaskConsumer -  Function for retrying failed tasks.
+* BlockBlobReader/target/producer_build/BlobTaskProducer - Function for Creating tasks(json object with start and end bytes).
+* BlockBlobReader/target/consumer_build/BlobTaskConsumer - Function for Downloading block blobs and ingesting to Sumo
+* BlockBlobReader/target/dlqprocessor_build/BlobTaskConsumer -  Function for retrying failed tasks.
 
 ## For Developers
 `npm run build`

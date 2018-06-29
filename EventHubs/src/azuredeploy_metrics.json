@@ -146,13 +146,13 @@
         {
             "type": "Microsoft.Web/serverfarms",
             "sku": {
-                "name": "S1",
-                "tier": "Standard",
-                "size": "S1",
-                "family": "S",
-                "capacity": 1
+                "name": "Y1",
+                "tier": "Dynamic",
+                "size": "Y1",
+                "family": "Y",
+                "capacity": 0
             },
-            "kind": "app",
+            "kind": "functionapp",
             "name": "[parameters('serverfarms_SumoMetricsAppServicePlan_name')]",
             "apiVersion": "2016-09-01",
             "location": "[resourceGroup().location]",
@@ -181,7 +181,6 @@
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
-                    "alwaysOn": true,
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
                         { "name": "Project", "value": "EventHubs/target/metrics_build/" }
@@ -310,7 +309,7 @@
                 "scmType": "None",
                 "use32BitWorkerProcess": true,
                 "webSocketsEnabled": false,
-                "alwaysOn": true,
+                "alwaysOn": false,
                 "javaVersion": null,
                 "javaContainer": null,
                 "javaContainerVersion": null,

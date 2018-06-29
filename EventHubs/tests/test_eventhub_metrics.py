@@ -24,7 +24,12 @@ class TestEventHubMetrics(BaseTest):
         self.function_name_prefix = "EventHubs_Metrics"
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)
+        self.STORAGE_ACCOUNT_NAME = "sumometlogs"
         self.template_name = 'azuredeploy_metrics.json'
+        self.log_table_name = "AzureWebJobsHostLogs%d%02d" % (
+            datetime.datetime.now().year, datetime.datetime.now().month)
+        self.event_hub_namespace_prefix = "SumoMetricsNamespace"
+        self.eventhub_name = 'insights-metrics-pt1m'
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
@@ -42,6 +47,7 @@ class TestEventHubMetrics(BaseTest):
         self.deploy_template()
         print("Testing Stack Creation")
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
+        self.table_service = self.get_table_service()
         self.insert_mock_logs_in_EventHub()
         self.check_error_logs()
 
@@ -51,10 +57,28 @@ class TestEventHubMetrics(BaseTest):
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
 
+    def wait_for_table_creation(self):
+        max_retries = 50
+        while(max_retries > 0 and (not self.table_service.exists(self.log_table_name))):
+            print("waiting for logs creation...", max_retries)
+            sleep(15)
+            max_retries -= 1
+
+    def get_table_service(self):
+        storage_client = StorageManagementClient(self.credentials,
+                                                 self.subscription_id)
+        STORAGE_ACCOUNT_NAME = self.get_resource_name(self.STORAGE_ACCOUNT_NAME, "Microsoft.Storage/storageAccounts")
+        storage_keys = storage_client.storage_accounts.list_keys(
+            self.RESOURCE_GROUP_NAME, STORAGE_ACCOUNT_NAME)
+        acckey = storage_keys.keys[0].value
+        table_service = TableService(account_name=STORAGE_ACCOUNT_NAME,
+                                     account_key=acckey)
+        return table_service
+
     def insert_mock_logs_in_EventHub(self):
         print("Inserting fake logs in EventHub")
-        namespace_name = self.get_resource_name("SumoMetricsNamespace", "Microsoft.EventHub/namespaces")
-        eventhub_name = 'insights-metrics-pt1m'
+        namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
+
         defaultauthorule_name = "RootManageSharedAccessKey"
 
         eventhub_client = EventHubManagementClient(self.credentials,
@@ -71,25 +95,17 @@ class TestEventHubMetrics(BaseTest):
         )
         mock_logs = json.load(open('metrics_fixtures.json'))
         print("inserting %s" % (mock_logs))
-        sbs.send_event(eventhub_name, json.dumps(mock_logs))
+        sbs.send_event(self.eventhub_name, json.dumps(mock_logs))
 
         print("Event inserted")
 
     def check_error_logs(self):
         print("sleeping 1min for function execution")
-        sleep(60)
-        storage_client = StorageManagementClient(self.credentials,
-                                                 self.subscription_id)
-        STORAGE_ACCOUNT_NAME = self.get_resource_name("sumometlogs", "Microsoft.Storage/storageAccounts")
-        storage_keys = storage_client.storage_accounts.list_keys(
-            self.RESOURCE_GROUP_NAME, STORAGE_ACCOUNT_NAME)
-        acckey = storage_keys.keys[0].value
-        table_service = TableService(account_name=STORAGE_ACCOUNT_NAME,
-                                     account_key=acckey)
-        table = table_service.list_tables().items[0]  # flaky
+        self.wait_for_table_creation()
+        sleep(10)  # wait for log creation
 
-        rows = table_service.query_entities(
-            table.name, filter="PartitionKey eq 'R2'")
+        rows = self.table_service.query_entities(
+            self.log_table_name, filter="PartitionKey eq 'R2'")
 
         haserr = False
         for row in rows.items:

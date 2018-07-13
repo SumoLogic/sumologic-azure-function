@@ -29,7 +29,7 @@ before_install:
 - pip install --user -r ../requirements.txt
 - pip install --user requests[security]
 script:
-- python $TEST_FILE
+- travis_wait 25 python $TEST_FILE
 env:
   global:
   - secure: q6CBd89cZCuSOLmv32K0zRB/VWsIOfqKA7hOf3z48KOrNz3WbAlcJZnDw+GQTF8IZwzTbMq3bFSGlmZg2rKhg3+kfTkisNHghIeVjbX62LYq0LrgsZuVWgyis1/QtBMzOhh5NMf3gVgP9TCu2yWfhNbBsdMOIfPeUtBGhXaUFvV+FLdo9VTFpy9RVQr+8zq0k1YPh4pV9NUz6dYqH3MLtqDWwqsHazNnGJDwnrpE90BTb9QeTxzZGSjyol3w6V//EsyhLTdxbHqwOBeB9580QI8088+tKCp1i9ZeQcLw8G/65St91hsF7eU+gaUA3dYVbEbqP2Dc5TgP65kFDkpU6dDeGo8mVRVzhY1vMtkQFF3iZpyssG/3M0neYIIUyWVDRLTO2ixIDK7DuD/00aOdcmf5RDd8a2l1rxPiwJ5whi0qNAgODa89mFo3ivUuYkbCRb6tGoU33wO1oqs1yQ2g0TFhcOXj8QSANXnocJqk9lcgyB9LXa0/i/JPYds1zcu1Sfxucx4ty4CPGmKMvwiY/yi92ePielQfUdEYERf8iPQ+Kc5Q6t2+F2Vgkxeqq5WYGs8nVoaxsebgBiUzgj75Lr9CO7yafoG1ZAAtwFxWlb8jQfJJo11KnKHnJovaLDE/CYhDp6dgc8OrSoLPJcFs/1X5DSML9tSMBl1T30q9Sd4=

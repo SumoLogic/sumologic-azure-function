@@ -27,9 +27,8 @@ class TestBlobReaderFlow(BaseTest):
 
     def setUp(self):
         self.create_credentials()
-
-        self.RESOURCE_GROUP_NAME = "TestBlobReaderLogs-%s" % (
-            datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
+        self.unique_suffix = datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S")
+        self.RESOURCE_GROUP_NAME = "TestBlobReaderLogs-%s" % (self.unique_suffix)
 
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)
@@ -40,9 +39,9 @@ class TestBlobReaderFlow(BaseTest):
 
         self.test_storage_res_group = "ag-sumo"
         self.test_storageaccount_name = "allbloblogs"
-        self.test_container_name = "testcontainer-%s" % (
-            datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
+        self.test_container_name = "testcontainer-%s" % (self.unique_suffix)
         self.test_filename = "testblob"
+        self.event_subscription_name = "testeventsubscription-%s" % self.unique_suffix
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
             self.storage_connection_string = os.environ["StorageAcccountConnectionString"]
@@ -68,10 +67,9 @@ class TestBlobReaderFlow(BaseTest):
             self.test_storage_res_group, self.test_storageaccount_name)
 
         self.create_offset_table()
-
         self.create_container()
-        self.create_event_subscription()
         sleep(5)
+        self.create_event_subscription()
         log_type = os.environ.get("LOG_TYPE", "log")
         print("Inserting mock %s data in BlobStorage" % log_type)
         if log_type in ("csv", "log",  "blob"):
@@ -163,14 +161,14 @@ class TestBlobReaderFlow(BaseTest):
             "included_event_types": ["Microsoft.Storage.BlobCreated"]
         })
         event_subscription_info = EventSubscription(destination=destination, filter=esfilter)
-        create_resp = event_client.event_subscriptions.create_or_update(scope, "testeventsubscription", event_subscription_info)
-        create_resp.wait()
+        create_resp = event_client.event_subscriptions.create_or_update(scope, self.event_subscription_name, event_subscription_info)
+        # create_resp.wait() was getting timedout
 
     def delete_event_subscription(self):
         print("deleting event subscription")
         event_client = EventGridManagementClient(self.credentials, self.subscription_id)
         scope = '/subscriptions/'+self.subscription_id+'/resourceGroups/'+self.test_storage_res_group+'/providers/microsoft.storage/storageaccounts/%s' % self.test_storageaccount_name
-        event_client.event_subscriptions.delete(scope, "testeventsubscription")
+        event_client.event_subscriptions.delete(scope, self.event_subscription_name)
 
     def create_or_update_blockblob(self, container_name, file_name, datalist, blocks):
         block_id = self.get_random_name()

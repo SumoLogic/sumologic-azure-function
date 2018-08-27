@@ -14,7 +14,7 @@
 
 Promise.retryMax = function(fn,retry,interval,fnParams) {
     return fn.apply(this,fnParams).catch( err => {
-        return (retry>1? Promise.wait(interval).then(()=> Promise.retryMax(fn,retry-1,interval)):Promise.reject(err));
+        return (retry>1? Promise.wait(interval).then(()=> Promise.retryMax(fn,retry-1,interval, fnParams)):Promise.reject(err));
     });
 }
 

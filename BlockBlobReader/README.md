@@ -10,8 +10,9 @@ Three Azure functions—TaskProducer, TaskConsumer, and DLQTaskConsumer—that a
 A storage account to which the Azure functions write their log messages about successful and failed transmissions.
 You download the Sumo-provided ARM template, upload the template to the Azure Portal, set the parameters that identify the URL of your Sumo HTTP source and and the connection string of for the Azure Storage Account (where Azure services export their logs), and deploythe template. After deployment, you create an Event Grid subscription with a Azure Storage Account as publisher and the event hub created by the ARM template as the subscriber.
 
-For more details checkout the [documentation.](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Blob_Storage/Collect_Logs_from_Azure_Blob_Storage)
+For more details checkout the [documentation](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Blob_Storage/Collect_Logs_from_Azure_Blob_Storage)
 
+![Blob Storage Data Collection Pipeline](https://s3.amazonaws.com/appdev-cloudformation-templates/AzureBlobStorageCollection.png)
 
 ## Building the function
 Currently ARM template is integrated with github and for each functions

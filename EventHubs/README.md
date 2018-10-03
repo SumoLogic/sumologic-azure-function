@@ -1,34 +1,17 @@
 # Sumo Logic Azure Event Hub Integration
+This solution creates a data pipeline for shipping monitoring data out of eventhub to Sumo Logic HTTP source endpoint.
 
-## Deploying via ARM
-Go to Resource Groups Service and create a Resource Group.
-Click on + icon on left and search for template deployment.Click on it.Then in new window click on create.
-Now choose build your own template in the editor option and in new window upload azuredeploy.json file and click on save.
-In new window check the T&C and click on Purchase.
+## About the Configuration Process
+Sumo provides Azure Resource Management (ARM) templates to build the pipelines, one for logs, one for metrics. Each template creates an event hub to which Azure Monitor streams logs or metrics, an Azure function for sending monitoring data on to Sumo, and storage accounts to which the function writes its own log messages about successful and failed transmissions.
 
-If you get any error it may be due to multiple deployments of this function so delete old deployments before creating new one.
+You download an ARM template, edit it to add the URL of your HTTP source, copy the template into Azure Portal, and deploy it. Then, you can start exporting monitoring data to EventHub.
 
-This will most of the resources and configurations. Some specific Azure integration require extra configuration.
+This solution enables you to collect:
 
-EventHubs:
-*  Click on Storage Account Service and select sumoazureauditfaildata(for EventHubs function) or sumometricsfaildata(for EventHubs_metrics function) storage account.
-*  Then select container under Blob and create a container by clicking on + button.
-*  Input azureaudit-failover(for EventHubs function) or sumomet-failover(for EventHubs_metrics function) as name and choose private in public access level
+* [Activity Logs](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure-Audit/02Collect-Logs-for-Azure-Audit-from-Event-Hub)
+* [Diagnostics Logs](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Monitoring/Collect_Logs_from_Azure_Monitor) and [Metrics](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Monitoring/Collect_Metrics_from_Azure_Monitor) which can be exported via Azure Monitor
 
-## Exporting Logs to EventHub
-*Metrics*
-* Login to Azure Portal
-* Click on all services in left panel -> search monitor and click on it -> on left side under settings you will find diagnostic settings -> List of resources -> Select a resource
-* In the new window select ALL Metrics option and click on configure eventhub
-* Select SumoMetricsNamespace as Eventhub namespace, insights-metrics-pt1m as Eventhub name and  RootManageSharedAccessKey as eventhub policy name. Click ok.
-* Save the setting
-
-*Acitivity Logs*
-* Login to Azure Portal
-* Click on all services in left panel -> search activity logs and click on it
-* Click on export button and in the new window check the export to eventhub checkbox and select SumoAzureAudit as Eventhub namespace and RootManageSharedAccessKey as eventhub policy name.Click ok.
-* Save the setting
-
+![EventHub Collection Data Pipeline](https://s3.amazonaws.com/appdev-cloudformation-templates/AzureEventHubCollection.png)
 
 ## Building the function
 Currently ARM template is integrated with github and for each functions

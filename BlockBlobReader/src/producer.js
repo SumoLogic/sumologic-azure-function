@@ -6,18 +6,28 @@ var storage = require('azure-storage');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
 
 function getRowKey(metadata) {
-    return metadata.url.split('/').slice(3).join("-");
+    var storageName =  metadata.url.split("//").pop().split(".")[0]
+    var arr = metadata.url.split('/').slice(3)
+    var keyArr = [storageName];
+    Array.prototype.push.apply(keyArr, arr);
+    return keyArr.join("-");
 }
 
 
-function getBlobMetadata(url) {
+function getBlobMetadata(message) {
+    var url = message.data.url;
     var data = url.split('/');
+    var topicArr = message.topic.split('/');
+
+    // '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/AG-SUMO/providers/Microsoft.Storage/
     //'https://allbloblogs.blob.core.windows.net/webapplogs/AZUREAUDITEVENTHUB/2018/04/26/09/f4f692.log'
     return {
             url: url,
             containerName: data[3],
             blobName: data.slice(4).join('/'),
-            storageName: url.split("//").pop().split(".")[0]
+            storageName: url.split("//").pop().split(".")[0],
+            resourceGroupName: topicArr[4],
+            subscriptionId: topicArr[2]
     };
 }
 
@@ -44,7 +54,7 @@ function getEntity(metadata, endByte, currentEtag) {
 
 function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap) {
     eventHubMessages.forEach(function (message) {
-        var metadata = getBlobMetadata(message.data.url);
+        var metadata = getBlobMetadata(message);
         var RowKey = getRowKey(metadata);
         metadatamap[RowKey] = metadata;
         (allcontentlengths[RowKey] || (allcontentlengths[RowKey] = [])).push(message.data.contentLength);
@@ -52,7 +62,7 @@ function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatama
 }
 
 function getBlobPointerMap(PartitionKey, RowKey, context) {
-
+    // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
     return new Promise(function (resolve, reject) {
         tableService.retrieveEntity(process.env.APPSETTING_TABLE_NAME, PartitionKey, RowKey, function(error, result, response){
           // context.log("inside getBlobPointerMap", response.statusCode);
@@ -92,13 +102,11 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
                 // this will remove duplicate contentlengths
                 // to specify a range encompassing the first 512 bytes of a blob use x-ms-range: bytes=0-511  contentLength = 512
                 // saving in offset: 511 endByte
-                tasks.push({
+                var task = Object.assign({
                     startByte: lastoffset+1,
-                    endByte: endByte,
-                    storageName: metadata.storageName,
-                    containerName: metadata.containerName,
-                    blobName: metadata.blobName
-                });
+                    endByte: endByte
+                }, metadata);
+                tasks.push(task);
                 lastoffset = endByte;
             }
         }
@@ -158,6 +166,7 @@ module.exports = function (context, eventHubMessages) {
         var processed = 0;
         context.bindings.tasks = [];
         var totalRows = Object.keys(allcontentlengths).length;
+        var errArr = [];
         for (var RowKey in allcontentlengths) {
             var sortedcontentlengths = allcontentlengths[RowKey].sort(); // ensuring increasing order of contentlengths
             var metadata = metadatamap[RowKey]
@@ -165,9 +174,17 @@ module.exports = function (context, eventHubMessages) {
             createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context, metadata, function(err, msg) {
                 processed += 1;
                 // context.log(RowKey, processed, err, msg);
+                if (err) {
+                    errArr.push(err);
+                }
                 if (totalRows == processed) {
                     context.log("Tasks Created: " + JSON.stringify(context.bindings.tasks) + " Blobpaths: " + JSON.stringify(allcontentlengths));
-                    context.done();
+                    if (errArr.length > 0) {
+                        context.done(errArr.join('\n'));
+                    }
+                    else {
+                        context.done();
+                    }
                 }
             })
 

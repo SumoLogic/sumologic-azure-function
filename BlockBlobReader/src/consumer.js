@@ -5,11 +5,14 @@
 var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 var storage = require('azure-storage');
+var storageManagementClient = require('azure-arm-storage');
+var MsRest = require('ms-rest-azure');
 var servicebus = require('azure-sb');
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
+var https = require('https');
 
 function csvToArray( strData, strDelimiter ){
     strDelimiter = (strDelimiter || ",");
@@ -54,10 +57,10 @@ function hasAllHeaders(text) {
     }
 }
 
-function getHeaderRecursively(headertext, task, connectionString, context) {
+function getHeaderRecursively(headertext, task, blobService, context) {
 
     return new Promise(function(resolve, reject) {
-        getData(task, connectionString, context).then(function(text) {
+        getData(task, blobService, context).then(function(text) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
             if (onlyheadertext) {
@@ -70,12 +73,11 @@ function getHeaderRecursively(headertext, task, connectionString, context) {
             } else {
                 task.startByte = task.endByte + 1;
                 task.endByte = task.startByte + bytesOffset -1;
-                getHeaderRecursively(headertext, task, connectionString, context).then(function(headers) {
+                getHeaderRecursively(headertext, task, blobService, context).then(function(headers) {
                     resolve(headers);
                 }).catch(function(err) {
                     reject(err);
                 });
-                // resolve(getHeader(headertext, task, connectionString, context));
             }
         }).catch(function(err) {
             reject(err);
@@ -84,9 +86,8 @@ function getHeaderRecursively(headertext, task, connectionString, context) {
 
 }
 
-function getcsvHeader(containerName, blobName, context, connectionString) {
+function getcsvHeader(containerName, blobName, context, blobService) {
     // Todo optimize to avoid multiple request
-    var blobService = storage.createBlobService(connectionString);
     var bytesOffset = MAX_CHUNK_SIZE;
     var task = {
         containerName: containerName,
@@ -95,7 +96,7 @@ function getcsvHeader(containerName, blobName, context, connectionString) {
         endByte: bytesOffset - 1
     };
 
-    return getHeaderRecursively("", task, connectionString, context);
+    return getHeaderRecursively("", task, blobService, context);
 }
 
 function csvHandler(msgtext, headers) {
@@ -140,12 +141,11 @@ function logHandler(msg) {
     return [msg];
 }
 
-function getData(task, connectionString, context) {
+function getData(task, blobService, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
 
-    var blobService = storage.createBlobService(connectionString);
     var containerName = task.containerName;
     var blobName = task.blobName;
     var options = {rangeStart: task.startByte, rangeEnd: task.endByte};
@@ -161,8 +161,59 @@ function getData(task, connectionString, context) {
     });
 
 }
+function getAccessToken(context) {
+    var apiver = '2017-09-01';
+    var resource = 'https://management.azure.com/';
+    const rp = require('request-promise-native');
+    // endpoint http://127.0.0.1:41397/MSI/token/
+    var options = {
+        uri: `${process.env["MSI_ENDPOINT"]}?resource=${resource}&api-version=${apiver}`,
+        headers: {
+            'Secret': process.env["MSI_SECRET"],
+            'Content-Type': "application/json"
+        }
+    };
+    return rp(options).then(function(res) {
+        var res = JSON.parse(res);
+        return res["access_token"]
+    });
+}
 
-function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
+function getToken() {
+    var options = { msiEndpoint: process.env["MSI_ENDPOINT"], msiSecret: process.env["MSI_SECRET"]}
+    return new Promise(function(resolve, reject) {
+        MsRest.loginWithAppServiceMSI(options, function(err, tokenResponse) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(tokenResponse);
+            }
+        });
+    });
+}
+//cleanup/arm/PR/test
+function getStorageAccountAccessKey(context, task) {
+    return getToken().then(function(credentials) {
+        var storagecli = new storageManagementClient(
+          credentials,
+          task.subscriptionId
+        );
+        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
+            return resp.keys[0].value;
+        });
+    });
+}
+
+function getBlockBlobService(context, task) {
+
+    return getStorageAccountAccessKey(context, task).then(function(accountKey) {
+        var blobService = storage.createBlobService(task.storageName, accountKey);
+        return blobService
+    });
+
+}
+
+function messageHandler(serviceBusTask, context, sumoClient) {
     file_ext = serviceBusTask.blobName.split(".").pop();
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
     if (!(file_ext in msghandler)) {
@@ -183,29 +234,31 @@ function messageHandler(serviceBusTask, context, connectionString, sumoClient) {
         }
 
     }
-    getData(serviceBusTask, connectionString, context).then(function(msg) {
-        context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-        var messageArray;
-        if (file_ext == "csv") {
-            getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, connectionString).then(function (headers) {
-                    context.log("Received headers %s", headers.join(","));
-                    messageArray =  msghandler[file_ext](msg, headers);
-                    context.log("Transformed data %s", JSON.stringify(messageArray));
-                    messageArray.forEach( function(msg) {
-                        sumoClient.addData(msg);
-                    });
-                    sumoClient.flushAll();
-            }).catch(function (err) {
-                context.log("Error in creating json from csv " + err);
-                context.done(err);
-            })
-        } else  {
-            messageArray = msghandler[file_ext](msg);
-            messageArray.forEach( function(msg) {
-                sumoClient.addData(msg);
-            });
-            sumoClient.flushAll();
-        }
+    getBlockBlobService(context, serviceBusTask).then(function(blobService) {
+        return getData(serviceBusTask, blobService, context).then(function(msg) {
+            context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            var messageArray;
+            if (file_ext == "csv") {
+                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
+                        context.log("Received headers %d", headers.length);
+                        messageArray =  msghandler[file_ext](msg, headers);
+                        // context.log("Transformed data %s", JSON.stringify(messageArray));
+                        messageArray.forEach( function(msg) {
+                            sumoClient.addData(msg);
+                        });
+                        sumoClient.flushAll();
+                }).catch(function (err) {
+                    context.log("Error in creating json from csv " + err);
+                    context.done(err);
+                })
+            } else  {
+                messageArray = msghandler[file_ext](msg);
+                messageArray.forEach( function(msg) {
+                    sumoClient.addData(msg);
+                });
+                sumoClient.flushAll();
+            }
+        });
     }).catch(function(err) {
         context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
         context.done(err);
@@ -241,7 +294,7 @@ function servicebushandler(context, serviceBusTask) {
     }
 
     var sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-    messageHandler(serviceBusTask, context, process.env.APPSETTING_StorageAcccountConnectionString, sumoClient);
+    messageHandler(serviceBusTask, context, sumoClient);
 
 }
 function timetriggerhandler(context, timetrigger) {
@@ -287,7 +340,7 @@ function timetriggerhandler(context, timetrigger) {
                 }
             }
             var sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-            messageHandler(serviceBusTask, context, process.env.APPSETTING_StorageAcccountConnectionString, sumoClient);
+            messageHandler(serviceBusTask, context, sumoClient);
 
         } else {
             if(typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
@@ -302,7 +355,6 @@ function timetriggerhandler(context, timetrigger) {
     });
 }
 module.exports = function (context, triggerData) {
-    //var options ={ 'urlString':process.env.APPSETTING_SumoSelfEventHubBadEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true};
    if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {

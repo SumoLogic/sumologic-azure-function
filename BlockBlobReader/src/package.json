@@ -5,7 +5,9 @@
   "main": "index.js",
   "dependencies": {
     "azure-sb": "^0.10.6",
-    "azure-storage": "^2.8.2"
+    "azure-storage": "^2.10.1",
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.5"
   },
   "devDependencies": {},
   "scripts": {

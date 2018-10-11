@@ -161,23 +161,6 @@ function getData(task, blobService, context) {
     });
 
 }
-function getAccessToken(context) {
-    var apiver = '2017-09-01';
-    var resource = 'https://management.azure.com/';
-    const rp = require('request-promise-native');
-    // endpoint http://127.0.0.1:41397/MSI/token/
-    var options = {
-        uri: `${process.env["MSI_ENDPOINT"]}?resource=${resource}&api-version=${apiver}`,
-        headers: {
-            'Secret': process.env["MSI_SECRET"],
-            'Content-Type': "application/json"
-        }
-    };
-    return rp(options).then(function(res) {
-        var res = JSON.parse(res);
-        return res["access_token"]
-    });
-}
 
 function getToken() {
     var options = { msiEndpoint: process.env["MSI_ENDPOINT"], msiSecret: process.env["MSI_SECRET"]}
@@ -191,14 +174,14 @@ function getToken() {
         });
     });
 }
-//cleanup/arm/PR/test
-function getStorageAccountAccessKey(context, task) {
+
+function getStorageAccountAccessKey(resourceGroupName, storageName) {
     return getToken().then(function(credentials) {
         var storagecli = new storageManagementClient(
           credentials,
           task.subscriptionId
         );
-        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
+        return storagecli.storageAccounts.listKeys(resourceGroupName, storageName).then(function (resp) {
             return resp.keys[0].value;
         });
     });
@@ -206,7 +189,7 @@ function getStorageAccountAccessKey(context, task) {
 
 function getBlockBlobService(context, task) {
 
-    return getStorageAccountAccessKey(context, task).then(function(accountKey) {
+    return getStorageAccountAccessKey(task.resourceGroupName, task.storageName).then(function(accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
         return blobService
     });

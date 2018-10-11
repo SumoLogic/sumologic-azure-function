@@ -13,7 +13,6 @@ function getRowKey(metadata) {
     return keyArr.join("-");
 }
 
-
 function getBlobMetadata(message) {
     var url = message.data.url;
     var data = url.split('/');
@@ -135,29 +134,6 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
 }
 
 module.exports = function (context, eventHubMessages) {
-    // eventHubMessages = [
-    //     {
-    //     topic: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/AG-SUMO/providers/Microsoft.Storage/storageAccounts/allbloblogs',
-    //     subject: '/blobServices/default/containers/testcontainer/blobs/testblob.log',
-    //     eventType: 'Microsoft.Storage.BlobCreated',
-    //     id: '3d8882c6-301e-00c5-4ed8-f1d6f006fc8e',
-    //     data:
-    //         {
-    //             api: 'PutBlockList',
-    //             clientRequestId: '4c9605d1-5dcb-11e8-865d-dca904938b01',
-    //             requestId: '3d8882c6-301e-00c5-4ed8-f1d6f0000000',
-    //             eTag: '0x8D5BFEF31665795',
-    //             contentType: 'application/octet-stream',
-    //             contentLength: 60858,
-    //             blobType: 'BlockBlob',
-    //             url: 'https://allbloblogs.blob.core.windows.net/testcontainer/testblob.log',
-    //             sequencer: '000000000000000000000000000008AA00000000011cc77e',
-    //             storageDiagnostics: [Object]
-    //         },
-    //     dataVersion: '',
-    //     metadataVersion: '1'
-    //     }
-    // ];
     try {
         // context.log("blobtaskproducer message received: ", eventHubMessages.length);
         var metadatamap = {};

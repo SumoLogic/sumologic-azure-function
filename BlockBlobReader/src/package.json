@@ -6,8 +6,8 @@
   "dependencies": {
     "azure-sb": "^0.10.6",
     "azure-storage": "^2.10.1",
-    "request": "^2.88.0",
-    "request-promise-native": "^1.0.5"
+    "azure-arm-storage": "^6.0.0",
+    "ms-rest-azure": "^2.5.9"
   },
   "devDependencies": {},
   "scripts": {

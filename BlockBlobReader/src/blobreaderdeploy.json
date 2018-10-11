@@ -67,7 +67,7 @@
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"master",
+            "defaultValue":"hpal_SUMO-96999",
             "type": "String"
         },
         "sourceCodeManualIntegration": {
@@ -76,10 +76,6 @@
         },
         "SumoEndpointURL": {
             "defaultValue": "Enter HTTP Source URL",
-            "type": "String"
-        },
-        "StorageAcccountConnectionString": {
-            "defaultValue": "Enter Storage Account Connection String",
             "type": "String"
         },
         "TABLE_NAME": {
@@ -290,7 +286,6 @@
                         { "name": "AzureWebJobsDashboard", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
-                        { "name": "StorageAcccountConnectionString", "value": "[parameters('StorageAcccountConnectionString')]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"}
                     ]
@@ -337,7 +332,6 @@
                         { "name": "AzureWebJobsDashboard", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
-                        { "name": "StorageAcccountConnectionString", "value": "[parameters('StorageAcccountConnectionString')]" },
                         { "name": "TASKQUEUE_NAME", "value": "[parameters('queues_rangetaskqueue_name')]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" }

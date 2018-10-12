@@ -176,13 +176,13 @@ function getToken() {
     });
 }
 
-function getStorageAccountAccessKey(resourceGroupName, storageName) {
+function getStorageAccountAccessKey(task) {
     return getToken().then(function (credentials) {
         var storagecli = new storageManagementClient(
           credentials,
           task.subscriptionId
         );
-        return storagecli.storageAccounts.listKeys(resourceGroupName, storageName).then(function (resp) {
+        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
             return resp.keys[0].value;
         });
     });
@@ -190,7 +190,7 @@ function getStorageAccountAccessKey(resourceGroupName, storageName) {
 
 function getBlockBlobService(context, task) {
 
-    return getStorageAccountAccessKey(task.resourceGroupName, task.storageName).then(function (accountKey) {
+    return getStorageAccountAccessKey(task).then(function (accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
         return blobService;
     });
@@ -329,7 +329,7 @@ function timetriggerhandler(context, timetrigger) {
 
         } else {
             if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-                context.log("No messages Found exiting.");
+                context.log(error);
                 context.done();
             } else {
                 context.log("Error in reading messages from DLQ: ", error, typeof(error));
@@ -340,6 +340,7 @@ function timetriggerhandler(context, timetrigger) {
     });
 }
 module.exports = function (context, triggerData) {
+
    if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {

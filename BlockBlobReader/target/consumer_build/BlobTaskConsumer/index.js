@@ -14,7 +14,7 @@ var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
 var https = require('https');
 
-function csvToArray( strData, strDelimiter ){
+function csvToArray(strData, strDelimiter) {
     strDelimiter = (strDelimiter || ",");
     var objPattern = new RegExp(
         (
@@ -23,28 +23,28 @@ function csvToArray( strData, strDelimiter ){
             "([^\"\\" + strDelimiter + "\\r\\n]*))"              // Standard fields.
         ),
         "gi"
-        );
+    );
     var arrData = [[]];
     var arrMatches = null;
     var strMatchedValue;
     var strMatchedDelimiter;
-    while (arrMatches = objPattern.exec( strData )){
-        strMatchedDelimiter = arrMatches[ 1 ];
-        if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter ){
-            arrData.push( [] );
+    while (arrMatches = objPattern.exec(strData)) {
+        strMatchedDelimiter = arrMatches[1];
+        if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) {
+            arrData.push([]);
         }
 
-        if (arrMatches[ 2 ]){
-            strMatchedValue = arrMatches[ 2 ].replace( //unescape any double quotes.
-                new RegExp( "\"\"", "g" ),
+        if (arrMatches[2]) {
+            strMatchedValue = arrMatches[2].replace( //unescape any double quotes.
+                new RegExp("\"\"", "g"),
                 "\""
                 );
         } else {
-            strMatchedValue = arrMatches[ 3 ]; // We found a non-quoted value.
+            strMatchedValue = arrMatches[3]; // We found a non-quoted value.
         }
-        arrData[ arrData.length - 1 ].push( strMatchedValue );
+        arrData[arrData.length - 1].push(strMatchedValue);
     }
-    return( arrData );
+    return arrData;
 }
 
 function hasAllHeaders(text) {
@@ -59,10 +59,11 @@ function hasAllHeaders(text) {
 
 function getHeaderRecursively(headertext, task, blobService, context) {
 
-    return new Promise(function(resolve, reject) {
-        getData(task, blobService, context).then(function(text) {
+    return new Promise(function (resolve, reject) {
+        getData(task, blobService, context).then(function (text) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
+            var bytesOffset = MAX_CHUNK_SIZE;
             if (onlyheadertext) {
                 var csvHeaders = csvToArray(onlyheadertext, DEFAULT_CSV_SEPARATOR);
                 if (csvHeaders && csvHeaders[0].length > 0) {
@@ -72,14 +73,14 @@ function getHeaderRecursively(headertext, task, blobService, context) {
                 }
             } else {
                 task.startByte = task.endByte + 1;
-                task.endByte = task.startByte + bytesOffset -1;
-                getHeaderRecursively(headertext, task, blobService, context).then(function(headers) {
+                task.endByte = task.startByte + bytesOffset - 1;
+                getHeaderRecursively(headertext, task, blobService, context).then(function (headers) {
                     resolve(headers);
-                }).catch(function(err) {
+                }).catch(function (err) {
                     reject(err);
                 });
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             reject(err);
         });
     });
@@ -105,8 +106,8 @@ function csvHandler(msgtext, headers) {
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
         messages = messages.slice(1); //removing header row
     }
-    messages.forEach(function(row) {
-        if (row.length == headers.length) {
+    messages.forEach(function (row) {
+        if (row.length === headers.length) {
             var msgobj = {};
             for (var i = headers.length - 1; i >= 0; i--) {
                 msgobj[headers[i]] = row[i];
@@ -150,7 +151,7 @@ function getData(task, blobService, context) {
     var blobName = task.blobName;
     var options = {rangeStart: task.startByte, rangeEnd: task.endByte};
 
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blob) {
             if (err) {
                 reject(err);
@@ -163,9 +164,9 @@ function getData(task, blobService, context) {
 }
 
 function getToken() {
-    var options = { msiEndpoint: process.env["MSI_ENDPOINT"], msiSecret: process.env["MSI_SECRET"]}
-    return new Promise(function(resolve, reject) {
-        MsRest.loginWithAppServiceMSI(options, function(err, tokenResponse) {
+    var options = {msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET};
+    return new Promise(function (resolve, reject) {
+        MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
             if (err) {
                 reject(err);
             } else {
@@ -176,7 +177,7 @@ function getToken() {
 }
 
 function getStorageAccountAccessKey(resourceGroupName, storageName) {
-    return getToken().then(function(credentials) {
+    return getToken().then(function (credentials) {
         var storagecli = new storageManagementClient(
           credentials,
           task.subscriptionId
@@ -189,23 +190,23 @@ function getStorageAccountAccessKey(resourceGroupName, storageName) {
 
 function getBlockBlobService(context, task) {
 
-    return getStorageAccountAccessKey(task.resourceGroupName, task.storageName).then(function(accountKey) {
+    return getStorageAccountAccessKey(task.resourceGroupName, task.storageName).then(function (accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
-        return blobService
+        return blobService;
     });
 
 }
 
 function messageHandler(serviceBusTask, context, sumoClient) {
-    file_ext = serviceBusTask.blobName.split(".").pop();
+    var file_ext = serviceBusTask.blobName.split(".").pop();
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
     if (!(file_ext in msghandler)) {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
         return;
     }
-    if (file_ext == "json") {
+    if (file_ext === "json") {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
-        if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES+JSON_BLOB_TAIL_BYTES) {
+        if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
             context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
             return;
         }
@@ -217,39 +218,39 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         }
 
     }
-    getBlockBlobService(context, serviceBusTask).then(function(blobService) {
-        return getData(serviceBusTask, blobService, context).then(function(msg) {
+    getBlockBlobService(context, serviceBusTask).then(function (blobService) {
+        return getData(serviceBusTask, blobService, context).then(function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
-            if (file_ext == "csv") {
+            if (file_ext === "csv") {
                 getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
-                        context.log("Received headers %d", headers.length);
-                        messageArray =  msghandler[file_ext](msg, headers);
-                        // context.log("Transformed data %s", JSON.stringify(messageArray));
-                        messageArray.forEach( function(msg) {
-                            sumoClient.addData(msg);
-                        });
-                        sumoClient.flushAll();
+                    context.log("Received headers %d", headers.length);
+                    messageArray = msghandler[file_ext](msg, headers);
+                    // context.log("Transformed data %s", JSON.stringify(messageArray));
+                    messageArray.forEach(function (msg) {
+                        sumoClient.addData(msg);
+                    });
+                    sumoClient.flushAll();
                 }).catch(function (err) {
                     context.log("Error in creating json from csv " + err);
                     context.done(err);
-                })
-            } else  {
+                });
+            } else {
                 messageArray = msghandler[file_ext](msg);
-                messageArray.forEach( function(msg) {
+                messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
                 sumoClient.flushAll();
             }
         });
-    }).catch(function(err) {
+    }).catch(function (err) {
         context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
         context.done(err);
     });
 }
 
 function servicebushandler(context, serviceBusTask) {
-
+    var sumoClient;
     var options = {
         urlString: process.env.APPSETTING_SumoLogEndpoint,
         metadata: {},
@@ -276,7 +277,7 @@ function servicebushandler(context, serviceBusTask) {
         }
     }
 
-    var sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+    sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
     messageHandler(serviceBusTask, context, sumoClient);
 
 }
@@ -298,6 +299,7 @@ function timetriggerhandler(context, timetrigger) {
                 clientHeader: "dlqblobreader-azure-function"
             };
             var serviceBusTask = JSON.parse(lockedMessage.body);
+            var sumoClient;
             function failureHandler(msgArray, ctx) {
                 ctx.log("Failed to send to Sumo");
                 if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
@@ -322,11 +324,11 @@ function timetriggerhandler(context, timetrigger) {
                     }
                 }
             }
-            var sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+            sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
             messageHandler(serviceBusTask, context, sumoClient);
 
         } else {
-            if(typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
+            if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
                 context.log("No messages Found exiting.");
                 context.done();
             } else {

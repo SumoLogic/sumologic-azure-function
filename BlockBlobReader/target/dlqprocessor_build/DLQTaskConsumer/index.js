@@ -118,12 +118,45 @@ function csvHandler(msgtext, headers) {
     return messageArray;
 }
 
+function nsgLogsHandler(jsonArray) {
+    var splitted_tuples, eventsArr = [];
+    jsonArray.forEach(function (record) {
+        record.properties.flows.forEach(function (rule) {
+            rule.flows.forEach(function (flow) {
+                flow.flowTuples.forEach(function (tuple) {
+                    col = tuple.split(",");
+                    eventsArr.push({
+                        time: record.time, // this should be epoch time
+                        sys_id: record.systemId,
+                        category: record.category,
+                        resource_id: record.resourceId,
+                        event_name: record.operationName,
+                        rule_name: rule.rule,
+                        mac: flow.mac,
+                        src_ip: col[1],
+                        dest_IP: col[2],
+                        src_port: col[3],
+                        dest_port: col[4],
+                        protocol: col[5],
+                        traffic_destination: col[6],
+                        "traffic_a/d": col[7]
+                        // nsg_name:
+                        // resource_group_name:
+                    });
+                })
+            })
+        })
+    });
+    return eventsArr;
+}
+
 function jsonHandler(msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
 
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
+    jsonArray = (jsonArray.length > 0 && jsonArray[0].category === "NetworkSecurityGroupFlowEvent") ? nsgLogsHandler(jsonArray) : jsonArray;
     return jsonArray;
 }
 
@@ -176,13 +209,13 @@ function getToken() {
     });
 }
 
-function getStorageAccountAccessKey(resourceGroupName, storageName) {
+function getStorageAccountAccessKey(task) {
     return getToken().then(function (credentials) {
         var storagecli = new storageManagementClient(
           credentials,
           task.subscriptionId
         );
-        return storagecli.storageAccounts.listKeys(resourceGroupName, storageName).then(function (resp) {
+        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
             return resp.keys[0].value;
         });
     });
@@ -190,7 +223,7 @@ function getStorageAccountAccessKey(resourceGroupName, storageName) {
 
 function getBlockBlobService(context, task) {
 
-    return getStorageAccountAccessKey(task.resourceGroupName, task.storageName).then(function (accountKey) {
+    return getStorageAccountAccessKey(task).then(function (accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
         return blobService;
     });
@@ -281,6 +314,7 @@ function servicebushandler(context, serviceBusTask) {
     messageHandler(serviceBusTask, context, sumoClient);
 
 }
+
 function timetriggerhandler(context, timetrigger) {
 
     if (timetrigger.isPastDue) {
@@ -329,7 +363,7 @@ function timetriggerhandler(context, timetrigger) {
 
         } else {
             if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-                context.log("No messages Found exiting.");
+                context.log(error);
                 context.done();
             } else {
                 context.log("Error in reading messages from DLQ: ", error, typeof(error));
@@ -339,7 +373,9 @@ function timetriggerhandler(context, timetrigger) {
 
     });
 }
+
 module.exports = function (context, triggerData) {
+
    if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {

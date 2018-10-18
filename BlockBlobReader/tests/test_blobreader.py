@@ -12,6 +12,10 @@ from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
 from azure.mgmt.eventgrid import EventGridManagementClient
 from azure.mgmt.eventhub import EventHubManagementClient
+from azure.mgmt.authorization import AuthorizationManagementClient
+from azure.mgmt.authorization.models import RoleAssignmentProperties
+from azure.graphrbac import GraphRbacManagementClient
+from azure.common.credentials import ServicePrincipalCredentials
 from azure.mgmt.eventgrid.models import (
     EventHubEventSubscriptionDestination,
     EventSubscriptionFilter,
@@ -44,7 +48,6 @@ class TestBlobReaderFlow(BaseTest):
         self.event_subscription_name = "testeventsubscription-%s" % self.unique_suffix
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
-            self.storage_connection_string = os.environ["StorageAcccountConnectionString"]
         except KeyError:
             raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
 
@@ -55,6 +58,12 @@ class TestBlobReaderFlow(BaseTest):
             self.delete_resource_group()
             self.delete_event_subscription()
         self.delete_container()
+        for name in ["consumer_role_guid", "dlqprocessor_role_guid"]:
+            guid = getattr(self, name, None)
+            if guid:
+                self.delete_keylistrole_appservice(self.test_storage_res_group,
+                                                   self.test_storageaccount_name,
+                                                   guid)
 
     def test_pipeline(self):
 
@@ -69,9 +78,18 @@ class TestBlobReaderFlow(BaseTest):
         self.create_offset_table()
         self.create_container()
         sleep(5)
+        self.consumer_role_guid = self.assign_keylistrole_appservice(self.test_storage_res_group,
+                                           self.test_storageaccount_name,
+                                           "SUMOBRTaskConsumer")
+        self.dlqprocessor_role_guid = self.assign_keylistrole_appservice(self.test_storage_res_group,
+                                           self.test_storageaccount_name,
+                                           "SUMOBRDLQProcessor")
+
+
         self.create_event_subscription()
         log_type = os.environ.get("LOG_TYPE", "log")
         print("Inserting mock %s data in BlobStorage" % log_type)
+
         if log_type in ("csv", "log",  "blob"):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
@@ -129,6 +147,55 @@ class TestBlobReaderFlow(BaseTest):
         ehitr = eventhub_client.event_hubs.list_by_namespace(
             self.RESOURCE_GROUP_NAME, namespace_name)
         return next(ehitr).id  # assming single eventhub
+
+    def get_object_id(self, resource_name_prefix, resource_type="Microsoft.Web/sites"):
+        full_app_name = None
+        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+            if (item.name.startswith(resource_name_prefix) and item.type == resource_type):
+                full_app_name = item.name
+                break
+
+        # without above it will throw Access Token missing or malformed and Invalid domain name in the request url.
+        credentials = ServicePrincipalCredentials(
+            client_id=self.config['AZURE_CLIENT_ID'],
+            secret=self.config['AZURE_CLIENT_SECRET'],
+            tenant=self.config['AZURE_TENANT_ID'],
+            resource="https://graph.windows.net"
+        )
+
+        gcli = GraphRbacManagementClient(credentials, self.config['AZURE_TENANT_ID'])
+        sp = gcli.service_principals.list(filter="displayName eq '%s'" % full_app_name)
+        sp = next(sp, False)
+        if sp:
+            print("Found Service Principal %s" % sp.display_name)
+            return sp.object_id
+        else:
+            raise Exception("Service Principal not found")
+
+    def delete_keylistrole_appservice(self, resource_group_name, storage_name, role_assignment_name):
+        resource_provider = "Microsoft.Storage"
+        resource_type = "storageAccounts"
+        scope = '/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s' % (
+            self.subscription_id, resource_group_name, resource_provider, resource_type, storage_name)
+        auth_cli = AuthorizationManagementClient(self.credentials, self.subscription_id, api_version="2015-07-01")
+        resp = auth_cli.role_assignments.delete(scope, role_assignment_name)
+        print("%s App Service access revoked %s Storage account" % (role_assignment_name, storage_name))
+
+    def assign_keylistrole_appservice(self, resource_group_name, storage_name, app_service_name):
+        resource_provider = "Microsoft.Storage"
+        resource_type = "storageAccounts"
+        scope = '/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s' % (
+            self.subscription_id, resource_group_name, resource_provider, resource_type, storage_name)
+        role_assignment_name = str(uuid.uuid4())
+        # id for "Storage Account Key Operator Service Role" https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#storage-account-key-operator-service-role
+        role_id = "/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s" % (self.subscription_id, "81a9662b-bebf-436f-a333-f67b29880f12")
+        principal_id = self.get_object_id(app_service_name)
+        props = RoleAssignmentProperties(role_definition_id=role_id, principal_id=principal_id)
+
+        auth_cli = AuthorizationManagementClient(self.credentials, self.subscription_id, api_version="2015-07-01")
+        resp = auth_cli.role_assignments.create(scope, role_assignment_name, properties=props)
+        print("%s App Service authorized to access %s Storage account" % (app_service_name, storage_name))
+        return role_assignment_name
 
     def create_offset_table(self):
         print("creating FileOffsetMap table")
@@ -298,7 +365,6 @@ class TestBlobReaderFlow(BaseTest):
         with open(template_path, 'r') as template_file_fd:
             template_data = json.load(template_file_fd)
 
-        template_data["parameters"]["StorageAcccountConnectionString"]["defaultValue"] = self.storage_connection_string
         template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
         template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
         template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name

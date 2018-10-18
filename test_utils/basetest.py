@@ -12,9 +12,9 @@ class BaseTest(unittest.TestCase):
     def create_credentials(self):
         config_file = os.path.expanduser("~/.azure/azure_credentials.json")
         if os.path.isfile(config_file):
-            config = json.load(open(config_file))
+            self.config = json.load(open(config_file))
         else:
-            config = {
+            self.config = {
                 'AZURE_SUBSCRIPTION_ID': os.environ['AZURE_SUBSCRIPTION_ID'],
                 'AZURE_CLIENT_ID': os.environ['AZURE_CLIENT_ID'],
                 'AZURE_CLIENT_SECRET': os.environ['AZURE_CLIENT_SECRET'],
@@ -22,14 +22,14 @@ class BaseTest(unittest.TestCase):
                 'AZURE_DEFAULT_REGION': os.environ.get("AZURE_DEFAULT_REGION",
                                                        "westus")
             }
-        self.subscription_id = str(config['AZURE_SUBSCRIPTION_ID'])
+        self.subscription_id = str(self.config['AZURE_SUBSCRIPTION_ID'])
 
         self.credentials = ServicePrincipalCredentials(
-            client_id=config['AZURE_CLIENT_ID'],
-            secret=config['AZURE_CLIENT_SECRET'],
-            tenant=config['AZURE_TENANT_ID']
+            client_id=self.config['AZURE_CLIENT_ID'],
+            secret=self.config['AZURE_CLIENT_SECRET'],
+            tenant=self.config['AZURE_TENANT_ID']
         )
-        self.location = str(config['AZURE_DEFAULT_REGION'])
+        self.location = str(self.config['AZURE_DEFAULT_REGION'])
 
         print("creating credentials", self.subscription_id)
 

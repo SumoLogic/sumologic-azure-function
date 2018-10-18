@@ -67,7 +67,7 @@
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"hpal_SUMO-96999",
+            "defaultValue":"master",
             "type": "String"
         },
         "sourceCodeManualIntegration": {

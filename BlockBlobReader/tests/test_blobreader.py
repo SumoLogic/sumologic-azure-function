@@ -58,12 +58,6 @@ class TestBlobReaderFlow(BaseTest):
             self.delete_resource_group()
             self.delete_event_subscription()
         self.delete_container()
-        for name in ["consumer_role_guid", "dlqprocessor_role_guid"]:
-            guid = getattr(self, name, None)
-            if guid:
-                self.delete_keylistrole_appservice(self.test_storage_res_group,
-                                                   self.test_storageaccount_name,
-                                                   guid)
 
     def test_pipeline(self):
 
@@ -75,21 +69,12 @@ class TestBlobReaderFlow(BaseTest):
         self.block_blob_service = self.get_blockblob_service(
             self.test_storage_res_group, self.test_storageaccount_name)
 
-        self.create_offset_table()
         self.create_container()
         sleep(5)
-        self.consumer_role_guid = self.assign_keylistrole_appservice(self.test_storage_res_group,
-                                           self.test_storageaccount_name,
-                                           "SUMOBRTaskConsumer")
-        self.dlqprocessor_role_guid = self.assign_keylistrole_appservice(self.test_storage_res_group,
-                                           self.test_storageaccount_name,
-                                           "SUMOBRDLQProcessor")
-
-
         self.create_event_subscription()
+        self.create_offset_table()
         log_type = os.environ.get("LOG_TYPE", "log")
         print("Inserting mock %s data in BlobStorage" % log_type)
-
         if log_type in ("csv", "log",  "blob"):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
@@ -229,7 +214,7 @@ class TestBlobReaderFlow(BaseTest):
         })
         event_subscription_info = EventSubscription(destination=destination, filter=esfilter)
         create_resp = event_client.event_subscriptions.create_or_update(scope, self.event_subscription_name, event_subscription_info)
-        # create_resp.wait() was getting timedout
+        create_resp.wait()
 
     def delete_event_subscription(self):
         print("deleting event subscription")
@@ -368,6 +353,8 @@ class TestBlobReaderFlow(BaseTest):
         template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
         template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
         template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
+        template_data["parameters"]["StorageAccountName"]["defaultValue"] = self.test_storageaccount_name
+        template_data["parameters"]["StorageAccountResourceGroupName"]["defaultValue"] = self.test_storage_res_group
 
         return template_data
 

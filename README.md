@@ -17,3 +17,8 @@ Each integration is structured in three folders
 * src/     - contains actual source files
 * target/  - directory used by azure's github integration to fetch source code
 * tests/   - contains integration tests
+
+
+### TLS 1.2 Requirement
+
+Sumo Logic only accepts connections from clients using TLS version 1.2 or greater. To utilize the content of this repo, ensure that it's running in an execution environment that is configured to use TLS 1.2 or greater.

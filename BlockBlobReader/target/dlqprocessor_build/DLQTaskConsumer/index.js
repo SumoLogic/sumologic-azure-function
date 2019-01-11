@@ -241,7 +241,7 @@ function servicebushandler(context, serviceBusTask) {
     }
 
     var sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-    messageHandler(serviceBusTask, context, process.env.APPSETTING_StorageAcccountConnectionString, sumoClient);
+    messageHandler(serviceBusTask, context, process.env.APPSETTING_StorageAccountConnectionString, sumoClient);
 
 }
 function timetriggerhandler(context, timetrigger) {
@@ -287,7 +287,7 @@ function timetriggerhandler(context, timetrigger) {
                 }
             }
             var sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-            messageHandler(serviceBusTask, context, process.env.APPSETTING_StorageAcccountConnectionString, sumoClient);
+            messageHandler(serviceBusTask, context, process.env.APPSETTING_StorageAccountConnectionString, sumoClient);
 
         } else {
             if(typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {

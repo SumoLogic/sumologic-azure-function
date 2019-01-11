@@ -44,9 +44,9 @@ class TestBlobReaderFlow(BaseTest):
         self.event_subscription_name = "testeventsubscription-%s" % self.unique_suffix
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
-            self.storage_connection_string = os.environ["StorageAcccountConnectionString"]
+            self.storage_connection_string = os.environ["StorageAccountConnectionString"]
         except KeyError:
-            raise Exception("SumoEndpointURL/StorageAcccountConnectionString environment variables are not set")
+            raise Exception("SumoEndpointURL/StorageAccountConnectionString environment variables are not set")
 
         self.repo_name, self.branch_name = self.get_git_info()
 
@@ -298,7 +298,7 @@ class TestBlobReaderFlow(BaseTest):
         with open(template_path, 'r') as template_file_fd:
             template_data = json.load(template_file_fd)
 
-        template_data["parameters"]["StorageAcccountConnectionString"]["defaultValue"] = self.storage_connection_string
+        template_data["parameters"]["StorageAccountConnectionString"]["defaultValue"] = self.storage_connection_string
         template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
         template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
         template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name

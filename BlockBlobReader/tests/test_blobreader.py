@@ -43,9 +43,11 @@ class TestBlobReaderFlow(BaseTest):
 
         self.test_storage_res_group = "ag-sumo"
         self.test_storageaccount_name = "allbloblogs"
+        self.test_storage_res_group = "SumoAuditCollection"
+        self.test_storageaccount_name = "allbloblogseastus"
         self.test_container_name = "testcontainer-%s" % (self.unique_suffix)
         self.test_filename = "testblob"
-        self.event_subscription_name = "testeventsubscription-%s" % self.unique_suffix
+        self.event_subscription_name = "SUMOBRSubscription"
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
@@ -68,19 +70,27 @@ class TestBlobReaderFlow(BaseTest):
         self.table_service = self.get_table_service()
         self.block_blob_service = self.get_blockblob_service(
             self.test_storage_res_group, self.test_storageaccount_name)
-
-        self.create_container()
-        sleep(5)
-        self.create_event_subscription()
         self.create_offset_table()
+        self.create_container()
+        sleep(10)
         log_type = os.environ.get("LOG_TYPE", "log")
         print("Inserting mock %s data in BlobStorage" % log_type)
         if log_type in ("csv", "log",  "blob"):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
+
         self.print_invocation_logs()
         self.check_error_logs()
+
+    def subscribe_to_another_storage_account():
+        # refactor insert mock logs/json
+        # crrerate/delete eeveent subscript
+        # assign/delete role
+        pass
+
+    def check_both_storage_accounts_present():
+        pass
 
     def check_sorted_task_range():
         pass
@@ -97,6 +107,7 @@ class TestBlobReaderFlow(BaseTest):
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
             if (item.name.startswith(resprefix) and item.type == restype):
+                self.res_suffix = item.name.replace(resprefix, "").strip()
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
 
@@ -220,7 +231,7 @@ class TestBlobReaderFlow(BaseTest):
         print("deleting event subscription")
         event_client = EventGridManagementClient(self.credentials, self.subscription_id)
         scope = '/subscriptions/'+self.subscription_id+'/resourceGroups/'+self.test_storage_res_group+'/providers/microsoft.storage/storageaccounts/%s' % self.test_storageaccount_name
-        event_client.event_subscriptions.delete(scope, self.event_subscription_name)
+        event_client.event_subscriptions.delete(scope, self.event_subscription_name+self.res_suffix)
 
     def create_or_update_blockblob(self, container_name, file_name, datalist, blocks):
         block_id = self.get_random_name()
@@ -257,6 +268,7 @@ class TestBlobReaderFlow(BaseTest):
 
     def insert_mock_json_in_BlobStorage(self):
         test_filename = self.test_filename + ".json"
+        # Todo refactor this to get current blocks
         blocks = self.insert_empty_json(self.test_container_name, test_filename)
         for i, data_block in enumerate(self.get_json_data()):
             block_id = self.get_random_name()
@@ -321,23 +333,28 @@ class TestBlobReaderFlow(BaseTest):
             sleep(15)
             max_retries -= 1
 
-        rows = self.table_service.query_entities(
-            self.log_table_name, filter="PartitionKey eq 'I'")
+        rows = self.table_service.query_entities(self.log_table_name, filter="PartitionKey eq 'I'")
 
         for row in sorted(rows.items, key=lambda k: k['FunctionName']):
             print(row.get("FunctionName"), str(row.get('StartTime')), str(row.get('EndTime')))
             print(row.get("ErrorDetails"))
             print(row.get('LogOutput', '').encode('utf-8'))
 
-    def check_error_logs(self):
+    def get_error_details(self, row_key):
+        rows = self.table_service.query_entities(self.log_table_name,
+                                                 filter="PartitionKey eq 'I' and RowKey eq '%s' and ErrorDetails ne ''" % (function_id), select="ErrorDetails")
+        errors = [r["ErrorDetails"] for r in rows if r.get("ErrorDetails")]
+        return errors[0] if len(errors) > 0 and errors[0] else ""
 
+    def check_error_logs(self):
+        expected_err_msg = "StorageError: The specified entity already exists."
         rows = self.table_service.query_entities(
-            self.log_table_name, filter="PartitionKey eq 'R2'")
+            self.log_table_name, filter="PartitionKey eq 'R2' and HasError eq 'True'")
 
         haserr = False
         for row in rows.items:
             print("LogRow: ", row["FunctionName"], row["HasError"])
-            if row["FunctionName"].startswith(("BlobTaskProducer", "BlobTaskConsumer", "DLQTaskConsumer")) and row["HasError"]:
+            if row["FunctionName"].startswith(("BlobTaskProducer", "BlobTaskConsumer", "DLQTaskConsumer")) and row["HasError"] and not self.get_error_details(row["FunctionInstanceId"]).startswith(expected_err_msg):
                 haserr = True
 
         self.assertFalse(haserr)

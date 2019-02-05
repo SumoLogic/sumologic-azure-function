@@ -126,7 +126,7 @@ function nsgLogsHandler(jsonArray) {
                 flow.flowTuples.forEach(function (tuple) {
                     col = tuple.split(",");
                     eventsArr.push({
-                        time: record.time, // this should be epoch time
+                        time: col[0], // this should be epoch time
                         sys_id: record.systemId,
                         category: record.category,
                         resource_id: record.resourceId,

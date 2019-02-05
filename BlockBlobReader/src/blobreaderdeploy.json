@@ -42,6 +42,14 @@
             "defaultValue": "[concat('SUMOBRSubscription', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
+        "eventGridTopicName": {
+            "defaultValue": "[concat('SUMOBREventGridTopic', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "filterPrefix": {
+            "defaultValue": "",
+            "type": "String"
+        },
         "queues_rangetaskqueue_name": {
             "defaultValue": "blobrangetaskqueue",
             "type": "String"
@@ -97,7 +105,8 @@
         "consumer_identity_resource": "[concat(resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '/providers/Microsoft.ManagedIdentity/Identities/default')]",
         "dlq_identity_resource": "[concat(resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '/providers/Microsoft.ManagedIdentity/Identities/default')]",
         "consumer_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name'))]",
-        "dlq_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name'))]"
+        "dlq_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name'))]",
+        "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
 
     },
     "resources": [
@@ -135,6 +144,36 @@
                     "principalId": "[reference(variables('dlq_identity_resource'), '2015-08-31-PREVIEW').principalId]",
                     "scope": "[variables('roleScope')]"
                   }
+                },
+                {
+                    "name": "[parameters('eventGridTopicName')]",
+                    "type": "Microsoft.EventGrid/topics",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2018-01-01"
+                },
+                {
+                    "type": "Microsoft.Storage/storageAccounts/providers/eventSubscriptions",
+                    "name": "[concat(parameters('StorageAccountName'), '/Microsoft.EventGrid/', parameters('eventgridsubscription_name'))]",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2018-01-01",
+                    "properties": {
+                        "destination": {
+                            "endpointType": "EventHub",
+                            "properties": {
+                                "resourceId": "[variables('eventhub_resourceId')]"
+                            }
+                        },
+                        "filter": {
+                            "subjectBeginsWith": "[parameters('filterPrefix')]",
+                            "isSubjectCaseSensitive": false,
+                            "includedEventTypes": [
+                                "Microsoft.Storage.BlobCreated"
+                            ]
+                        }
+                    },
+                    "dependsOn": [
+                        "[parameters('eventGridTopicName')]"
+                    ]
                 }
               ]
             }

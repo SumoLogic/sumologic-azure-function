@@ -9,8 +9,7 @@
              "resourceId": "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG",
              "operationName": "NetworkSecurityGroupFlowEvents",
              "properties": {"Version":1,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282421,42.119.146.95,10.1.0.4,51529,5358,T,I,D"]}]},{"rule":"UserRule_default-allow-rdp","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282370,163.28.66.17,10.1.0.4,61771,3389,T,I,A","1487282393,5.39.218.34,10.1.0.4,58596,3389,T,I,A","1487282393,91.224.160.154,10.1.0.4,61540,3389,T,I,A","1487282423,13.76.89.229,10.1.0.4,53163,3389,T,I,A"]}]}]}
-        }
-        ,
+        },
         {
              "time": "2017-02-16T22:01:32.8960000Z",
              "systemId": "2c002c16-72f3-4dc5-b391-3444c3527434",
@@ -18,15 +17,6 @@
              "resourceId": "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG",
              "operationName": "NetworkSecurityGroupFlowEvents",
              "properties": {"Version":1,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282481,195.78.210.194,10.1.0.4,53,1732,U,I,D"]}]},{"rule":"UserRule_default-allow-rdp","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282435,61.129.251.68,10.1.0.4,57776,3389,T,I,A","1487282454,84.25.174.170,10.1.0.4,59085,3389,T,I,A","1487282477,77.68.9.50,10.1.0.4,65078,3389,T,I,A"]}]}]}
-        }
-        ,
-        {
-             "time": "2017-02-16T22:02:32.9040000Z",
-             "systemId": "2c002c16-72f3-4dc5-b391-3444c3527434",
-             "category": "NetworkSecurityGroupFlowEvent",
-             "resourceId": "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG",
-             "operationName": "NetworkSecurityGroupFlowEvents",
-             "properties": {"Version":1,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282492,175.182.69.29,10.1.0.4,28918,5358,T,I,D","1487282505,71.6.216.55,10.1.0.4,8080,8080,T,I,D"]}]},{"rule":"UserRule_default-allow-rdp","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282512,91.224.160.154,10.1.0.4,59046,3389,T,I,A"]}]}]}
         },
         {
              "time": "2017-02-16T22:02:32.9040000Z",
@@ -67,6 +57,263 @@
              "resourceId": "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG",
              "operationName": "NetworkSecurityGroupFlowEvents",
              "properties": {"Version":1,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282492,175.182.69.29,10.1.0.4,28918,5358,T,I,D","1487282505,71.6.216.55,10.1.0.4,8080,8080,T,I,D"]}]},{"rule":"UserRule_default-allow-rdp","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282512,91.224.160.154,10.1.0.4,59046,3389,T,I,A"]}]}]}
+        },
+        {
+             "time": "2017-02-16T22:02:32.9040000Z",
+             "systemId": "2c002c16-72f3-4dc5-b391-3444c3527434",
+             "category": "NetworkSecurityGroupFlowEvent",
+             "resourceId": "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG",
+             "operationName": "NetworkSecurityGroupFlowEvents",
+             "properties": {"Version":1,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282492,175.182.69.29,10.1.0.4,28918,5358,T,I,D","1487282505,71.6.216.55,10.1.0.4,8080,8080,T,I,D"]}]},{"rule":"UserRule_default-allow-rdp","flows":[{"mac":"000D3AF8801A","flowTuples":["1487282512,91.224.160.154,10.1.0.4,59046,3389,T,I,A"]}]}]}
+        },
+        {
+            "time": "2018-08-06T20:03:53.1968773Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533585779,94.183.195.48,10.1.1.6,28086,8080,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:04:53.1989915Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533585886,125.45.169.190,10.1.1.6,10944,23,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:05:53.2003137Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533585913,116.88.76.224,10.1.1.6,63634,8080,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:06:53.2016506Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533585957,46.161.42.125,10.1.1.6,44448,3329,T,I,D,B,,,,",
+                                    "1533585981,192.251.231.111,10.1.1.6,65534,8545,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:07:53.2042071Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533586012,60.208.140.218,10.1.1.6,51436,1433,T,I,D,B,,,,",
+                                    "1533586040,218.77.187.194,10.1.1.6,1824,23,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:08:53.2058212Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533586127,185.208.209.6,10.1.1.6,46190,16422,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:09:53.2079280Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533586133,139.60.160.160,10.1.1.6,65532,33899,T,I,D,B,,,,",
+                                    "1533586136,185.170.42.106,10.1.1.6,54012,5616,T,I,D,B,,,,",
+                                    "1533586176,202.39.134.231,10.1.1.6,23234,23,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:10:53.2102344Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533586231,185.170.42.66,10.1.1.6,57844,16538,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:11:53.2117600Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533586255,173.249.45.203,10.1.1.6,55320,5038,T,I,D,B,,,,",
+                                    "1533586256,159.89.45.208,10.1.1.6,60094,53413,U,I,D,B,,,,",
+                                    "1533586274,185.222.211.114,10.1.1.6,58370,3353,T,I,D,B,,,,",
+                                    "1533586276,36.84.225.201,10.1.1.6,8714,80,T,I,D,B,,,,",
+                                    "1533586279,36.84.225.201,10.1.1.6,8714,80,T,I,D,B,,,,",
+                                    "1533586282,36.84.225.201,10.1.1.6,25954,80,T,I,D,B,,,,",
+                                    "1533586285,36.84.225.201,10.1.1.6,25954,80,T,I,D,B,,,,",
+                                    "1533586285,45.55.2.40,10.1.1.6,33022,1025,T,I,D,B,,,,",
+                                    "1533586288,36.84.225.201,10.1.1.6,44349,80,T,I,D,B,,,,",
+                                    "1533586292,36.84.225.201,10.1.1.6,44349,80,T,I,D,B,,,,",
+                                    "1533586296,36.84.225.201,10.1.1.6,6475,80,T,I,D,B,,,,",
+                                    "1533586299,36.84.225.201,10.1.1.6,6475,80,T,I,D,B,,,,",
+                                    "1533586302,36.84.225.201,10.1.1.6,12542,80,T,I,D,B,,,,",
+                                    "1533586305,36.84.225.201,10.1.1.6,12542,80,T,I,D,B,,,,",
+                                    "1533586308,36.84.225.201,10.1.1.6,8351,80,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "time": "2018-08-06T20:12:53.2144969Z",
+            "systemId": "bbd48473-8ce0-4834-99bb-2e13b9b23ff8",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/56ABFBD6-EC72-4CE9-831F-BC2B6F2C5505/RESOURCEGROUPS/FLOWLOGSV2DEMO/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MULTITIERAPP2-NSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 2,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": [
+                            {
+                                "mac": "002248034CC3",
+                                "flowTuples": [
+                                    "1533586312,36.84.225.201,10.1.1.6,8351,80,T,I,D,B,,,,",
+                                    "1533586335,46.161.27.243,10.1.1.6,42993,7272,T,I,D,B,,,,"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
         }
     ]
 }

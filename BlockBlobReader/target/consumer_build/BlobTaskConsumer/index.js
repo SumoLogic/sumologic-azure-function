@@ -121,11 +121,12 @@ function csvHandler(msgtext, headers) {
 function nsgLogsHandler(jsonArray) {
     var splitted_tuples, eventsArr = [];
     jsonArray.forEach(function (record) {
+        version = record.properties.Version;
         record.properties.flows.forEach(function (rule) {
             rule.flows.forEach(function (flow) {
                 flow.flowTuples.forEach(function (tuple) {
                     col = tuple.split(",");
-                    eventsArr.push({
+                    event = {
                         time: col[0], // this should be epoch time
                         sys_id: record.systemId,
                         category: record.category,
@@ -139,10 +140,19 @@ function nsgLogsHandler(jsonArray) {
                         dest_port: col[4],
                         protocol: col[5],
                         traffic_destination: col[6],
-                        "traffic_a/d": col[7]
+                        "traffic_a/d": col[7],
+                        version: version
                         // nsg_name:
                         // resource_group_name:
-                    });
+                    }
+                    if (version === 2) {
+                        event.flow_state = col[8]
+                        event.num_packets_sent_src_to_dest = col[9]
+                        event.bytes_sent_src_to_dest = col[10]
+                        event.num_packets_sent_dest_to_src = col[11]
+                        event.bytes_sent_dest_to_src = col[12]
+                    }
+                    eventsArr.push(event);
                 })
             })
         })

@@ -112,7 +112,7 @@
     "resources": [
         {
           "apiVersion": "2017-05-10",
-          "name": "nestedTemplate",
+          "name": "[concat('nestedTemplate', resourceGroup().name)]",
           "type": "Microsoft.Resources/deployments",
           "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
           "dependsOn": [

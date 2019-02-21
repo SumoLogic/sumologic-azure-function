@@ -141,16 +141,21 @@ function nsgLogsHandler(jsonArray) {
                         protocol: col[5],
                         traffic_destination: col[6],
                         "traffic_a/d": col[7],
-                        version: version
+                        version: version,
+                        flow_state: null,
+                        num_packets_sent_src_to_dest: null,
+                        bytes_sent_src_to_dest: null,
+                        num_packets_sent_dest_to_src: null,
+                        bytes_sent_dest_to_src: null
                         // nsg_name:
                         // resource_group_name:
                     }
                     if (version === 2) {
-                        event.flow_state = col[8]
-                        event.num_packets_sent_src_to_dest = col[9]
-                        event.bytes_sent_src_to_dest = col[10]
-                        event.num_packets_sent_dest_to_src = col[11]
-                        event.bytes_sent_dest_to_src = col[12]
+                        event.flow_state = (col[8] === "" || col[8] === undefined) ?  null : col[8];
+                        event.num_packets_sent_src_to_dest = (col[9] === "" || col[9] === undefined) ?  null : col[9];
+                        event.bytes_sent_src_to_dest = (col[10] === "" || col[10] === undefined) ?  null : col[10];
+                        event.num_packets_sent_dest_to_src = (col[11] === "" || col[11] === undefined) ?  null : col[11];
+                        event.bytes_sent_dest_to_src = (col[12] === "" || col[12] === undefined) ?  null : col[12];
                     }
                     eventsArr.push(event);
                 })

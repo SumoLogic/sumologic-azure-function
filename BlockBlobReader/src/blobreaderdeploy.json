@@ -42,6 +42,14 @@
             "defaultValue": "[concat('SUMOBRSubscription', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
+        "eventGridTopicName": {
+            "defaultValue": "[concat('SUMOBREventGridTopic', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "filterPrefix": {
+            "defaultValue": "",
+            "type": "String"
+        },
         "queues_rangetaskqueue_name": {
             "defaultValue": "blobrangetaskqueue",
             "type": "String"
@@ -78,17 +86,99 @@
             "defaultValue": "Enter HTTP Source URL",
             "type": "String"
         },
-        "StorageAcccountConnectionString": {
-            "defaultValue": "Enter Storage Account Connection String",
-            "type": "String"
-        },
         "TABLE_NAME": {
             "defaultValue": "FileOffsetMap",
             "type": "String"
+        },
+        "StorageAccountName": {
+          "type": "String"
+        },
+        "StorageAccountResourceGroupName": {
+          "type": "String"
         }
     },
-    "variables": {},
+    "variables": {
+        "consumer_roleGuid": "[guid(parameters('sites_blobreaderconsumer_name'), uniqueString(deployment().name, resourceGroup().id))]",
+        "dlq_roleGuid": "[guid(parameters('sites_DLQProcessor_name'), uniqueString(deployment().name, resourceGroup().id))]",
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '81a9662b-bebf-436f-a333-f67b29880f12')]",
+        "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
+        "consumer_identity_resource": "[concat(resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '/providers/Microsoft.ManagedIdentity/Identities/default')]",
+        "dlq_identity_resource": "[concat(resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '/providers/Microsoft.ManagedIdentity/Identities/default')]",
+        "consumer_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name'))]",
+        "dlq_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name'))]",
+        "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
+
+    },
     "resources": [
+        {
+          "apiVersion": "2017-05-10",
+          "name": "[concat('nestedTemplate', resourceGroup().name)]",
+          "type": "Microsoft.Resources/deployments",
+          "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
+          "dependsOn": [
+            "[variables('consumer_resourceId')]",
+            "[variables('dlq_resourceId')]"
+         ],
+          "properties": {
+            "mode": "Incremental",
+            "template": {
+              "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+              "contentVersion": "1.0.0.0",
+              "resources": [
+                {
+                  "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
+                  "apiVersion": "2017-05-01",
+                  "name": "[concat(parameters('StorageAccountName'),'/Microsoft.Authorization/', variables('consumer_roleGuid'))]",
+                  "properties": {
+                    "roleDefinitionId": "[variables('roleDefinitionId')]",
+                    "principalId": "[reference(variables('consumer_identity_resource'), '2015-08-31-PREVIEW').principalId]",
+                    "scope": "[variables('roleScope')]"
+                  }
+                },
+                {
+                  "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
+                  "apiVersion": "2017-05-01",
+                  "name": "[concat(parameters('StorageAccountName'),'/Microsoft.Authorization/', variables('dlq_roleGuid'))]",
+                  "properties": {
+                    "roleDefinitionId": "[variables('roleDefinitionId')]",
+                    "principalId": "[reference(variables('dlq_identity_resource'), '2015-08-31-PREVIEW').principalId]",
+                    "scope": "[variables('roleScope')]"
+                  }
+                },
+                {
+                    "name": "[parameters('eventGridTopicName')]",
+                    "type": "Microsoft.EventGrid/topics",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2018-01-01"
+                },
+                {
+                    "type": "Microsoft.Storage/storageAccounts/providers/eventSubscriptions",
+                    "name": "[concat(parameters('StorageAccountName'), '/Microsoft.EventGrid/', parameters('eventgridsubscription_name'))]",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2018-01-01",
+                    "properties": {
+                        "destination": {
+                            "endpointType": "EventHub",
+                            "properties": {
+                                "resourceId": "[variables('eventhub_resourceId')]"
+                            }
+                        },
+                        "filter": {
+                            "subjectBeginsWith": "[parameters('filterPrefix')]",
+                            "isSubjectCaseSensitive": false,
+                            "includedEventTypes": [
+                                "Microsoft.Storage.BlobCreated"
+                            ]
+                        }
+                    },
+                    "dependsOn": [
+                        "[parameters('eventGridTopicName')]"
+                    ]
+                }
+              ]
+            }
+          }
+        },
         {
             "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace'.",
             "type": "Microsoft.EventHub/namespaces",
@@ -275,6 +365,9 @@
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
             "scale": null,
+            "identity": {
+                "type": "SystemAssigned"
+            },
             "properties": {
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
@@ -287,7 +380,6 @@
                         { "name": "AzureWebJobsDashboard", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
-                        { "name": "StorageAcccountConnectionString", "value": "[parameters('StorageAcccountConnectionString')]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"}
                     ]
@@ -319,6 +411,9 @@
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
             "scale": null,
+            "identity": {
+                "type": "SystemAssigned"
+            },
             "properties": {
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms',parameters('serverfarms_ConsumerPlan_name'))]",
@@ -331,7 +426,6 @@
                         { "name": "AzureWebJobsDashboard", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
-                        { "name": "StorageAcccountConnectionString", "value": "[parameters('StorageAcccountConnectionString')]" },
                         { "name": "TASKQUEUE_NAME", "value": "[parameters('queues_rangetaskqueue_name')]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" }

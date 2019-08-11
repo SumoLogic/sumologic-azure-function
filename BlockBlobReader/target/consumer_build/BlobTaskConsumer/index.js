@@ -247,6 +247,9 @@ function getBlockBlobService(context, task) {
 
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
+    if (file_ext == serviceBusTask.blobName) {
+        file_ext = "log";
+    }
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
     if (!(file_ext in msghandler)) {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);

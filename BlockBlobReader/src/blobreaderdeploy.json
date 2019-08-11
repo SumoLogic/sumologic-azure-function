@@ -336,7 +336,7 @@
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-                            "value": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
                         },
                         { "name": "TABLE_NAME", "value": "[parameters('TABLE_NAME')]" },
                         { "name": "AzureEventHubConnectionString", "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_BlobReaderNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name')), '2017-04-01').primaryConnectionString]" },
@@ -362,7 +362,7 @@
             }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
-                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
             ]
         },
         {
@@ -387,7 +387,7 @@
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-                            "value": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
                         },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
@@ -412,7 +412,7 @@
             }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
-                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
             ]
         },
         {
@@ -437,7 +437,7 @@
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-                            "value": "[reference(resourceId('microsoft.insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
                         },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
@@ -463,7 +463,7 @@
             }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
-                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
             ]
         },
         {

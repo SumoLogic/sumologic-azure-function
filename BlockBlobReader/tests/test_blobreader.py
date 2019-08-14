@@ -41,8 +41,8 @@ class TestBlobReaderFlow(BaseTest):
             datetime.datetime.now().year, datetime.datetime.now().month)
         self.offsetmap_table_name = "FileOffsetMap"
 
-        self.test_storage_res_group = "ag-sumo"
-        self.test_storageaccount_name = "allbloblogs"
+        # self.test_storage_res_group = "ag-sumo"
+        # self.test_storageaccount_name = "allbloblogs"
         self.test_storage_res_group = "SumoAuditCollection"
         self.test_storageaccount_name = "allbloblogseastus"
         self.test_container_name = "testcontainer-%s" % (self.unique_suffix)
@@ -73,6 +73,7 @@ class TestBlobReaderFlow(BaseTest):
         self.create_offset_table()
         self.create_container()
         sleep(10)
+
         log_type = os.environ.get("LOG_TYPE", "log")
         print("Inserting mock %s data in BlobStorage" % log_type)
         if log_type in ("csv", "log",  "blob"):
@@ -80,8 +81,8 @@ class TestBlobReaderFlow(BaseTest):
         else:
             self.insert_mock_json_in_BlobStorage()
 
-        self.print_invocation_logs()
-        self.check_error_logs()
+        # self.print_invocation_logs()
+        # self.check_error_logs()
 
     def subscribe_to_another_storage_account():
         # refactor insert mock logs/json

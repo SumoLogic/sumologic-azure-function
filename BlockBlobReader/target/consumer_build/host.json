@@ -1,7 +1,7 @@
 {
     "serviceBus": {
-      "maxConcurrentCalls": 16,
-      "prefetchCount": 100,
+      "maxConcurrentCalls": 30,
+      "prefetchCount": 400,
       "autoRenewTimeout": "00:10:00"
     },
     "functionTimeout": "00:10:00",

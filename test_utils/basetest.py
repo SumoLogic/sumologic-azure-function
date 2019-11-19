@@ -95,4 +95,8 @@ class BaseTest(unittest.TestCase):
         if not branch_name or branch_name == "undefined" or not repo_name:
             raise Exception("No branch Found")
         print("Testing for repo %s in branch %s" % (repo_name, branch_name))
+
+        if isinstance(branch_name, bytes):
+            branch_name = branch_name.decode()
+
         return repo_name, branch_name

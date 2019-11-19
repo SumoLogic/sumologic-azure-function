@@ -300,16 +300,28 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     });
 }
 
+function setSourceCategory(serviceBusTask, options) {
+    // var sourcecategory;
+    // switch(serviceBusTask.containerName) {
+    //   case "avionte-prod-aero-web-logs":
+    //     sourcecategory = "PROD/Azure/IIS"
+    //     break;
+    //   default:
+    // }
+    // options.metadata["category"] =  sourcecategory;
+}
+
 function servicebushandler(context, serviceBusTask) {
     var sumoClient;
+
     var options = {
         urlString: process.env.APPSETTING_SumoLogEndpoint,
-        metadata: {},
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,
         clientHeader: "blobreader-azure-function"
     };
+    setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
         // ctx.log("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
@@ -341,16 +353,17 @@ function timetriggerhandler(context, timetrigger) {
     var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
     serviceBusService.receiveQueueMessage(process.env.APPSETTING_TASKQUEUE_NAME + '/$DeadLetterQueue', {isPeekLock: true}, function (error, lockedMessage) {
         if (!error) {
+            var serviceBusTask = JSON.parse(lockedMessage.body);
             // Message received and locked and try to resend
             var options = {
                 urlString: process.env.APPSETTING_SumoLogEndpoint,
-                metadata: {},
+                metadata: getSourceCategory(serviceBusTask),
                 MaxAttempts: 3,
                 RetryInterval: 3000,
                 compress_data: true,
                 clientHeader: "dlqblobreader-azure-function"
             };
-            var serviceBusTask = JSON.parse(lockedMessage.body);
+
             var sumoClient;
             function failureHandler(msgArray, ctx) {
                 ctx.log("Failed to send to Sumo");

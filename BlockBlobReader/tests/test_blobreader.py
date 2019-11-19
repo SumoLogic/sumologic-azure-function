@@ -80,7 +80,6 @@ class TestBlobReaderFlow(BaseTest):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
-
         # self.print_invocation_logs()
         # self.check_error_logs()
 

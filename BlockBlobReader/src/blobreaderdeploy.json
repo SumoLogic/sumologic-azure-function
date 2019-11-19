@@ -121,7 +121,9 @@
           "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
           "dependsOn": [
             "[variables('consumer_resourceId')]",
-            "[variables('dlq_resourceId')]"
+            "[variables('dlq_resourceId')]",
+            "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
+            "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
          ],
           "properties": {
             "mode": "Incremental",
@@ -464,6 +466,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+
             ]
         },
         {

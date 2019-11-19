@@ -75,7 +75,7 @@ SumoClient.prototype.disableTimer = function() {
  * Default method to generate a headersObj object for the bucket
  * @param message input message
  */
-SumoClient.prototype.generateHeaders = function(message) {
+SumoClient.prototype.generateHeaders = function(message, delete_metadata) {
     let sourceCategory = (this.options.metadata)? (this.options.metadata.category || '') :'';
     let sourceName = (this.options.metadata)? (this.options.metadata.name || ''):'' ;
     let sourceHost = (this.options.metadata)? (this.options.metadata.host || ''):'';
@@ -89,7 +89,9 @@ SumoClient.prototype.generateHeaders = function(message) {
             } else { targetProperty = property;}
             headerObj[targetProperty] = metadataOverride[property];
         });
-        delete message._sumo_metadata;
+        if (typeof delete_metadata === 'undefined' || delete_metadata) {
+            delete message._sumo_metadata;
+        }
     }
     return headerObj;
 };
@@ -100,7 +102,7 @@ SumoClient.prototype.generateHeaders = function(message) {
  * @return: a string used as the key for the bucket map
  */
 SumoClient.prototype.generateLogBucketKey = function(message) {
-    return JSON.stringify(this.generateHeaders(message));
+    return JSON.stringify(this.generateHeaders(message, false));
 };
 
 SumoClient.prototype.emptyBufferToSumo = function(metaKey) {

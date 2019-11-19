@@ -43,7 +43,7 @@ SumoMetricClient.prototype = Object.create(sumoclient.SumoClient.prototype)
  * @param message input message
  * @return a header object
  */
-SumoMetricClient.prototype.generateHeaders = function(message) {
+SumoMetricClient.prototype.generateHeaders = function(message, delete_metadata) {
     let sourceCategory = (this.options.metadata)? (this.options.metadata.category || '') :'';
     let sourceName = (this.options.metadata)? (this.options.metadata.name || ''):'' ;
     let sourceHost = (this.options.metadata)? (this.options.metadata.host || ''):'';
@@ -66,7 +66,9 @@ SumoMetricClient.prototype.generateHeaders = function(message) {
             } else { targetProperty = property;}
             headerObj[targetProperty] = metadataOverride[property];
         });
-        delete message._sumo_metadata;
+        if (typeof delete_metadata === 'undefined' || delete_metadata) {
+            delete message._sumo_metadata;
+        }
     }
 
     if (this.options.metric_type == this.metric_type_map.CARBON20) {

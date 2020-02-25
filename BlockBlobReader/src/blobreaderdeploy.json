@@ -1,5 +1,5 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_BlobReader_name": {
@@ -106,12 +106,7 @@
         "dlq_roleGuid": "[guid(parameters('sites_DLQProcessor_name'), uniqueString(deployment().name, resourceGroup().id))]",
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '81a9662b-bebf-436f-a333-f67b29880f12')]",
         "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
-        "consumer_identity_resource": "[concat(resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '/providers/Microsoft.ManagedIdentity/Identities/default')]",
-        "dlq_identity_resource": "[concat(resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '/providers/Microsoft.ManagedIdentity/Identities/default')]",
-        "consumer_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name'))]",
-        "dlq_resourceId": "[resourceId(subscription().subscriptionId, resourceGroup().name, 'Microsoft.Web/sites', parameters('sites_DLQProcessor_name'))]",
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
-
     },
     "resources": [
         {
@@ -120,15 +115,13 @@
           "type": "Microsoft.Resources/deployments",
           "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
           "dependsOn": [
-            "[variables('consumer_resourceId')]",
-            "[variables('dlq_resourceId')]",
             "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
             "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
          ],
           "properties": {
             "mode": "Incremental",
             "template": {
-              "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+              "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
               "contentVersion": "1.0.0.0",
               "resources": [
                 {
@@ -137,7 +130,7 @@
                   "name": "[concat(parameters('StorageAccountName'),'/Microsoft.Authorization/', variables('consumer_roleGuid'))]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
-                    "principalId": "[reference(variables('consumer_identity_resource'), '2015-08-31-PREVIEW').principalId]",
+                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]",
                     "scope": "[variables('roleScope')]"
                   }
                 },
@@ -147,7 +140,7 @@
                   "name": "[concat(parameters('StorageAccountName'),'/Microsoft.Authorization/', variables('dlq_roleGuid'))]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
-                    "principalId": "[reference(variables('dlq_identity_resource'), '2015-08-31-PREVIEW').principalId]",
+                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '2019-08-01', 'Full').Identity.principalId]",
                     "scope": "[variables('roleScope')]"
                   }
                 },

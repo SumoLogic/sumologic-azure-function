@@ -32,7 +32,7 @@ class TestBlobReaderFlow(BaseTest):
     def setUp(self):
         self.create_credentials()
         self.unique_suffix = datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S")
-        self.RESOURCE_GROUP_NAME = "TestBlobReaderLogs-%s" % (self.unique_suffix)
+        self.RESOURCE_GROUP_NAME = "TBL-%s" % (self.unique_suffix)
 
         self.resource_client = ResourceManagementClient(self.credentials,
                                                         self.subscription_id)

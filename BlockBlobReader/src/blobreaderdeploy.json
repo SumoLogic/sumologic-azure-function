@@ -3,23 +3,23 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_BlobReader_name": {
-            "defaultValue": "[concat('SUMOBRTaskProducer', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRTaskProducer', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "sites_blobreaderconsumer_name": {
-            "defaultValue": "[concat('SUMOBRTaskConsumer', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRTaskConsumer', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "sites_DLQProcessor_name": {
-            "defaultValue": "[concat('SUMOBRDLQProcessor', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRDLQProcessor', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_ConsumerPlan_name": {
-            "defaultValue": "[concat('SUMOBRConsumerPlan', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRConsumerPlan', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_BlobReaderPlan_name": {
-            "defaultValue": "[concat('SUMOBRProducerPlan', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRProducerPlan', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "config_web_name": {
@@ -31,15 +31,15 @@
             "type": "String"
         },
         "namespaces_BlobReaderNamespace_name": {
-            "defaultValue": "[concat('SUMOBREventHubNamespace', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBREvtHubNS', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "namespaces_blobreadertaskqueue_name": {
-            "defaultValue": "[concat('SUMOBRTaskQueueNamespace', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRTaskQNS', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "eventgridsubscription_name": {
-            "defaultValue": "[concat('SUMOBRSubscription', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRSubscription', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "eventGridTopicName": {

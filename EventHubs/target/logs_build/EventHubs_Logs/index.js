@@ -29,18 +29,17 @@ module.exports = function (context, eventHubMessages) {
         ctx.log("Failed to send to Sumo, backup to storageaccount now");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             context.bindings.outputBlob = messageArray.map(function(x) { return JSON.stringify(x);}).join("\n");
-            context.done();
         }
+        context.done();
     }
     function successHandler(ctx) {
         ctx.log('Successfully sent to Sumo');
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.log('Sent all data to Sumo. Exit now.');
-            context.done();
         }
+        context.done();
     }
     context.log("Flushing the rest of the buffers:");
     sumoClient.flushAll();
-
 };
 

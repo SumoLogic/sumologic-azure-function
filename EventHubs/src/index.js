@@ -6,7 +6,7 @@ var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 var sumoClient;
 
-function setSourceCategory(msg, context) {
+function setSourceCategory(context, msg) {
     // msg._sumo_metadata = {
     //     "category": "new_source_category"
     // }

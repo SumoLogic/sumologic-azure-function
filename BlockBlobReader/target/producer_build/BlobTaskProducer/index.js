@@ -5,43 +5,48 @@
 var storage = require('azure-storage');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
 
-function getRowKey(metadata) {
-    var storageName =  metadata.url.split("//").pop().split(".")[0];
-    var arr = metadata.url.split('/').slice(3);
+function getRowKey(url) {
+    var storageName = url.split("//").pop().split(".")[0];
+    var arr = url.split('/').slice(3);
     var keyArr = [storageName];
     Array.prototype.push.apply(keyArr, arr);
     return keyArr.join("-");
 }
 
-function getBlobMetadata(message) {
+function getBlobMetadata(message, contentLength) {
     var url = message.data.url;
     var data = url.split('/');
     var topicArr = message.topic.split('/');
 
-    // '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/AG-SUMO/providers/Microsoft.Storage/
-    //'https://allbloblogs.blob.core.windows.net/webapplogs/AZUREAUDITEVENTHUB/2018/04/26/09/f4f692.log'
+    //topicArr: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/AG-SUMO/providers/Microsoft.Storage/
+    // url: 'https://allbloblogs.blob.core.windows.net/webapplogs/AZUREAUDITEVENTHUB/2018/04/26/09/f4f692.log'
     return {
-        url: url,
+        rowKey: getRowKey(url),
         containerName: data[3],
         blobName: data.slice(4).join('/'),
         storageName: url.split("//").pop().split(".")[0],
         resourceGroupName: topicArr[4],
-        subscriptionId: topicArr[2]
+        subscriptionId: topicArr[2],
+        blobType: contentLength === 0 ? "AppendBlob" : "BlockBlob"
     };
 }
 
-function getEntity(metadata, endByte, currentEtag) {
-     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
+function getEntity(metadata, startByte, currentEtag) {
+    //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     var entGen = storage.TableUtilities.entityGenerator;
     // RowKey/Partition key cannot contain "/"
     var entity = {
         PartitionKey: entGen.String(metadata.containerName),
-        RowKey: entGen.String(getRowKey(metadata)),
+        RowKey: entGen.String(metadata.rowKey),
         blobName: entGen.String(metadata.blobName),
         containerName: entGen.String(metadata.containerName),
         storageName: entGen.String(metadata.storageName),
-        offset: entGen.Int64(endByte),
-        date: entGen.DateTime((new Date()).toISOString())
+        offset: entGen.Int64(startByte),
+        eventdate: entGen.DateTime((new Date()).toISOString()),
+        blobType: entGen.String(metadata.blobType),
+        done: entGen.Boolean(false),
+        resourceGroupName: entGen.String(metadata.resourceGroupName),
+        subscriptionId: entGen.String(metadata.subscriptionId)
     };
     if (currentEtag) {
         entity['.metadata'] = { etag: currentEtag };
@@ -50,26 +55,42 @@ function getEntity(metadata, endByte, currentEtag) {
 
     return entity;
 }
-
-function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap) {
+/**
+ * @param  {} eventHubMessages
+ * @param  {} allcontentlengths
+ * @param  {} metadatamap
+ * @param  {} context
+ * it creates a map {rowkey: [len1, len2, len3]}
+ * This is done to take care of the ordering of events in a batch
+ */
+function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap, context) {
     eventHubMessages.forEach(function (message) {
-        var metadata = getBlobMetadata(message);
-        var RowKey = getRowKey(metadata);
+        var contentLength = message.data.contentLength;
+        var metadata = getBlobMetadata(message, contentLength);
+        var RowKey = getRowKey(message.data.url);
         metadatamap[RowKey] = metadata;
-        (allcontentlengths[RowKey] || (allcontentlengths[RowKey] = [])).push(message.data.contentLength);
+        if (contentLength >= 0) {
+            (allcontentlengths[RowKey] || (allcontentlengths[RowKey] = [])).push(contentLength);
+        }
     });
 }
-
+/**
+ * @param  {} PartitionKey
+ * @param  {} RowKey
+ * @param  {} context
+ *
+ * retrieves the offset for a row from the table
+ */
 function getBlobPointerMap(PartitionKey, RowKey, context) {
     // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
     return new Promise(function (resolve, reject) {
         tableService.retrieveEntity(process.env.APPSETTING_TABLE_NAME, PartitionKey, RowKey, function (error, result, response) {
-          // context.log("inside getBlobPointerMap", response.statusCode);
-          if (response.statusCode === 404 || !error) {
-            resolve(response);
-          } else {
-            reject(error);
-          }
+            // context.log("inside getBlobPointerMap", response.statusCode);
+            if (response.statusCode === 404 || !error) {
+                resolve(response);
+            } else {
+                reject(error);
+            }
         });
     });
 }
@@ -79,7 +100,7 @@ function updateBlobPointerMap(entity, context) {
         var insertOrReplace = ".metadata" in entity ? tableService.replaceEntity.bind(tableService) : tableService.insertEntity.bind(tableService);
         insertOrReplace(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
             // context.log("inside updateBlobPointerMap", response.statusCode);
-            if(!error) {
+            if (!error) {
                 resolve(response);
             } else {
                 reject(error);
@@ -87,7 +108,19 @@ function updateBlobPointerMap(entity, context) {
         });
     });
 }
-
+/**
+ * @param  {} PartitionKey
+ * @param  {} RowKey
+ * @param  {} sortedcontentlengths
+ * @param  {} context
+ * @param  {} metadata
+ * @param  {} finalcontext
+ *
+ * If the contentLength is 0 then it is assumed to be Append Blobs else it is Block Blob
+ * In case of Append blob a row entry is created with negative offset and all the rows with Append blob blob types are polled by append blob producer function
+ *
+ * In cases of Block blob a task is created in service bus and consumer function consumes the task by download the file using the offset in task metadata and then sending to sumo logic's http endpoint
+ */
 function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context, metadata, finalcontext) {
     // context.log("inside createTasksForBlob", PartitionKey, RowKey, sortedcontentlengths, metadata);
     getBlobPointerMap(PartitionKey, RowKey, context).then(function (response) {
@@ -110,19 +143,32 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
                 lastoffset = endByte;
             }
         }
+
         if (lastoffset > currentoffset) { // modify offset only when it's been changed
+            context.log("Block blob scenario updating offset to: " + lastoffset + " from: " + currentoffset+ " RowKey: ", RowKey)
             var entity = getEntity(metadata, lastoffset, currentEtag);
             updateBlobPointerMap(entity, context).then(function (response) {
                 context.bindings.tasks = context.bindings.tasks.concat(tasks);
                 finalcontext(null, tasks.length + " Tasks added for RowKey: " + RowKey);
             }).catch(function (err) {
                 //handle catch with retry when If-match fails else other err
-                if (err.code === "UpdateConditionNotSatisfied" && error.statusCode === 412) {
+                if (err.code === "UpdateConditionNotSatisfied") {
                     context.log("Need to Retry: " + RowKey, entity);
                 }
                 finalcontext(err, "Unable to Update offset for RowKey: " + RowKey);
 
             });
+        } else if (currentoffset === -1 && lastoffset === -1) {
+            context.log("Append blob scenario create just an entry RowKey: ", RowKey)
+            var entity = getEntity(metadata, 0, currentEtag);
+            updateBlobPointerMap(entity, context).catch(function (err) {
+                //handle catch with retry when If-match fails else other err
+                if (err.code === "UpdateConditionNotSatisfied" && error.statusCode === 412) {
+                    context.log("Need to Retry: " + RowKey, entity);
+                }
+                finalcontext(err, "Unable to Update offset for RowKey: " + RowKey);
+            });
+
         } else {
             finalcontext(null, "No tasks created for RowKey: " + RowKey);
         }
@@ -136,10 +182,10 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
 
 module.exports = function (context, eventHubMessages) {
     try {
-        // context.log("blobtaskproducer message received: ", eventHubMessages.length);
+        context.log("blobtaskproducer message received: ", eventHubMessages.length);
         var metadatamap = {};
         var allcontentlengths = {};
-        getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap);
+        getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap, context);
         var processed = 0;
         context.bindings.tasks = [];
         var totalRows = Object.keys(allcontentlengths).length;

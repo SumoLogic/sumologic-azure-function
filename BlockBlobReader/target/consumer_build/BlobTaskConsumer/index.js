@@ -401,16 +401,31 @@ function messageHandler(serviceBusTask, context, sumoClient) {
 
     });
 }
-
+/**
+ * @param {} servisBusTask
+ * @param {} options
+ *
+ * This functions is used to route the logs/metrics to custom source categories based on the serviceBusTask attributes and also to add other metadata.
+ * metadata.name attribute sets the source name
+ * metadata.host attribute sets the source host
+ * metadata.category attribute sets the source category
+ */
 function setSourceCategory(serviceBusTask, options) {
-    // var sourcecategory;
-    // switch(serviceBusTask.containerName) {
-    //   case "avionte-prod-aero-web-logs":
-    //     sourcecategory = "PROD/Azure/IIS"
-    //     break;
-    //   default:
+    options.metadata = options.metadata || {};
+
+    // var sourcecategory = "<default source category>";
+    // switch(serviceBusTask.storageName) {
+    //     case "<your storage account name>":
+    //         switch(serviceBusTask.containerName) {
+    //             case "<your container name within the storage account>":
+    //                 sourcecategory = "<your source category where you want to route logs from within container>"
+    //                 break;
+    //         }
     // }
     // options.metadata["category"] =  sourcecategory;
+
+    options.metadata["name"]= serviceBusTask.blobName;
+
 }
 /**
  * @param  {} context
@@ -530,7 +545,7 @@ function timetriggerhandler(context, timetrigger) {
 }
 
 module.exports = function (context, triggerData) {
-
+    contentDownloaded = 0;
     if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {

@@ -14,12 +14,6 @@ function queryEntitiesSegmented (table, tableQuery, continuationToken)  {
     });
 }
 
-function getResourcePathForActiveFile(entity) {
-    // it returns the path for the directory in which only single service is writing to a single file.
-    //rowkey: allbloblogseastus-insights-logs-appserviceconsolelogs-resourceId=-SUBSCRIPTIONS-C088DC46-D692-42AD-A4B6-9A542D28AD2A-RESOURCEGROUPS-SUMOAUDITCOLLECTION-PROVIDERS-MICROSOFT.WEB-SITES-HIMTEST-y=2020-m=12-d=07-h=22-m=00-PT1H.json
-    // splitting by year and returning first half of rowkey
-    return String(entity.RowKey).split("-y=")[0]
-}
 function getTask(entity) {
     return {
         rowKey: entity.RowKey._,
@@ -32,34 +26,36 @@ function getTask(entity) {
         startByte: parseInt(entity.offset._) ,
     };
 }
-/**
- * @param  {} continuationToken
- * @param  {} tableQuery
- * Fetches the new files created in storage account
+/*
+ *
+ *  @param {} entity
+ *  @param {} context
+ *
+ * returns boolean if blob file exceeds max roll over days setting.
  */
-function queryNewFiles(continuationToken, tableQuery, context) {
-    var newFilesMap = {};
-    var tasks = [];
-    return new Promise(function (resolve, reject) {
-        return queryEntitiesSegmented(process.env.APPSETTING_TABLE_NAME, tableQuery, continuationToken).then(function (results) {
-            continuationToken = results.continuationToken;
-            results.entries.forEach(function(entity) {
-                task = getTask(entity);
-                tasks.push(task);
-                newFilesMap[getResourcePathForActiveFile(entity)] = entity;
-            });
-            if (continuationToken == null) {
-                context.log("queryNewFiles: finished all pages.");
-                return resolve([tasks, newFilesMap]);
-            } else {
-                context.log("queryNewFiles: moving to next page.");
-                return queryNewFiles(continuationToken, tableQuery, context).then(function (r) {
-                    return resolve([tasks.concat(r[0]), Object.assign(newFilesMap, r[1])]);
-                }).catch(reject);
-            }
-        }).catch(reject)
-    })
+function isArchived(context, entity) {
+    var maxArchivedDays = parseInt(process.env.APPSETTING_MAX_LOG_FILE_ROLLOVER_DAYS);
+    var curDate = new Date();
+    var lastsenddateStr;
+    if (entity.blobType._ === "AppendBlob" && entity.offset._ > 0) {
+        lastsenddateStr = entity.updatedate._;
+    } else if (entity.blobType._ === "BlockBlob") {
+        // block blob case
+        lastsenddateStr = entity.eventdate._;
+    } else {
+        return false;
+    }
+
+    var lastSendDate = new Date(lastsenddateStr);
+    var numDays = (curDate - lastSendDate) / (1000 * 60 * 60 * 24);
+    var rowKey = entity.RowKey._;
+    if (numDays >= maxArchivedDays) {
+        return true;
+    } else {
+        return false;
+    }
 }
+
 /**
  * @param  {} continuationToken
  * @param  {} tableQuery
@@ -67,27 +63,32 @@ function queryNewFiles(continuationToken, tableQuery, context) {
  *
  * fetches the existing files to create tasks
  */
-function queryExistingFiles(continuationToken, tableQuery, newFiles, context) {
-    var processedFiles = [];
+function queryExistingFiles(continuationToken, tableQuery, context, shouldCreateTasks) {
     var tasks = [];
+    var processedFiles = [];
     return new Promise(function (resolve, reject) {
         return queryEntitiesSegmented(process.env.APPSETTING_TABLE_NAME, tableQuery, continuationToken).then(function (results) {
             continuationToken = results.continuationToken;
-            results.entries.forEach(function (entity) {
-                task = getTask(entity);
-                tasks.push(task);
-                if (getResourcePathForActiveFile(entity) in newFiles) {
-                    entity.done = true;
-                    processedFiles.push(entity);
-                }
-            });
+            if (shouldCreateTasks) {
+                results.entries.forEach(function (entity) {
+
+                    if (isArchived(context, entity)) {
+                        processedFiles.push(entity);
+                    } else {
+                        task = getTask(entity);
+                        tasks.push(task);
+                    }
+
+                });
+            }
+
             if (continuationToken == null) {
                 context.log("queryExistingFiles: finished all pages.");
                 return resolve([tasks, processedFiles]);
             } else {
                 context.log("queryExistingFiles: moving to next page.");
-                return queryExistingFiles(continuationToken, tableQuery, newFiles, context).then(function (r) {
-                    return resolve([tasks.concat(r[0]), processedFiles.concat(r[1])]);
+                return queryExistingFiles(continuationToken, tableQuery, context, shouldCreateTasks).then(function (r) {
+                    resolve([tasks.concat(r[0]), processedFiles.concat(r[1])]);
                 }).catch(reject);
             }
         }).catch(reject);
@@ -100,9 +101,11 @@ function queryExistingFiles(continuationToken, tableQuery, newFiles, context) {
  * Updates the finishedfiles rows in batches and mark them as done so that in subsequent triggers these rows are not pulled.
  */
 function setFinishedFilesAsInactive(allfinishedFiles, context) {
+    // https://github.com/Azure/azure-storage-node/blob/master/lib/services/table/tablebatch.js
     var batch_promises = [];
     var successCnt = 0;
     var errorCnt = 0;
+    var maxBatchItems = 100;
     // All entities in the batch must have the same PartitionKey
     var groupedfinishedFiles = allfinishedFiles.reduce(function (rv, e) {
         (rv[e.PartitionKey._] = rv[e.PartitionKey._] || []).push(e);
@@ -112,14 +115,15 @@ function setFinishedFilesAsInactive(allfinishedFiles, context) {
     Object.keys(groupedfinishedFiles).forEach(function (groupKey) {
         var finishedFiles = groupedfinishedFiles[groupKey];
 
-        for (let batchIndex = 0; batchIndex < finishedFiles.length; batchIndex += 100) {
+        for (let batchIndex = 0; batchIndex < finishedFiles.length; batchIndex += maxBatchItems) {
             (function (batchIndex, groupKey) {
                 batch_promises.push(new Promise(function (resolve, reject) {
                     var batch = new storage.TableBatch();
-                    var currentBatch = finishedFiles.slice(batchIndex, batchIndex + 100);
+                    var currentBatch = finishedFiles.slice(batchIndex, batchIndex + maxBatchItems);
                     for (let index = 0; index < currentBatch.length; index++) {
                         const element = currentBatch[index];
-                        batch.insertOrMergeEntity(element);
+                        // batch.insertOrMergeEntity(element);
+                        batch.deleteEntity(element);
                     }
                     tableService.executeBatch(process.env.APPSETTING_TABLE_NAME, batch,
                         function (error, result, response) {
@@ -144,6 +148,33 @@ function setFinishedFilesAsInactive(allfinishedFiles, context) {
         context.done();
     });
 }
+
+/*
+ * @param  {} context
+ *
+ * It fetches the archived files for block blob type entries in table storage.
+*/
+function getArchivedBlockBlobFiles(context) {
+    // https://azure.github.io/azure-storage-node/TableQuery.html
+    // https://github.com/Azure/azure-storage-node/blob/master/lib/services/table/tableutilities.js
+    var maxArchivedDays = parseInt(process.env.APPSETTING_MAX_LOG_FILE_ROLLOVER_DAYS);
+    var dateVal = new Date();
+    dateVal.setDate(dateVal.getDate() - maxArchivedDays);
+
+    // fetch only Row and Partition Key for faster fetching
+    var archivedFileQuery = new storage.TableQuery().select('PartitionKey', 'RowKey').where(' blobType eq ? and eventdate le ?', "BlockBlob", dateVal.toISOString());
+    return queryExistingFiles(null, archivedFileQuery, context, false).then(function (res) {
+        var processedFiles = res[1];
+        context.log("BlockBlob Archived Files: " + processedFiles.length);
+        return processedFiles;
+    }).catch(function (error) {
+            context.log("Unable to fetch blockblob archived rows from table ", error);
+            // not failing so that other tasks gets archived
+            return [];
+    });
+}
+
+
 /**
  * @param  {} context
  *
@@ -152,27 +183,23 @@ function setFinishedFilesAsInactive(allfinishedFiles, context) {
  * Among the existing files it marks the ones which are inactive (it is assumed that the azure service won't be writing to this file after it switched to a new file)
  */
 function createTasks(context) {
-    var newFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset eq ?', false, "AppendBlob", 0)
-    var existingFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset gt ?', false, "AppendBlob", 0);
-    return queryNewFiles(null,  newFileQuery, context).catch(function (error) {
-        context.log("Unable to get new files", error);
-        return [[], {}];
-    }).then(function (r) {
-        var newFiletasks = r[0];
-        var newFilesMap = r[1];
-        context.log("Found new files: ", Object.keys(newFilesMap).length);
-        return queryExistingFiles(null, existingFileQuery, newFilesMap, context).then(function (res) {
-            var oldFiletasks = res[0];
-            var processedFiles = res[1];
-            context.log("New File Tasks created: " + newFiletasks.length + " Old File Tasks created: " + oldFiletasks.length + " Existing Files: " + processedFiles.length);
-            context.bindings.tasks = newFiletasks.concat(oldFiletasks);
-            // not failing in case of batch updates
+
+    var existingFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset ge ?', false, "AppendBlob", 0);
+    return queryExistingFiles(null, existingFileQuery, context, true).then(function (res) {
+        var existingFiletasks = res[0];
+        var processedFiles = res[1];
+        context.log("Existing File Tasks created: " + existingFiletasks.length + " AppendBlob Archived Files: " + processedFiles.length);
+        context.bindings.tasks = existingFiletasks;
+        // not failing in case of batch updates
+        return getArchivedBlockBlobFiles(context).then(function(r) {
+            processedFiles = processedFiles.concat(r);
             return setFinishedFilesAsInactive(processedFiles, context);
-        }).catch(function (error) {
-                context.log("Unable to process files from table ", error);
-                context.done(error);
-        })
-    });
+        });
+    }).catch(function (error) {
+            context.log("Error in create tasks ", error);
+            context.done(error);
+    })
+
 }
 
 module.exports = function (context, triggerData) {

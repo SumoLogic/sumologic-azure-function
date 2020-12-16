@@ -143,7 +143,7 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
                 lastoffset = endByte;
             }
         }
-
+        //Todo:  Bulk Row creation will reduce num of api calls.
         if (lastoffset > currentoffset) { // modify offset only when it's been changed
             context.log("Block blob scenario updating offset to: " + lastoffset + " from: " + currentoffset+ " RowKey: ", RowKey)
             var entity = getEntity(metadata, lastoffset, currentEtag);
@@ -161,9 +161,11 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
         } else if (currentoffset === -1 && lastoffset === -1) {
             context.log("Append blob scenario create just an entry RowKey: ", RowKey)
             var entity = getEntity(metadata, 0, currentEtag);
-            updateBlobPointerMap(entity, context).catch(function (err) {
+            updateBlobPointerMap(entity, context).then(function (response) {
+                finalcontext(null, "AppendBlob Entry added for RowKey: " + RowKey);
+            }).catch(function (err) {
                 //handle catch with retry when If-match fails else other err
-                if (err.code === "UpdateConditionNotSatisfied" && error.statusCode === 412) {
+                if (err.code === "UpdateConditionNotSatisfied") {
                     context.log("Need to Retry: " + RowKey, entity);
                 }
                 finalcontext(err, "Unable to Update offset for RowKey: " + RowKey);

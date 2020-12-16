@@ -94,6 +94,10 @@
             "defaultValue": "FileOffsetMap",
             "type": "String"
         },
+        "MAX_LOG_FILE_ROLLOVER_DAYS": {
+            "defaultValue": 3,
+            "type": "int"
+        },
         "StorageAccountName": {
           "type": "String"
         },
@@ -172,6 +176,10 @@
                             "includedEventTypes": [
                                 "Microsoft.Storage.BlobCreated"
                             ]
+                        },
+                        "retryPolicy": {
+                          "maxDeliveryAttempts": "10",
+                          "eventTimeToLiveInMinutes": "1440"
                         }
                     },
                     "dependsOn": [
@@ -393,7 +401,9 @@
 
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
-                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"}
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},
+                        { "name": "MAX_LOG_FILE_ROLLOVER_DAYS", "value": "[parameters('MAX_LOG_FILE_ROLLOVER_DAYS')]"}
+
                     ]
                 }
             },

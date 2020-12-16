@@ -79,7 +79,7 @@
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"hpal_append_blob_fix",
+            "defaultValue":"master",
             "type": "String"
         },
         "sourceCodeManualIntegration": {

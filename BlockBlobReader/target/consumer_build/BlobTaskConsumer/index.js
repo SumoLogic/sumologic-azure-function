@@ -406,25 +406,41 @@ function messageHandler(serviceBusTask, context, sumoClient) {
  * @param {} options
  *
  * This functions is used to route the logs/metrics to custom source categories based on the serviceBusTask attributes and also to add other metadata.
- * metadata.name attribute sets the source name
- * metadata.host attribute sets the source host
- * metadata.category attribute sets the source category
+ * metadata.sourceName attribute sets the source name
+ * metadata.sourceHost attribute sets the source host
+ * metadata.sourceCategory attribute sets the source category
  */
 function setSourceCategory(serviceBusTask, options) {
     options.metadata = options.metadata || {};
-
+    let customFields = {}
     // var sourcecategory = "<default source category>";
     // switch(serviceBusTask.storageName) {
-    //     case "<your storage account name>":
+    //     case "<your storage account name1>":
     //         switch(serviceBusTask.containerName) {
     //             case "<your container name within the storage account>":
     //                 sourcecategory = "<your source category where you want to route logs from within container>"
     //                 break;
     //         }
+    //         break;
+    //     case "<your storage account name2>":
+    //         switch(serviceBusTask.containerName) {
+    //             case "<your container name within the storage account>":
+    //                 sourcecategory = "<your source category where you want to route logs from within container>"
+    //                 break;
+    //         }
+    //         break;
     // }
-    // options.metadata["category"] =  sourcecategory;
+    // customFields["testcustomfield"] = <add your custom field value. Do not forget to add your field name(Ex testcustomfield) in the source otherwise it will be dropped>;
+    // options.metadata["sourceCategory"] =  sourcecategory;
+    if (customFields) {
+        let customFieldsArr = []
+        Object.keys(customFields).map(function(key, index) {
+            customFieldsArr.push(key.toString() + "=" + customFields[key].toString());
+        });
+        options.metadata["sourceFields"] = customFieldsArr.join();
+    }
 
-    options.metadata["name"]= serviceBusTask.blobName;
+    options.metadata["sourceName"]= serviceBusTask.blobName;
 
 }
 /**

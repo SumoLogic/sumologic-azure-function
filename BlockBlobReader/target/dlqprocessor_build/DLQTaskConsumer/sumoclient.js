@@ -10,7 +10,7 @@ var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
 
 
-var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
+var metadataMap  = {"sourceCategory":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host", "sourceFields": "X-Sumo-Fields"};
 /**
  * Class to receive messages and send to a designated Sumo endpoint. Each client is best used independently with a batch of messages so one can track the number
  * of messages sent successfully to Sumo and develop their own failure handling for those failed to be sent (out of this batch). It is of course
@@ -76,10 +76,11 @@ SumoClient.prototype.disableTimer = function() {
  * @param message input message
  */
 SumoClient.prototype.generateHeaders = function(message, delete_metadata) {
-    let sourceCategory = (this.options.metadata)? (this.options.metadata.category || '') :'';
-    let sourceName = (this.options.metadata)? (this.options.metadata.name || ''):'' ;
-    let sourceHost = (this.options.metadata)? (this.options.metadata.host || ''):'';
-    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': this.options.clientHeader || 'eventhublogs-azure-function'};
+    let sourceCategory = (this.options.metadata)? (this.options.metadata.sourceCategory || '') :'';
+    let sourceName = (this.options.metadata)? (this.options.metadata.sourceName || ''):'' ;
+    let sourceHost = (this.options.metadata)? (this.options.metadata.sourceHost || ''):'';
+    let sourceFields = (this.options.metadata)? (this.options.metadata.sourceFields || ''):'';
+    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Fields':sourceFields, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': this.options.clientHeader || 'eventhublogs-azure-function'};
 
     if (message.hasOwnProperty('_sumo_metadata')) {
         let metadataOverride = message._sumo_metadata;
@@ -95,6 +96,7 @@ SumoClient.prototype.generateHeaders = function(message, delete_metadata) {
     }
     return headerObj;
 };
+
 
 /**
  * Default method to generate the bucket key for the input message. For log messages, we'll use 3 metadata fields as the key
@@ -180,8 +182,8 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                         )
-                    .catch(() => {
-                        //self.context.log("Uh oh, failed to send to Sumo after "+self.MaxAttempts);
+                    .catch((e) => {
+                        self.context.log("Failed to send to Sumo after attempts: "+ self.MaxAttempts + " Error: " + JSON.stringify(e));
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
                         self.failure_callback(msgArray,self.context);

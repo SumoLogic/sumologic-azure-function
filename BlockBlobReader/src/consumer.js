@@ -203,14 +203,32 @@ function jsonHandler(msg) {
  * @param  {} msg
  * Handler for json line format where every line is a json object
  */
-function blobHandler(msg) {
+function blobHandler(context, msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
 
-    var jsonArray = [];
+    let jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
-    msg = msg.replace(/(\r?\n|\r)/g, ",");
-    jsonArray = JSON.parse("[" + msg + "]");
+
+    try {
+        jsonArray = JSON.parse("[" + msg.replace(/}\r?\n{/g,  "},{") + "]");
+    } catch(e) {
+        context.log("JSON ParseException in blobHandler");
+        context.log(e, msg);
+        // removing unparsed prefix and suffix
+        let start_idx = msg.indexOf('{');
+        let last_idx = msg.lastIndexOf('}');
+        let submsg = msg.substr(start_idx, last_idx+1-start_idx); // prefix & suffix removed
+        try {
+            jsonArray = JSON.parse("[" + msg.replace(/}\r?\n{/g,  "},{") + "]");
+            let suffixlen = msg.length - (li+1);
+            contentDownloaded -= suffixlen;
+        } catch(e) {
+            context.log("JSON ParseException in blobHandler with submsg", start_idx, last_idx, msg.substr(0,start_idx), msg.substr(last_idx+1));
+            // will try to ingest the whole block
+            jsonArray = [msg];
+        }
+    }
     return jsonArray;
 }
 
@@ -371,7 +389,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             if (file_ext === "csv") {
                 getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
                     context.log("Received headers %d", headers.length);
-                    messageArray = msghandler(msg, headers);
+                    messageArray = csvHandler(msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
                     messageArray.forEach(function (msg) {
                         sumoClient.addData(msg);
@@ -382,7 +400,12 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     context.done(err);
                 });
             } else {
-                messageArray = msghandler(msg);
+                if (file_ext === "json" && serviceBusTask.blobType === "AppendBlob") {
+                    messageArray = blobHandler(context, msg);
+                } else {
+                    messageArray = msghandler(msg);
+                }
+
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
@@ -412,7 +435,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
  */
 function setSourceCategory(serviceBusTask, options) {
     options.metadata = options.metadata || {};
-    let customFields = {}
+    let customFields = {};
     // var sourcecategory = "<default source category>";
     // switch(serviceBusTask.storageName) {
     //     case "<your storage account name1>":

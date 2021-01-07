@@ -187,7 +187,7 @@ function getArchivedBlockBlobFiles(context) {
 }
 
 /* To avoid duplication of tasks all the enqueued tasks (in service bus) are marked as locked
- * This will ensure that only after consumer function releases the lock after successfully send the log file
+ * This will ensure that only after consumer function releases the lock after successfully sending the log file
  * then only new task is produced for that file in case of append blobs.
  */
 function lockEnqueuedTasks(context, alltasks) {
@@ -262,12 +262,12 @@ function createTasks(context) {
         context.log("Existing File Tasks created: " + existingFiletasks.length + " AppendBlob Archived Files: " + processedFiles.length);
         context.bindings.tasks = existingFiletasks;
         // not failing in case of batch updates
-        // return lockEnqueuedTasks(context, existingFiletasks).then(function() {
+        return lockEnqueuedTasks(context, existingFiletasks).then(function() {
             return getArchivedBlockBlobFiles(context).then(function(r) {
                 processedFiles = processedFiles.concat(r);
                 return archiveFinishedFiles(processedFiles, context);
             });
-        // });
+        });
     }).catch(function (error) {
             context.log("Error in create tasks ", error);
             context.done(error);

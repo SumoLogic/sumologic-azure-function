@@ -264,6 +264,7 @@ function getEntity(task, endByte) {
 var contentDownloaded = 0;
 function setAppendBlobOffset(task) {
     return new Promise(function (resolve, reject) {
+        // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(task.startByte, 10) + contentDownloaded;
         entity = getEntity(task, newOffset);
         //using merge to preserve eventdate
@@ -347,7 +348,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     var msghandler;
 
-    if (file_ext === "log" || file_ext == serviceBusTask.blobName) {
+    if (file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) {
         msghandler = logHandler;
     } else if (file_ext === "csv") {
         msghandler = csvHandler
@@ -497,7 +498,7 @@ function servicebushandler(context, serviceBusTask) {
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
                 ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
-                if (!serviceBusTask.endByte && contentDownloaded > 0) {
+                if (serviceBusTask.blobType === "AppendBlob") {
                     return setAppendBlobOffset(serviceBusTask).then(function (res) {
                         var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
                         ctx.log("Successfully updated OffsetMap table to : ", newOffset);
@@ -556,14 +557,33 @@ function timetriggerhandler(context, timetrigger) {
                         ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
                     } else {
                         ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
-                        serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
-                            if (!deleteError) {
-                                context.log("sent and deleted");
-                                ctx.done();
-                            } else {
-                                ctx.done("Messages Sent but failed delete from DeadLetterQueue");
-                            }
-                        });
+
+                        if (serviceBusTask.blobType === "AppendBlob") {
+                            setAppendBlobOffset(serviceBusTask).then(function (res) {
+                                var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
+                                ctx.log("Successfully updated OffsetMap table to : ", newOffset);
+                                serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
+                                    if (!deleteError) {
+                                        ctx.log("sent and deleted");
+                                        ctx.done();
+                                    } else {
+                                        ctx.done("Messages Sent but failed delete from DeadLetterQueue");
+                                    }
+                                });
+                            }).catch(function (error) {
+                                ctx.log("Failed to update OffsetMap table: ", error, serviceBusTask)
+                                ctx.done(error);
+                            });
+                        } else {
+                            serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
+                                if (!deleteError) {
+                                    ctx.log("sent and deleted");
+                                    ctx.done();
+                                } else {
+                                    ctx.done("Messages Sent but failed delete from DeadLetterQueue");
+                                }
+                            });
+                        }
                     }
                 }
             }

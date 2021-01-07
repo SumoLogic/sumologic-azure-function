@@ -26,6 +26,18 @@ function getTask(entity) {
         startByte: parseInt(entity.offset._) ,
     };
 }
+function getLockedEntity(task) {
+    //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
+    var entGen = storage.TableUtilities.entityGenerator;
+    // RowKey/Partition key cannot contain "/"
+    var entity = {
+        PartitionKey: entGen.String(task.containerName),
+        RowKey: entGen.String(task.rowKey),
+        done: entGen.Boolean(true),
+    };
+    return entity;
+}
+
 /*
  *
  *  @param {} entity
@@ -100,7 +112,7 @@ function queryExistingFiles(continuationToken, tableQuery, context, shouldCreate
  *
  * Updates the finishedfiles rows in batches and mark them as done so that in subsequent triggers these rows are not pulled.
  */
-function setFinishedFilesAsInactive(allfinishedFiles, context) {
+function archiveFinishedFiles(allfinishedFiles, context) {
     // https://github.com/Azure/azure-storage-node/blob/master/lib/services/table/tablebatch.js
     var batch_promises = [];
     var successCnt = 0;
@@ -144,7 +156,7 @@ function setFinishedFilesAsInactive(allfinishedFiles, context) {
         }
     });
     return Promise.all(batch_promises).then(function(results) {
-        context.log("setFinishedFilesAsInactive succentCount: " + successCnt + " errorCount: " + errorCnt);
+        context.log("archiveFinishedFiles succentCount: " + successCnt + " errorCount: " + errorCnt);
         context.done();
     });
 }
@@ -174,7 +186,66 @@ function getArchivedBlockBlobFiles(context) {
     });
 }
 
+/* To avoid duplication of tasks all the enqueued tasks (in service bus) are marked as locked
+ * This will ensure that only after consumer function releases the lock after successfully send the log file
+ * then only new task is produced for that file in case of append blobs.
+ */
+function lockEnqueuedTasks(context, alltasks) {
+    // set done = true
+    allentities = alltasks.map(getLockedEntity);
+    var batch_promises = [];
+    var successCnt = 0;
+    var errorCnt = 0;
+    var maxBatchItems = 100;
+    // All entities in the batch must have the same PartitionKey
+    var groupedEntities = allentities.reduce(function (rv, e) {
+        (rv[e.PartitionKey._] = rv[e.PartitionKey._] || []).push(e);
+        return rv;
+    }, {});
 
+    Object.keys(groupedEntities).forEach(function (groupKey) {
+        var entities = groupedEntities[groupKey];
+
+        for (let batchIndex = 0; batchIndex < entities.length; batchIndex += maxBatchItems) {
+            (function (batchIndex, groupKey) {
+                batch_promises.push(new Promise(function (resolve, reject) {
+                    var batch = new storage.TableBatch();
+                    var currentBatch = entities.slice(batchIndex, batchIndex + maxBatchItems);
+                    for (let index = 0; index < currentBatch.length; index++) {
+                        const element = currentBatch[index];
+                        batch.insertOrMergeEntity(element);
+                    }
+                    tableService.executeBatch(process.env.APPSETTING_TABLE_NAME, batch,
+                        function (error, result, response) {
+                            if (error) {
+                                context.log("Error occurred while updating offset table for batch: " + batchIndex,  error);
+                                // not using reject so that all promises will get processed in promise.all
+                                errorCnt += 1;
+                                return resolve({status: "error"})
+                            } else {
+                                context.log("Updated offset table for batch: " + batchIndex + " groupKey: " + groupKey);
+                                successCnt += 1
+                                return resolve({ status: "success" });
+                            }
+                        });
+                }));
+            })(batchIndex, groupKey);
+
+        }
+    });
+    return Promise.all(batch_promises).then(function(results) {
+        context.log("lockEnqueuedTasks succentCount: " + successCnt + " errorCount: " + errorCnt);
+    });
+}
+
+/*
+ * In some cases due to rogue message consumer function may not be able to process messages
+ * and thus there is a chance that the file may get locked for a long time so the below function automatically
+ * releases the lock after a threshold is breached.
+ */
+function unlockLongPendingTasks(context, tasks) {
+    // Todo: set done = False
+}
 /**
  * @param  {} context
  *
@@ -191,10 +262,12 @@ function createTasks(context) {
         context.log("Existing File Tasks created: " + existingFiletasks.length + " AppendBlob Archived Files: " + processedFiles.length);
         context.bindings.tasks = existingFiletasks;
         // not failing in case of batch updates
-        return getArchivedBlockBlobFiles(context).then(function(r) {
-            processedFiles = processedFiles.concat(r);
-            return setFinishedFilesAsInactive(processedFiles, context);
-        });
+        // return lockEnqueuedTasks(context, existingFiletasks).then(function() {
+            return getArchivedBlockBlobFiles(context).then(function(r) {
+                processedFiles = processedFiles.concat(r);
+                return archiveFinishedFiles(processedFiles, context);
+            });
+        // });
     }).catch(function (error) {
             context.log("Error in create tasks ", error);
             context.done(error);

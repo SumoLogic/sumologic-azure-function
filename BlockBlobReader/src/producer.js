@@ -1,6 +1,6 @@
-///////////////////////////////////////////////////////////////////////////////////
-//           Function to create tasks using EventGrid Events into Azure EventHubs               //
-///////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//           Function to create Block Blob tasks using EventGrid Events into Azure Service Bus //
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
 var storage = require('azure-storage');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
@@ -31,6 +31,28 @@ function getBlobMetadata(message, contentLength) {
     };
 }
 
+/*
+*  FileOffsetMap table has following fields
+*  PartitionKey - container name
+*  RowKey - combination of storage, containername and blobname
+*  blobName - blobpath
+*  containerName
+*  storageName
+*  resourceGroupName
+*  subscriptionId
+*  offset - stores the location to the last send data
+*  eventdate - blob creation event date (set by TaskProducer)
+*
+*  Below Fields are specific to Append Blob only
+*
+*  lastEnqueLockTime - last Append Blob task enque(to Service Bus) date  (set by AppendBlob TaskProducer)
+*  senddate - last successful Append Blob data send (non empty data to Sumo) date (set by TaskConsumer)
+*  updatedate - last Append Blob task process date by Task Consumer
+*  done - denotes that Append Blob task is locked for new task creation
+*  blobType - AppendBlob/BlockBlob
+*
+*
+ */
 function getEntity(metadata, startByte, currentEtag) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     var entGen = storage.TableUtilities.entityGenerator;

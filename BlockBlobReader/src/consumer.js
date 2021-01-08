@@ -1,6 +1,6 @@
-///////////////////////////////////////////////////////////////////////////////////
-//           Function to read from an Azure EventHubs to SumoLogic               //
-///////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Function to read from an Azure Storage Account by consuming task from Service Bus and send data to SumoLogic //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
@@ -236,23 +236,28 @@ function logHandler(msg) {
     return [msg];
 }
 
-function getEntity(task, endByte) {
+function getUpdatedEntity(task, endByte) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     var entGen = storage.TableUtilities.entityGenerator;
     // RowKey/Partition key cannot contain "/"
+    // sets the offset updatedate done(releases the enque lock)
     var entity = {
+        done: entGen.Boolean(false),
+        updatedate: entGen.DateTime((new Date()).toISOString()),
+        offset: entGen.Int64(endByte),
+        // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
         PartitionKey: entGen.String(task.containerName),
         RowKey: entGen.String(task.rowKey),
         blobName: entGen.String(task.blobName),
         containerName: entGen.String(task.containerName),
         storageName: entGen.String(task.storageName),
-        offset: entGen.Int64(endByte),
-        updatedate: entGen.DateTime((new Date()).toISOString()),
         blobType: entGen.String(task.blobType),
-        done: entGen.Boolean(false),
         resourceGroupName: entGen.String(task.resourceGroupName),
         subscriptionId: entGen.String(task.subscriptionId)
     };
+    if (contentDownloaded > 0) {
+        entity["senddate"] = entGen.DateTime((new Date()).toISOString())
+    }
     return entity;
 }
 /**
@@ -266,7 +271,7 @@ function setAppendBlobOffset(task) {
     return new Promise(function (resolve, reject) {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(task.startByte, 10) + contentDownloaded;
-        entity = getEntity(task, newOffset);
+        entity = getUpdatedEntity(task, newOffset);
         //using merge to preserve eventdate
         tableService.insertOrMergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
             if (!error) {

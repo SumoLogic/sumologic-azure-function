@@ -6,10 +6,50 @@ var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 var sumoClient;
 
-function setSourceCategory(msg, context) {
-    // msg._sumo_metadata = {
-    //     "category": "new_source_category"
-    // }
+function setSourceCategory(context, msg) {
+    /*
+    // The below snippet gives an example on how to route logs to different source category based on log category and resource
+    msg._sumo_metadata = msg._sumo_metadata || {};
+    var sourcecategory;
+    switch(msg.category) {
+        // fall-through feature of the switch case so all the cases above Resource Health will have same auditlogs source category
+        case "Administrative":
+        case "Security":
+        case "Service Health":
+        case "Alert":
+        case "Recommendation":
+        case "Policy":
+        case "Autoscale":
+        case "Resource Health":
+            sourcecategory = "<overridden sourcecategory1 ex Azure/auditlogs>"
+            break;
+        case "ApplicationGatewayAccessLog":
+        case "ApplicationGatewayPerformanceLog":
+        case "ApplicationGatewayFirewallLog":
+            // You can also have switch inside switch and have source categories based on resource name
+            var applicationGatewayName = msg.resourceId.split("APPLICATIONGATEWAYS/").pop();
+            switch(applicationGatewayName) {
+                case "<application gateway name for prod>":
+                    sourcecategory = "prod/azure/network/applicationgateway";
+                    break;
+                case "<application gateway name for dev>":
+                    sourcecategory = "dev/azure/network/applicationgateway";
+                    break;
+            }
+            break;
+        case "QueryStoreWaitStatistics":
+        case "QueryStoreRuntimeStatistics"
+        case "ResourceUsageStats"
+        case "Errors"
+            sourcecategory = "<overridden sourcecategory3 ex Azure/MYSQL>";
+            break;
+        default:
+            sourcecategory = "<default sourcecategory>"
+            break;
+    }
+    msg._sumo_metadata["sourceCategory"] = sourcecategory;
+
+    */
 }
 
 module.exports = function (context, eventHubMessages) {

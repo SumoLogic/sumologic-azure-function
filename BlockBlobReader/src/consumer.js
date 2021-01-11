@@ -498,7 +498,7 @@ function servicebushandler(context, serviceBusTask) {
         compress_data: true,
         clientHeader: "blobreader-azure-function"
     };
-    setSourceCategory(serviceBusTask, options);
+    setSourceCategory(serviceBusTask, options, context);
     function failureHandler(msgArray, ctx) {
         // ctx.log("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
@@ -550,13 +550,12 @@ function timetriggerhandler(context, timetrigger) {
             // Message received and locked and try to resend
             var options = {
                 urlString: process.env.APPSETTING_SumoLogEndpoint,
-                metadata: getSourceCategory(serviceBusTask),
                 MaxAttempts: 3,
                 RetryInterval: 3000,
                 compress_data: true,
                 clientHeader: "dlqblobreader-azure-function"
             };
-
+            setSourceCategory(serviceBusTask, options, context);
             var sumoClient;
             function failureHandler(msgArray, ctx) {
                 ctx.log("Failed to send to Sumo");

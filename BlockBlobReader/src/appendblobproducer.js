@@ -34,21 +34,52 @@ function getLockedEntity(entity) {
     // lastEnqueLockTime - it denotes the last time when it was enqueued in Service Bus
     // done - it is set to true which means the task is enqueued in Service Bus
     var entity = {
-        PartitionKey: entity.PartitionKey._,
-        RowKey: entity.RowKey._,
+        PartitionKey: entity.PartitionKey,
+        RowKey: entity.RowKey,
         done: entGen.Boolean(true),
         lastEnqueLockTime: entGen.DateTime((new Date()).toISOString()),
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
-        blobName: entity.blobName._,
-        containerName: entity.containerName._,
-        storageName: entity.storageName._,
-        offset: entity.offset._,
-        blobType: entity.blobType._
-        resourceGroupName: entity.resourceGroupName._,
-        subscriptionId: entity.subscriptionId._
+        blobName: entity.blobName,
+        containerName: entity.containerName,
+        storageName: entity.storageName,
+        offset: entity.offset,
+        blobType: entity.blobType,
+        resourceGroupName: entity.resourceGroupName,
+        subscriptionId: entity.subscriptionId
     };
     return entity;
 }
+
+function getunLockedEntity(entity) {
+    //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
+    var entGen = storage.TableUtilities.entityGenerator;
+    // RowKey/Partition key cannot contain "/"
+    // lastEnqueLockTime - it denotes the last time when it was enqueued in Service Bus
+    // done - it is set to true which means the task is enqueued in Service Bus
+    var lastEnqueLockTime;
+    if (entity.lastEnqueLockTime === undefined) {
+        lastEnqueLockTime =  entity.eventdate;
+    } else {
+        lastEnqueLockTime = entity.lastEnqueLockTime;
+    }
+    var entity = {
+        PartitionKey: entity.PartitionKey,
+        RowKey: entity.RowKey,
+        done: entGen.Boolean(false),
+        // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
+        lastEnqueLockTime: lastEnqueLockTime,
+        eventdate: entity.eventdate,
+        blobName: entity.blobName,
+        containerName: entity.containerName,
+        storageName: entity.storageName,
+        offset: entity.offset,
+        blobType: entity.blobType,
+        resourceGroupName: entity.resourceGroupName,
+        subscriptionId: entity.subscriptionId
+    };
+    return entity;
+}
+
 
 /*
  *
@@ -64,11 +95,20 @@ function isAppendBlobArchived(context, entity) {
         var curDate = new Date();
         var fileCreationDate = new Date(entity.eventdate._);
         var numDaysPassedSinceFileCreation = (curDate - fileCreationDate) / (1000 * 60 * 60 * 24);
-        var lastEnqueTaskDate = new Date(entity.lastEnqueLockTime._);
+
+        var lastEnqueLockTime;
+        if (entity.lastEnqueLockTime === undefined) {
+            lastEnqueLockTime =  entity.eventdate._;
+        } else {
+            lastEnqueLockTime = entity.lastEnqueLockTime._;
+        }
+
+        var lastEnqueTaskDate = new Date(lastEnqueLockTime);
         var numHoursPassedSinceLastEnquedTask = (curDate - lastEnqueTaskDate) / (1000 * 60 * 60);
         var maxlockThresholdHours = 1;
         // Here we are also checking that file creation date should exceed threshold.
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
+        // context.log("isAppendBlobArchived appendblob RowKey: " + entity.RowKey._ + " numDaysPassedSinceFileCreation: " + numDaysPassedSinceFileCreation + " numHoursPassedSinceLastEnquedTask: " + numHoursPassedSinceLastEnquedTask);
         if ( (numDaysPassedSinceFileCreation >= maxArchivedDays) && (numHoursPassedSinceLastEnquedTask < maxlockThresholdHours)) {
             return true;
         } else {
@@ -95,7 +135,7 @@ function queryFiles(continuationToken, tableQuery, context) {
                 allentities.push(entity);
             });
             if (continuationToken == null) {
-                context.log("queryFiles: finished all pages.");
+                // context.log("queryFiles: finished all pages.");
                 return resolve(allentities);
             } else {
                 context.log("queryFiles: moving to next page.");
@@ -112,7 +152,6 @@ function queryFiles(continuationToken, tableQuery, context) {
  *  mode - if mode == insert it inserts or merges the entity
  */
 function batchUpdateOffsetTable(context, allentities, mode) {
-
     var batch_promises = [];
     var successCnt = 0;
     var errorCnt = 0;
@@ -125,7 +164,6 @@ function batchUpdateOffsetTable(context, allentities, mode) {
 
     Object.keys(groupedEntities).forEach(function (groupKey) {
         var entities = groupedEntities[groupKey];
-
         for (let batchIndex = 0; batchIndex < entities.length; batchIndex += maxBatchItems) {
             (function (batchIndex, groupKey) {
                 batch_promises.push(new Promise(function (resolve, reject) {
@@ -147,7 +185,7 @@ function batchUpdateOffsetTable(context, allentities, mode) {
                                 errorCnt += 1;
                                 return resolve({status: "error"})
                             } else {
-                                context.log("Updated offset table for batch: " + batchIndex + " groupKey: " + groupKey);
+                                context.log("Updated offset table mode: " + mode + "for batch: " + batchIndex + " groupKey: " + groupKey + " numElementinBatch: " + currentBatch.length);
                                 successCnt += 1
                                 return resolve({ status: "success" });
                             }
@@ -158,7 +196,9 @@ function batchUpdateOffsetTable(context, allentities, mode) {
         }
     });
     return Promise.all(batch_promises).then(function(results) {
-        context.log("batchUpdateOffsetTable mode: " + mode " succentCount: " + successCnt + " errorCount: " + errorCnt);
+
+        context.log("batchUpdateOffsetTable mode: " + mode + " succentCount: " + successCnt + " errorCount: " + errorCnt);
+        return results;
     });
 }
 
@@ -199,9 +239,9 @@ function getLockedEntitiesExceedingThreshold(context) {
     dateVal.setHours(dateVal.getHours() - maxlockThresholdHours);
     var lockedFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset ge ? and lastEnqueLockTime le ?', true, "AppendBlob", 0, dateVal.toISOString());
     return queryFiles(null, lockedFileQuery, context).then(function (allentities) {
-        context.log("Files exceeding maxlockThresholdHours: " + allentities.length);
-        var unlockedEntities = entities.map(function(entity) {
-            entity.done = false;
+        context.log("AppendBlob Locked Files exceeding maxlockThresholdHours: " + allentities.length);
+        var unlockedEntities = allentities.map(function(entity) {
+            return getunLockedEntity(entity);
         });
         return unlockedEntities;
     }).catch(function (error) {
@@ -250,6 +290,7 @@ function getTasksForUnlockedFiles(context) {
 function PollAppendBlobFiles(context) {
     // Since this function is not synchronize it may generate duplicate task in a scenario where the same function is running concurrently
     // therefore it's best to run this function at an interval of 5-10 min
+    context.bindings.tasks = []
     getTasksForUnlockedFiles(context).then(function (r) {
         var newFiletasks = r[0];
         var archivedRowEntities = r[1];

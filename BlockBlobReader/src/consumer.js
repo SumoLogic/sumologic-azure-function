@@ -203,7 +203,7 @@ function jsonHandler(msg) {
  * @param  {} msg
  * Handler for json line format where every line is a json object
  */
-function blobHandler(context, msg) {
+function blobHandler(context, msg, serviceBusTask) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
 
@@ -224,7 +224,7 @@ function blobHandler(context, msg) {
             let suffixlen = msg.length - (li+1);
             contentDownloaded -= suffixlen;
         } catch(e) {
-            context.log("JSON ParseException in blobHandler with submsg", start_idx, last_idx, msg.substr(0,start_idx), msg.substr(last_idx+1));
+            context.log("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0,start_idx), msg.substr(last_idx+1));
             // will try to ingest the whole block
             jsonArray = [msg];
         }
@@ -407,7 +407,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                 });
             } else {
                 if (file_ext === "json" && serviceBusTask.blobType === "AppendBlob") {
-                    messageArray = blobHandler(context, msg);
+                    messageArray = blobHandler(context, msg, serviceBusTask);
                 } else {
                     messageArray = msghandler(msg);
                 }
@@ -506,7 +506,7 @@ function servicebushandler(context, serviceBusTask) {
                 if (serviceBusTask.blobType === "AppendBlob") {
                     return setAppendBlobOffset(serviceBusTask).then(function (res) {
                         var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
-                        ctx.log("Successfully updated OffsetMap table to : ", newOffset);
+                        ctx.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
                         ctx.done();
                     }).catch(function (error) {
                         ctx.log("Failed to update OffsetMap table: ", error, serviceBusTask)
@@ -566,7 +566,7 @@ function timetriggerhandler(context, timetrigger) {
                         if (serviceBusTask.blobType === "AppendBlob") {
                             setAppendBlobOffset(serviceBusTask).then(function (res) {
                                 var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
-                                ctx.log("Successfully updated OffsetMap table to : ", newOffset);
+                                ctx.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
                                 serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
                                     if (!deleteError) {
                                         ctx.log("sent and deleted");

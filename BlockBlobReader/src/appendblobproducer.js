@@ -90,9 +90,10 @@ function getunLockedEntity(entity) {
  */
 function isAppendBlobArchived(context, entity) {
 
-    if (entity.blobType._ === "AppendBlob" && entity.offset._ > 0) {
+    if (entity.blobType._ === "AppendBlob" && entity.offset._ > 0 && entity.eventdate !== undefined) {
         var maxArchivedDays = parseInt(process.env.APPSETTING_MAX_LOG_FILE_ROLLOVER_DAYS);
         var curDate = new Date();
+
         var fileCreationDate = new Date(entity.eventdate._);
         var numDaysPassedSinceFileCreation = (curDate - fileCreationDate) / (1000 * 60 * 60 * 24);
 
@@ -110,10 +111,14 @@ function isAppendBlobArchived(context, entity) {
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
         // context.log("isAppendBlobArchived appendblob RowKey: " + entity.RowKey._ + " numDaysPassedSinceFileCreation: " + numDaysPassedSinceFileCreation + " numHoursPassedSinceLastEnquedTask: " + numHoursPassedSinceLastEnquedTask);
         if ( (numDaysPassedSinceFileCreation >= maxArchivedDays) && (numHoursPassedSinceLastEnquedTask < maxlockThresholdHours)) {
+            context.log("Archiving Append Blob File with RowKey: ", entity.RowKey)
             return true;
         } else {
             return false;
         }
+    } else if (entity.eventdate === undefined) {
+        context.log("Archiving Append Blob File with(no eventdate) RowKey: ", entity.RowKey)
+        return true;
     } else {
         return false;
     }

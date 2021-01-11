@@ -14,6 +14,8 @@ var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
 var https = require('https');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
+var DLQMessage = null;
+
 /**
  * @param  {} strData
  * @param  {} strDelimiter
@@ -267,13 +269,14 @@ function getUpdatedEntity(task, endByte) {
  * updates the offset in FileOffsetMap table for append blob file rows after the data has been sent to sumo
  */
 var contentDownloaded = 0;
-function setAppendBlobOffset(task) {
+function setAppendBlobOffset(context, task) {
     return new Promise(function (resolve, reject) {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(task.startByte, 10) + contentDownloaded;
         entity = getUpdatedEntity(task, newOffset);
         //using merge to preserve eventdate
-        tableService.insertOrMergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
+        tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
+            context.log(JSON.stringify(error), response);
             if (!error) {
                 resolve(response);
             } else {
@@ -349,6 +352,38 @@ function getBlockBlobService(context, task) {
 
 }
 
+function releaseLockfromOffsetTable(context, serviceBusTask) {
+    if (serviceBusTask.blobType === "AppendBlob") {
+        return setAppendBlobOffset(context, serviceBusTask).then(function (res) {
+            var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
+            context.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
+        }).catch(function (error) {
+            // not failing with error because log will automatically released by appendblob
+            context.log("Failed to update OffsetMap table: ", error, serviceBusTask)
+        });
+    } else {
+        return new Promise(function (resolve, reject) {resolve();});
+    }
+}
+
+function releaseMessagefromDLQ(context, serviceBusTask) {
+    return new Promise(function (resolve, reject) {
+        if (DLQMessage) {
+            var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
+            serviceBusService.deleteMessage(DLQMessage, function (deleteError) {
+                if (!deleteError) {
+                    context.log("Deleted DeadLetterQueue Message");
+                } else {
+                    context.log("Failed to delete from DeadLetterQueue");
+                }
+                resolve();
+            });
+        } else {
+            resolve();
+        }
+    });
+}
+
 function messageHandler(serviceBusTask, context, sumoClient) {
 
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
@@ -367,8 +402,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         // JSON format ie array of json objects is not supported for appendblobs
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
         if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
-            context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
-            return;
+            //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
+            return releaseMessagefromDLQ(context, serviceBusTask).then(function(){
+                context.done();
+            });
         }
         serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
         if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
@@ -378,8 +415,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         }
 
     } else {
-        context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
-        return;
+        // releasing message so that it doesn't get stuck in DLQ
+        return releaseMessagefromDLQ(context, serviceBusTask).then(function(){
+            context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
+        });
     }
 
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
@@ -394,7 +433,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             }
             var messageArray;
             if (file_ext === "csv") {
-                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
+                return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
                     context.log("Received headers %d", headers.length);
                     messageArray = csvHandler(msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
@@ -404,7 +443,11 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     sumoClient.flushAll();
                 }).catch(function (err) {
                     context.log("Error in creating json from csv " + err);
-                    context.done(err);
+                    return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+                        return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
+                            context.done(err);
+                        });
+                    });
                 });
             } else {
                 if (file_ext === "json" && serviceBusTask.blobType === "AppendBlob") {
@@ -420,21 +463,29 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             }
         });
     }).catch(function (err) {
-        if (serviceBusTask.blobType === "AppendBlob" && err.statusCode === 416 && err.code === "InvalidRange") {
+        if (err !== undefined && serviceBusTask.blobType === "AppendBlob" && err.statusCode === 416 && err.code === "InvalidRange") {
             // here in case of appendblob data may not exists after startByte
-            context.log("offset is already at the end startbyte: %d of blob: %s ", serviceBusTask.startByte, serviceBusTask.blobName);
-
-            return setAppendBlobOffset(serviceBusTask).then(function (res) {
-                var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
-                ctx.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
-                ctx.done();
-            }).catch(function (error) {
-                ctx.log("Failed to update OffsetMap table: ", error, serviceBusTask)
-                ctx.done(error);
+            context.log("offset is already at the end startbyte: %d of blob: %s ", serviceBusTask.startByte, serviceBusTask.rowKey);
+            return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+                return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
+                    context.done();
+                });
+            });
+        } else if (err !== undefined && (err.code === "ContainerNotFound" || err.code === "BlobNotFound")) {
+            // sometimes it may happen that the file/container gets deleted
+            context.log("File location doesn't exists:  blob %s %d %d %d %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+                return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
+                    context.done();
+                });
             });
         } else {
-            context.log("Error in messageHandler:  blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-            context.done(err);
+            context.log("Error in messageHandler:  blob %s %d %d %d %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+                return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
+                    context.done(err);
+                });
+            });
         }
 
     });
@@ -448,7 +499,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
  * metadata.sourceHost attribute sets the source host
  * metadata.sourceCategory attribute sets the source category
  */
-function setSourceCategory(serviceBusTask, options) {
+function setSourceCategory(serviceBusTask, options, context) {
     options.metadata = options.metadata || {};
     let customFields = {};
     // var sourcecategory = "<default source category>";
@@ -512,18 +563,11 @@ function servicebushandler(context, serviceBusTask) {
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
                 ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
-                if (serviceBusTask.blobType === "AppendBlob") {
-                    return setAppendBlobOffset(serviceBusTask).then(function (res) {
-                        var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
-                        ctx.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
+                return releaseLockfromOffsetTable(ctx, serviceBusTask).then(function() {
+                    return releaseMessagefromDLQ(ctx, serviceBusTask).then(function() {
                         ctx.done();
-                    }).catch(function (error) {
-                        ctx.log("Failed to update OffsetMap table: ", error, serviceBusTask)
-                        ctx.done(error);
                     });
-                } else {
-                    ctx.done();
-                }
+                });
             }
         }
     }
@@ -546,6 +590,7 @@ function timetriggerhandler(context, timetrigger) {
     var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
     serviceBusService.receiveQueueMessage(process.env.APPSETTING_TASKQUEUE_NAME + '/$DeadLetterQueue', { isPeekLock: true }, function (error, lockedMessage) {
         if (!error) {
+            DLQMessage = lockedMessage;
             var serviceBusTask = JSON.parse(lockedMessage.body);
             // Message received and locked and try to resend
             var options = {
@@ -560,7 +605,7 @@ function timetriggerhandler(context, timetrigger) {
             function failureHandler(msgArray, ctx) {
                 ctx.log("Failed to send to Sumo");
                 if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                    ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
                 }
             }
             function successHandler(ctx) {
@@ -570,33 +615,11 @@ function timetriggerhandler(context, timetrigger) {
                         ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
                     } else {
                         ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
-
-                        if (serviceBusTask.blobType === "AppendBlob") {
-                            setAppendBlobOffset(serviceBusTask).then(function (res) {
-                                var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
-                                ctx.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
-                                serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
-                                    if (!deleteError) {
-                                        ctx.log("sent and deleted");
-                                        ctx.done();
-                                    } else {
-                                        ctx.done("Messages Sent but failed delete from DeadLetterQueue");
-                                    }
-                                });
-                            }).catch(function (error) {
-                                ctx.log("Failed to update OffsetMap table: ", error, serviceBusTask)
-                                ctx.done(error);
+                        return releaseLockfromOffsetTable(ctx, serviceBusTask).then(function() {
+                            return releaseMessagefromDLQ(ctx, serviceBusTask).then(function() {
+                                ctx.done();
                             });
-                        } else {
-                            serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
-                                if (!deleteError) {
-                                    ctx.log("sent and deleted");
-                                    ctx.done();
-                                } else {
-                                    ctx.done("Messages Sent but failed delete from DeadLetterQueue");
-                                }
-                            });
-                        }
+                        });
                     }
                 }
             }
@@ -619,6 +642,7 @@ function timetriggerhandler(context, timetrigger) {
 module.exports = function (context, triggerData) {
     contentDownloaded = 0;
     if (triggerData.isPastDue === undefined) {
+        DLQMessage = null;
         servicebushandler(context, triggerData);
     } else {
         timetriggerhandler(context, triggerData);

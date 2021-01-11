@@ -314,11 +314,12 @@ function getData(task, blobService, context) {
 
 }
 
-function getToken() {
+function getToken(context, task) {
     var options = { msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET };
     return new Promise(function (resolve, reject) {
         MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
             if (err) {
+                context.log("MSI_REST_TOKEN", err, task);
                 reject(err);
             } else {
                 resolve(tokenResponse);
@@ -327,8 +328,8 @@ function getToken() {
     });
 }
 
-function getStorageAccountAccessKey(task) {
-    return getToken().then(function (credentials) {
+function getStorageAccountAccessKey(context, task) {
+    return getToken(context, task).then(function (credentials) {
         var storagecli = new storageManagementClient(
             credentials,
             task.subscriptionId
@@ -341,7 +342,7 @@ function getStorageAccountAccessKey(task) {
 
 function getBlockBlobService(context, task) {
 
-    return getStorageAccountAccessKey(task).then(function (accountKey) {
+    return getStorageAccountAccessKey(context, task).then(function (accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
         return blobService;
     });
@@ -422,7 +423,15 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         if (serviceBusTask.blobType === "AppendBlob" && err.statusCode === 416 && err.code === "InvalidRange") {
             // here in case of appendblob data may not exists after startByte
             context.log("offset is already at the end startbyte: %d of blob: %s ", serviceBusTask.startByte, serviceBusTask.blobName);
-            context.done()
+
+            return setAppendBlobOffset(serviceBusTask).then(function (res) {
+                var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
+                ctx.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
+                ctx.done();
+            }).catch(function (error) {
+                ctx.log("Failed to update OffsetMap table: ", error, serviceBusTask)
+                ctx.done(error);
+            });
         } else {
             context.log("Error in messageHandler:  blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             context.done(err);

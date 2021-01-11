@@ -269,16 +269,19 @@ function getUpdatedEntity(task, endByte) {
  * updates the offset in FileOffsetMap table for append blob file rows after the data has been sent to sumo
  */
 var contentDownloaded = 0;
-function setAppendBlobOffset(context, task) {
+function setAppendBlobOffset(context, serviceBusTask) {
     return new Promise(function (resolve, reject) {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
-        var newOffset = parseInt(task.startByte, 10) + contentDownloaded;
-        entity = getUpdatedEntity(task, newOffset);
+        var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
+        entity = getUpdatedEntity(serviceBusTask, newOffset);
         //using merge to preserve eventdate
         tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
-            context.log(JSON.stringify(error), response);
             if (!error) {
+                context.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
                 resolve(response);
+            } else if (error.code === "ResourceNotFound" && error.statusCode === 404) {
+                context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
+                resolve(response)
             } else {
                 reject(error);
             }
@@ -354,10 +357,7 @@ function getBlockBlobService(context, task) {
 
 function releaseLockfromOffsetTable(context, serviceBusTask) {
     if (serviceBusTask.blobType === "AppendBlob") {
-        return setAppendBlobOffset(context, serviceBusTask).then(function (res) {
-            var newOffset = parseInt(serviceBusTask.startByte, 10) + contentDownloaded;
-            context.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
-        }).catch(function (error) {
+        return setAppendBlobOffset(context, serviceBusTask).catch(function (error) {
             // not failing with error because log will automatically released by appendblob
             context.log("Failed to update OffsetMap table: ", error, serviceBusTask)
         });

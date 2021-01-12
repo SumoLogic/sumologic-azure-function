@@ -109,9 +109,8 @@ function isAppendBlobArchived(context, entity) {
         var maxlockThresholdHours = 1;
         // Here we are also checking that file creation date should exceed threshold.
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
-        // context.log("isAppendBlobArchived appendblob RowKey: " + entity.RowKey._ + " numDaysPassedSinceFileCreation: " + numDaysPassedSinceFileCreation + " numHoursPassedSinceLastEnquedTask: " + numHoursPassedSinceLastEnquedTask);
-        if ( (numDaysPassedSinceFileCreation >= maxArchivedDays) && (numHoursPassedSinceLastEnquedTask < maxlockThresholdHours)) {
-            context.log("Archiving Append Blob File with RowKey: ", entity.RowKey)
+        if ( (numDaysPassedSinceFileCreation >= maxArchivedDays) && (numHoursPassedSinceLastEnquedTask <= maxlockThresholdHours)) {
+            context.log("Archiving Append Blob File with RowKey: %s numDaysPassedSinceFileCreation: %d numHoursPassedSinceLastEnquedTask: %d", entity.RowKey, numDaysPassedSinceFileCreation, numHoursPassedSinceLastEnquedTask)
             return true;
         } else {
             return false;
@@ -246,6 +245,7 @@ function getLockedEntitiesExceedingThreshold(context) {
     return queryFiles(null, lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdHours: " + allentities.length);
         var unlockedEntities = allentities.map(function(entity) {
+            context.log("Unlocking Append Blob File with RowKey: %s lastEnqueLockTime: %s maxlastEnqueLockTime: %s", entity.RowKey, entity.lastEnqueLockTime._, dateVal.toISOString());
             return getunLockedEntity(entity);
         });
         return unlockedEntities;

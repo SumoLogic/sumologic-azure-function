@@ -277,7 +277,7 @@ function setAppendBlobOffset(context, serviceBusTask) {
         //using merge to preserve eventdate
         tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
             if (!error) {
-                context.log("Successfully updated OffsetMap for row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
+                context.log("Successfully updated OffsetMap Table row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
                 resolve(response);
             } else if (error.code === "ResourceNotFound" && error.statusCode === 404) {
                 context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
@@ -334,8 +334,44 @@ function getToken(context, task) {
     });
 }
 
+
+var lastTokenGenTime = null;
+var refreshTokenDuratoninMin = 60;
+var cachedTokenResponse = null;
+
+function isRefreshTokenDurationExceeded() {
+    if (!lastTokenGenTime) {
+        return true;
+    }
+    var currentTimestamp = new Date().getTime();
+    return ((currentTimestamp - lastTokenGenTime)/(1000 * 60)) >= refreshTokenDuratoninMin ? true : false;
+}
+
+/**
+ * @param  {} task
+ * @param  {} context
+ *
+ * fetching token and caching it for refreshTokenDuratoninMin
+ */
+function getCachedToken(context, task) {
+    if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
+        context.log("Regenerating token at: %s", new Date().toISOString());
+        return getToken(context, task).then(function(tokenResponse) {
+            lastTokenGenTime = new Date().getTime();
+            cachedTokenResponse = tokenResponse;
+            return cachedTokenResponse;
+        })
+    } else {
+        return new Promise(function (resolve, reject) {
+            var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
+            context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
+            resolve(cachedTokenResponse);
+        });
+    }
+}
+
 function getStorageAccountAccessKey(context, task) {
-    return getToken(context, task).then(function (credentials) {
+    return getCachedToken(context, task).then(function (credentials) {
         var storagecli = new storageManagementClient(
             credentials,
             task.subscriptionId
@@ -374,7 +410,7 @@ function releaseMessagefromDLQ(context, serviceBusTask) {
                 if (!deleteError) {
                     context.log("Deleted DeadLetterQueue Message");
                 } else {
-                    context.log("Failed to delete from DeadLetterQueue");
+                    context.log("Failed to delete from DeadLetterQueue", deleteError);
                 }
                 resolve();
             });
@@ -417,11 +453,11 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     } else {
         // releasing message so that it doesn't get stuck in DLQ
         return releaseMessagefromDLQ(context, serviceBusTask).then(function(){
-            context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
+            context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
         });
     }
 
-    getBlockBlobService(context, serviceBusTask).then(function (blobService) {
+    return getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
         return getData(serviceBusTask, blobService, context).then(function (r) {
             var msg = r[0];

@@ -220,7 +220,7 @@ function getArchivedBlockBlobFiles(context) {
     dateVal.setDate(dateVal.getDate() - maxArchivedDays);
 
     // fetch only Row and Partition Key for faster fetching
-    var archivedFileQuery = new storage.TableQuery().select('PartitionKey', 'RowKey').where(' blobType eq ? and eventdate le ?', "BlockBlob", dateVal.toISOString());
+    var archivedFileQuery = new storage.TableQuery().select('PartitionKey', 'RowKey').where(' blobType eq ? and eventdate le ?date?', "BlockBlob", dateVal);
     return queryFiles(null, archivedFileQuery, context).then(function (processedFiles) {
         context.log("BlockBlob Archived Files: " + processedFiles.length);
         return processedFiles;
@@ -230,6 +230,7 @@ function getArchivedBlockBlobFiles(context) {
         return [];
     });
 }
+
 
 /*
  * In some cases due to rogue message consumer function may not be able to process messages
@@ -241,11 +242,12 @@ function getLockedEntitiesExceedingThreshold(context) {
     var maxlockThresholdHours = 1;
     var dateVal = new Date();
     dateVal.setHours(dateVal.getHours() - maxlockThresholdHours);
-    var lockedFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset ge ? and lastEnqueLockTime le ?', true, "AppendBlob", 0, dateVal.toISOString());
+    var lockedFileQuery = new storage.TableQuery().where(' (done eq ?) and (blobType eq ?) and (offset ge ?) and lastEnqueLockTime le ?date?', true, "AppendBlob", 0, dateVal);
+    // context.log("maxlastEnqueLockTime: %s", dateVal.toISOString());
     return queryFiles(null, lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdHours: " + allentities.length);
         var unlockedEntities = allentities.map(function(entity) {
-            context.log("Unlocking Append Blob File with RowKey: %s lastEnqueLockTime: %s maxlastEnqueLockTime: %s", entity.RowKey, entity.lastEnqueLockTime._, dateVal.toISOString());
+            // context.log("Unlocking Append Blob File with RowKey: %s lastEnqueLockTime: %s", entity.RowKey._, entity.lastEnqueLockTime._);
             return getunLockedEntity(entity);
         });
         return unlockedEntities;

@@ -175,8 +175,8 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
 
-            zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
-                if (!e)  {
+            zlib.gzip(msgArray.join('\n'),function(gziperr, compressed_data){
+                if (!gziperr)  {
                     sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                             .then(()=> {
                         //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
@@ -189,6 +189,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         self.failure_callback(msgArray,self.context);
                     });
                 } else {
+                    self.context.log("Failed to gzip data gziperr: " + JSON.stringify(gziperr));
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.failure_callback(msgArray,self.context);
@@ -198,7 +199,8 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             //self.context.log('Send raw data to Sumo');
             sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
                     .then(()=> { self.success_callback(self.context);})
-            .catch(() => {
+            .catch((e) => {
+                self.context.log("Failed to send to Sumo after attempts: "+ self.MaxAttempts + " Error: " + JSON.stringify(e));
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
                 self.failure_callback(msgArray,self.context);

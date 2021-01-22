@@ -442,6 +442,15 @@ function sendToSumoBlocking(chunk, sendOptions, context) {
 
 }
 
+function setAppendBlobBatchSize(serviceBusTask) {
+
+    var batchSize = 12 * 1024 * 1024;
+    // Example changing batchsize based on metadata
+    // if (serviceBusTask.containerName === "cct-prod-logs") {
+    //     batchSize = 80 * 1024 * 1024;
+    // }
+    return batchSize;
+}
 
 function appendBlobStreamMessageHandler(context, serviceBusTask) {
 
@@ -463,7 +472,7 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
     return getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
         var numChunks = 0;
-        let batchSize = 12 * 1024 * 1024; // default batch size from sdk code
+        let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
         var dataLen = 0;
         var dataLenSent = 0;
         var allDataFlushed = true;
@@ -538,22 +547,27 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
             } else {
                 context.log("ReadStream error blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
             }
-            if (discardError) {
-                return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
+            return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
+                if (discardError) {
                     context.done();
-                });
-            } else {
-                // after 1 hr lock automatically releases
-                context.done(err);
-            }
+                } else {
+                    // after 1 hr lock automatically releases
+                    context.done(err);
+                }
+            });
         });
     }).catch(function (err) {
 
         // Storage account not found will go here
-        context.log("Error in messageHandler:  blob %s %d %d %d %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log("Error in messageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
         return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
             return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
-                context.done(err);
+                if (typeof err === 'string' && err.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") > 0 ) {
+                    context.log("MSI Token Error Ignored.");
+                    context.done();
+                } else {
+                    context.done(err);
+                }
             });
         });
 
@@ -568,12 +582,12 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     if (file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) {
         msghandler = logHandler;
     } else if (file_ext === "csv") {
-        msghandler = csvHandler
+        msghandler = csvHandler;
     } else if (file_ext === "blob") {
-        msghandler = blobHandler
+        msghandler = blobHandler;
     } else if (file_ext === "json" && serviceBusTask.blobType === "AppendBlob") {
         // jsonline format where every line is a json object
-        msghandler = blobHandler
+        msghandler = blobHandler;
     } else if (file_ext === "json" && serviceBusTask.blobType !== "AppendBlob") {
         // JSON format ie array of json objects is not supported for appendblobs
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
@@ -589,6 +603,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         } else {
             serviceBusTask.startByte -= JSON_BLOB_TAIL_BYTES;
         }
+        msghandler = jsonHandler;
 
     } else {
         // releasing message so that it doesn't get stuck in DLQ
@@ -656,7 +671,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                 });
             });
         } else {
-            context.log("Error in messageHandler:  blob %s %d %d %d %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            context.log("Error in messageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
             return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
                 return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
                     context.done(err);
@@ -768,6 +783,11 @@ function timetriggerhandler(context, timetrigger) {
         if (!error) {
             DLQMessage = lockedMessage;
             var serviceBusTask = JSON.parse(lockedMessage.body);
+            if (serviceBusTask.blobType === "AppendBlob") {
+                return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
+                    context.done();
+                });
+            }
             // Message received and locked and try to resend
             var options = {
                 urlString: process.env.APPSETTING_SumoLogEndpoint,
@@ -825,6 +845,7 @@ module.exports = function (context, triggerData) {
     //     startByte: 0,
     //     blobType: "AppendBlob"
     // };
+
     contentDownloaded = 0;
     if (triggerData.isPastDue === undefined) {
         DLQMessage = null;
@@ -839,5 +860,10 @@ module.exports = function (context, triggerData) {
         // Todo: Test with old blockblob flow and remove appendblob from it's code may be separate out code in commonjs
         timetriggerhandler(context, triggerData);
     }
+
+    // Todo
+    // chunking
+    // increase timeout for higher batch size
+    // handle splitting
 
 };

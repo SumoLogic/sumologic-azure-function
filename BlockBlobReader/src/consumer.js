@@ -454,6 +454,16 @@ function setAppendBlobBatchSize(serviceBusTask) {
     return batchSize;
 }
 
+function getSumoEndpoint(serviceBusTask) {
+    var file_ext = String(serviceBusTask.blobName).split(".").pop();
+    var endpoint = process.env.APPSETTING_SumoLogEndpoint;
+    // You can also change change sumo logic endpoint if you have multiple sources
+    // if (file_ext.indexOf("log") >= 0) {
+    //     endpoint = "";
+    // }
+    return endpoint;
+}
+
 function appendBlobStreamMessageHandler(context, serviceBusTask) {
 
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
@@ -463,7 +473,7 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
     }
     var sendOptions = {
-        urlString: process.env.APPSETTING_SumoLogEndpoint,
+        urlString: getSumoEndpoint(serviceBusTask),
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,
@@ -736,7 +746,7 @@ function servicebushandler(context, serviceBusTask) {
     var sumoClient;
 
     var options = {
-        urlString: process.env.APPSETTING_SumoLogEndpoint,
+        urlString: getSumoEndpoint(serviceBusTask),
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,
@@ -792,7 +802,7 @@ function timetriggerhandler(context, timetrigger) {
             }
             // Message received and locked and try to resend
             var options = {
-                urlString: process.env.APPSETTING_SumoLogEndpoint,
+                urlString: getSumoEndpoint(serviceBusTask),
                 MaxAttempts: 3,
                 RetryInterval: 3000,
                 compress_data: true,

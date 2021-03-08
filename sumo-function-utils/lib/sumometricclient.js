@@ -34,6 +34,7 @@ function SumoMetricClient(options, context, flush_failure_callback,success_callb
         // default is graphite
         this.metric_type = this.metric_type_map.GRAPHITE
     }
+    this.context = context;
 };
 
 SumoMetricClient.prototype = Object.create(sumoclient.SumoClient.prototype)
@@ -172,7 +173,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
 
             zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
-                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
+                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context)
                         .then(()=> {
                         //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
@@ -190,7 +191,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
             });
         }  else {
             //self.context.log('Send raw data to Sumo');
-            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
+            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')], self.context)
                 .then(()=> { self.success_callback(self.context);})
         .catch(() => {
                 self.messagesFailed += msgArray.length;

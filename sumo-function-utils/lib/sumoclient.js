@@ -41,7 +41,7 @@ function SumoClient(options, context, flush_failure_callback,success_callback) {
     this.dataMap = new Map();
     this.context = context || console;
     this.generateBucketKey = options.generateBucketKey || this.generateLogBucketKey ;
-    this.MaxAttempts = this.options.MaxAttempts || 3 ;
+    this.MaxAttempts = (this.options.MaxAttempts === undefined ? 3 : this.options.MaxAttempts);
     this.RetryInterval = this.options.RetryInterval || 3000; // 3 secs
     this.failure_callback = flush_failure_callback;
     this.success_callback = success_callback;
@@ -112,7 +112,7 @@ SumoClient.prototype.emptyBufferToSumo = function(metaKey) {
     if (targetBuffer) {
         let message;
         while ((message = targetBuffer.pop())) {
-            this.context.log(metaKey+'='+JSON.stringify(message));
+            // this.context.log(metaKey+'='+JSON.stringify(message));
         }
     }
 };
@@ -127,7 +127,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    this.context.log("Flush buffer for metaKey:"+metaKey);
+    // this.context.log("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
@@ -177,12 +177,10 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
             zlib.gzip(msgArray.join('\n'),function(gziperr, compressed_data){
                 if (!gziperr)  {
-                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
-                            .then(()=> {
+                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context).then(()=> {
                         //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
-                        self.success_callback(self.context);}
-                        )
-                    .catch((e) => {
+                        self.success_callback(self.context);
+                    }).catch((e) => {
                         self.context.log("Failed to send to Sumo after attempts: "+ self.MaxAttempts + " Error: " + JSON.stringify(e));
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
@@ -197,7 +195,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             });
         }  else {
             //self.context.log('Send raw data to Sumo');
-            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
+            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')], self.context)
                     .then(()=> { self.success_callback(self.context);})
             .catch((e) => {
                 self.context.log("Failed to send to Sumo after attempts: "+ self.MaxAttempts + " Error: " + JSON.stringify(e));

@@ -273,7 +273,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
     return new Promise(function (resolve, reject) {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
-        context.log("Attempting to update offset to: %d from: %d", newOffset, serviceBusTask.startByte);
+        // context.log("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
         entity = getUpdatedEntity(serviceBusTask, newOffset);
         //using merge to preserve eventdate
         tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
@@ -321,6 +321,7 @@ function getData(task, blobService, context) {
 
 }
 
+
 function getToken(context, task) {
     var options = { msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET };
     return new Promise(function (resolve, reject) {
@@ -356,7 +357,7 @@ function isRefreshTokenDurationExceeded() {
  */
 function getCachedToken(context, task) {
     if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
-        context.log("Regenerating token at: %s", new Date().toISOString());
+        // context.log("Regenerating token at: %s", new Date().toISOString());
         return getToken(context, task).then(function(tokenResponse) {
             lastTokenGenTime = new Date().getTime();
             cachedTokenResponse = tokenResponse;
@@ -365,7 +366,7 @@ function getCachedToken(context, task) {
     } else {
         return new Promise(function (resolve, reject) {
             var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
-            context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
+            // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
             resolve(cachedTokenResponse);
         });
     }
@@ -430,7 +431,7 @@ function sendToSumoBlocking(chunk, sendOptions, context) {
             reject();
         }
         function successHandler(ctx) {
-            ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo.');
+            // ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo.');
             resolve();
         }
         let sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
@@ -442,12 +443,13 @@ function sendToSumoBlocking(chunk, sendOptions, context) {
 
 }
 
+
 function setAppendBlobBatchSize(serviceBusTask) {
 
     var batchSize = 12 * 1024 * 1024;
-    // Example changing batchsize based on metadata
+    // You can give custom batch size based on containerName/storagaAccount
     // if (serviceBusTask.containerName === "cct-prod-logs") {
-    //     batchSize = 80 * 1024 * 1024;
+    //     batchSize = 24 * 1024 * 1024;
     // }
     return batchSize;
 }
@@ -456,7 +458,7 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
 
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     if ((file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) || file_ext === "json") {
-        context.log("file extension: %s", file_ext);
+        // context.log("file extension: %s", file_ext);
     } else {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
     }
@@ -475,7 +477,7 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
         let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
         var dataLen = 0;
         var dataLenSent = 0;
-        var allDataFlushed = true;
+        var allDataFlushed = [];
         let options = {
             "rangeStart": serviceBusTask.startByte,
             "rangeEnd": serviceBusTask.startByte + batchSize - 1,
@@ -493,29 +495,32 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
 
         readStream.on('data', (chunk, range) => {
             // Todo: returns 4 MB chunks we may need to break it to 1MB
-            context.log(`Received ${chunk.length} bytes of data. numChunks ${numChunks} range: ${JSON.stringify(range)}`);
+            // context.log(`Received ${chunk.length} bytes of data. numChunks ${numChunks} range: ${JSON.stringify(range)}`);
             dataLen += chunk.length;
             numChunks += 1;
             sendToSumoBlocking(chunk, sendOptions, context).then(function() {
                 dataLenSent += range.size;
-                allDataFlushed = true;
+                allDataFlushed.pop();
             }).catch(function() {
                 readStream.destroy();
+                allDataFlushed.pop();
                 // Todo: check whether end is called after destroy
-                return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
-                    context.err("Failed to Send! Exit now!");
-                });
+                // return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
+                //     context.err("Failed to Send! Exit now!");
+                // });
             });
-            allDataFlushed = false;
+            allDataFlushed.push(true);
         });
 
         readStream.on('end', function(res) {
             // Todo: Test for small / big files
             // Todo: wait for all data to be flushed
+            // Todo: wait for all send data
             function callAfterFlush() {
-                if (allDataFlushed) {
+                if (allDataFlushed.length == 0) {
+                    // Todo add is_time remaining
                     // Todo: fail here if the offset is not updated since we are not using DLQ now
-                    context.log("ReadStream end  dataLenFetched: %d dataLenSent: %d numChunks: %d. Exit now!", dataLen, dataLenSent, numChunks);
+                    context.log("finished sending blob %s ReadStream end  dataLenFetched: %d dataLenSent: %d numChunks: %d. Exit now!",serviceBusTask.rowKey, dataLen, dataLenSent, numChunks);
                     contentDownloaded = dataLenSent;
                     return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
                         context.done();
@@ -559,16 +564,16 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
     }).catch(function (err) {
 
         // Storage account not found will go here
-        context.log("Error in messageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
+        context.log("Error in appendBlobStreamMessageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
         return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
-            return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
-                if (typeof err === 'string' && err.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") > 0 ) {
-                    context.log("MSI Token Error Ignored.");
-                    context.done();
-                } else {
-                    context.done(err);
-                }
-            });
+            let errMsg = (err !== undefined ? err.toString(): "")
+            if (typeof errMsg === 'string' && errMsg.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") > 0 ) {
+                context.log("MSI Token Error Ignored.");
+                context.done();
+            } else {
+                context.done(err);
+            }
+
         });
 
     });
@@ -618,10 +623,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             var msg = r[0];
             var resp = r[1];
             context.log("Sucessfully downloaded contentLength: ", resp.contentLength);
-            if (!serviceBusTask.endByte) {
-                // setting this to increment offset in setAppendBlobOffset
-                contentDownloaded = parseInt(resp.contentLength, 10);
-            }
+
             var messageArray;
             if (file_ext === "csv") {
                 return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
@@ -836,34 +838,36 @@ function timetriggerhandler(context, timetrigger) {
 }
 
 module.exports = function (context, triggerData) {
-    // var triggerData = {
-    //     subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
-    //     resourceGroupName: "SumoAuditCollection",
-    //     storageName: "allbloblogseastus",
-    //     containerName: "testappendblob",
-    //     blobName: 'PT1Hnew.json',
-    //     startByte: 0,
-    //     blobType: "AppendBlob"
-    // };
-
     contentDownloaded = 0;
+    /*var triggerData = {
+        subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
+        resourceGroupName: "SumoAuditCollection",
+        storageName: "allbloblogseastus",
+        containerName: "testappendblob",
+        blobName: 'testfile.log',
+        startByte: 0,
+        blobType: "AppendBlob",
+        rowKey: "allbloblogseastus-testappendblob-testfile.log"
+    };
+    appendBlobStreamMessageHandler(context, triggerData);
+    */
+
+
     if (triggerData.isPastDue === undefined) {
         DLQMessage = null;
         // Todo: create two separate queues in the same namespace for appendblob and block blobs
         if (triggerData.blobType === undefined || triggerData.blobType === "BlockBlob") {
             servicebushandler(context, triggerData);
         } else {
+
             appendBlobStreamMessageHandler(context, triggerData);
+
+
         }
 
     } else {
         // Todo: Test with old blockblob flow and remove appendblob from it's code may be separate out code in commonjs
         timetriggerhandler(context, triggerData);
     }
-
-    // Todo
-    // chunking
-    // increase timeout for higher batch size
-    // handle splitting
 
 };

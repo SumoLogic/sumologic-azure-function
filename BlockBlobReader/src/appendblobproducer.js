@@ -239,9 +239,9 @@ function getArchivedBlockBlobFiles(context) {
  */
 function getLockedEntitiesExceedingThreshold(context) {
 
-    var maxlockThresholdHours = 1;
+    var maxlockThresholdMin = 15;
     var dateVal = new Date();
-    dateVal.setHours(dateVal.getHours() - maxlockThresholdHours);
+    dateVal.setMinutes(Math.max(0,dateVal.getMinutes() - maxlockThresholdMin));
     var lockedFileQuery = new storage.TableQuery().where(' (done eq ?) and (blobType eq ?) and (offset ge ?) and lastEnqueLockTime le ?date?', true, "AppendBlob", 0, dateVal);
     // context.log("maxlastEnqueLockTime: %s", dateVal.toISOString());
     return queryFiles(null, lockedFileQuery, context).then(function (allentities) {

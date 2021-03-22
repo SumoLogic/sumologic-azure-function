@@ -423,7 +423,7 @@ function releaseMessagefromDLQ(context, serviceBusTask) {
     });
 }
 
-function sendToSumoBlocking(chunk, sendOptions, context) {
+function sendToSumoBlocking(chunk, sendOptions, context, isText) {
 
     return new Promise(function(resolve, reject) {
 
@@ -435,9 +435,14 @@ function sendToSumoBlocking(chunk, sendOptions, context) {
             resolve();
         }
         let sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
-        // Default encoding is UTF-8
-        let data = chunk.toString('utf8');
-        sumoClient.addData(data);
+        if (!isText) {
+            // Default encoding is UTF-8
+            let data = chunk.toString('utf8');
+            sumoClient.addData(data);
+        } else {
+            sumoClient.addData(chunk);
+        }
+
         sumoClient.flushAll();
     });
 
@@ -458,12 +463,222 @@ function getSumoEndpoint(serviceBusTask) {
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     var endpoint = process.env.APPSETTING_SumoLogEndpoint;
     // You can also change change sumo logic endpoint if you have multiple sources
-    // if (file_ext.indexOf("log") >= 0) {
-    //     endpoint = "";
-    // }
+    if (serviceBusTask.storageName === "" && file_ext.indexOf("log") >= 0) {
+        endpoint = ""
+    } else if (file_ext.indexOf("log") >= 0) {
+        endpoint = "";
+    }
     return endpoint;
 }
 
+function regexIndexOf(string, regex, startpos) {
+    var indexOf = string.substring(startpos || 0).search(regex);
+    return (indexOf >= 0) ? (indexOf + (startpos || 0)) : indexOf;
+}
+
+function regexLastIndexOf(string, regex, startpos) {
+    // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
+    var stringToWorkWith = string.substring(startpos, string.length);
+    var match = string.match(regex);
+    return  match ? string.lastIndexOf(match.slice(-1)) : -1;
+}
+
+function getBoundaryRegex(serviceBusTask) {
+    let logRegex = '\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}';
+    // global is necessary if using regex.exec
+    // https://stackoverflow.com/questions/31969913/why-does-this-regexp-exec-cause-an-infinite-loop
+    return new RegExp(logRegex, "gim");
+}
+/*
+    Returns string chunks of maximum 1MB size
+
+ */
+function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
+    var dataLenSent = 0;
+    var dataChunks = [];
+    let defaultEncoding = "utf8";
+    // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.
+    var data = dataBytesBuffer.toString(defaultEncoding);
+    // remove prefix before first date
+    // add prefix length to dataLenSent ideally this should always be 0
+    // remove suffix after last date
+    let logRegex = getBoundaryRegex(serviceBusTask);
+    let firstIdx = regexIndexOf(data, logRegex);
+    let lastIndex = regexLastIndexOf(data, logRegex, firstIdx+1);
+
+    // This method extracts the characters in a string between "start" and "end", not including "end" itself.
+    let prefix = data.substring(0,firstIdx);
+    // in case only one time string
+    if (lastIndex === -1) {
+        lastIndex = data.length;
+    }
+    let suffix = data.substring(lastIndex, data.length);
+    dataLenSent = Buffer.byteLength(data.substring(0, lastIndex), defaultEncoding);
+    // data with both prefix and suffix removed
+    data = data.substring(firstIdx, lastIndex);
+    // let matches = data.matchAll(logRegex);
+    let startpos = 0;
+    let maxChunkSize = 1 * 1024 * 1024; // 1 MB
+    while((match = logRegex.exec(data)) !== null) {
+
+        if (match.index - startpos >= maxChunkSize) {
+            dataChunks.push(data.substring(startpos, match.index));
+            // context.log("new chunk %d %d", startpos, match.index);
+            startpos = match.index;
+        }
+    }
+    dataChunks.push(data.substring(startpos, data.length));
+
+    context.log(`rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} prefix: ${prefix} suffix: ${suffix}  dataLenSent: ${dataLenSent}`);
+    return [dataLenSent, dataChunks];
+}
+
+function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, serviceBusTask) {
+
+
+    var results = decodeDataChunks(context, dataBytesBuffer, serviceBusTask);
+    var dataLenSent = results[0];
+    var dataChunks = results[1];
+    var numChunksSent = 0;
+    return new Promise(function(resolve, reject) {
+
+        let promiseChain = Promise.resolve();
+        const makeNextPromise = (chunk) => () => {
+            return sendToSumoBlocking(chunk, sendOptions, context, true).then(function() {
+                numChunksSent += 1;
+                dataLenSent += Buffer.byteLength(chunk);
+            });
+        };
+        for(var i = 0; i < dataChunks.length; i++) {
+            promiseChain = promiseChain.then(makeNextPromise(dataChunks[i]));
+        }
+        return promiseChain.catch(function(err) {
+            context.log(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`)
+            resolve(dataLenSent);
+        }).then(function() {
+            if (numChunksSent === dataChunks.length) {
+                context.log(`All chunks sucessfully sent to sumo blob ${serviceBusTask.rowKey} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
+            }
+            resolve(dataLenSent);
+        });
+
+    });
+
+}
+/*
+    First all the data(of length batchsize) is fetched and then sequentially sends the data by splitting into 1 MB chunks and removing splitted chunks in boundary
+ */
+function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
+
+    var file_ext = String(serviceBusTask.blobName).split(".").pop();
+    if ((file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) || file_ext === "json") {
+        // context.log("file extension: %s", file_ext);
+    } else {
+        context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
+    }
+    var sendOptions = {
+        urlString: getSumoEndpoint(serviceBusTask),
+        MaxAttempts: 3,
+        RetryInterval: 3000,
+        compress_data: true,
+        clientHeader: "blobreader-azure-function"
+    };
+    setSourceCategory(serviceBusTask, sendOptions, context);
+
+    return getBlockBlobService(context, serviceBusTask).then(function (blobService) {
+        // context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
+        var numChunks = 0;
+        let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
+        var dataLen = 0;
+        var dataChunks=[];
+        let options = {
+            "rangeStart": serviceBusTask.startByte,
+            "rangeEnd": serviceBusTask.startByte + batchSize - 1,
+            "skipSizeCheck": false, // if true it will call getblobProperties and makes decision to download full(returns _getBlobToStream) or download in range (returns _getBlobToRangeStream)
+            // "speedSummary" // Todo: check whether it will print something
+            // "parallelOperationThreadCount": 1 // default is 1 for appendblobToText and 5 for others
+            // timeoutIntervalInMs server timeout
+            // clientRequestTimeoutInMs client timeout
+        };
+        let readStream = blobService.createReadStream(serviceBusTask.containerName, serviceBusTask.blobName, options, (err, res) => {
+            if(err) {
+                context.log('Failed to create readStream', res);
+            }
+        });
+
+        readStream.on('data', (chunk, range) => {
+            // Todo: returns 4 MB chunks we may need to break it to 1MB
+            // context.log(`Received ${chunk.length} bytes of data. numChunks ${numChunks} range: ${JSON.stringify(range)}`);
+
+            dataLen += chunk.length;
+            numChunks += 1;
+            context.log(typeof(chunk));
+            // https://github.com/Azure/azure-sdk-for-js/blob/master/sdk/storage/storage-blob/samples/javascript/basic.js#L73
+            dataChunks.push(chunk instanceof Buffer ? chunk : Buffer.from(chunk));
+
+        });
+
+        readStream.on('end', function(res) {
+            context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function(dataLenSent) {
+                return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
+                        context.done();
+                    });
+            }).catch(function(err) {
+                context.log(`Error in sendDataToSumoUsingSplitHandler: ${rowKey} err ${err}`)
+                context.done(err);
+            });
+        });
+
+        readStream.on('error', function(err) {
+            // Todo: Test error cases for fetching
+            let discardError = false;
+            if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
+                // here in case of appendblob data may not exists after startByte
+                context.log("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
+                discardError = true;
+            } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
+                context.log("Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+                discardError = true;
+            } else if (err !== undefined && (err.code === "ContainerNotFound" || err.code === "BlobNotFound")) {
+                // sometimes it may happen that the file/container gets deleted
+                context.log("File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+                discardError = true;
+            } else if (err !== undefined && (err.code === "ECONNREFUSED")) {
+                discardError = true;
+            } else {
+                context.log("ReadStream error blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            }
+            return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+                if (discardError) {
+                    context.done();
+                } else {
+                    // after 1 hr lock automatically releases
+                    context.done(err);
+                }
+            });
+        });
+    }).catch(function (err) {
+
+        // Storage account not found will go here
+        context.log("Error in appendBlobStreamMessageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
+        return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+            let errMsg = (err !== undefined ? err.toString(): "");
+            if (typeof errMsg === 'string' && errMsg.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") > 0 ) {
+                context.log("MSI Token Error Ignored.");
+                context.done();
+            } else {
+                context.done(err);
+            }
+
+        });
+
+    });
+}
+
+/*
+    Sends the data chunk of size 4 MB directly. Both data fetching and sending are handled async. Waits till all the data is sent.
+ */
 function appendBlobStreamMessageHandler(context, serviceBusTask) {
 
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
@@ -576,7 +791,7 @@ function appendBlobStreamMessageHandler(context, serviceBusTask) {
         // Storage account not found will go here
         context.log("Error in appendBlobStreamMessageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
         return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
-            let errMsg = (err !== undefined ? err.toString(): "")
+            let errMsg = (err !== undefined ? err.toString(): "");
             if (typeof errMsg === 'string' && errMsg.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") > 0 ) {
                 context.log("MSI Token Error Ignored.");
                 context.done();

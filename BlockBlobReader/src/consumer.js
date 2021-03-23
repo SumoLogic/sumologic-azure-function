@@ -463,19 +463,21 @@ function getSumoEndpoint(serviceBusTask) {
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     var endpoint = process.env.APPSETTING_SumoLogEndpoint;
     // You can also change change sumo logic endpoint if you have multiple sources
-    if (serviceBusTask.storageName === "" && file_ext.indexOf("log") >= 0) {
-        endpoint = ""
-    } else if (file_ext.indexOf("log") >= 0) {
-        endpoint = "";
-    }
+    // if (file_ext.indexOf("log") >= 0) {
+    //     endpoint = "";
+    // }
     return endpoint;
 }
-
+/*
+    return index of first time when pattern matches the string
+ */
 function regexIndexOf(string, regex, startpos) {
     var indexOf = string.substring(startpos || 0).search(regex);
     return (indexOf >= 0) ? (indexOf + (startpos || 0)) : indexOf;
 }
-
+/*
+    return index of last time when pattern matches the string
+ */
 function regexLastIndexOf(string, regex, startpos) {
     // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
     var stringToWorkWith = string.substring(startpos, string.length);
@@ -490,33 +492,39 @@ function getBoundaryRegex(serviceBusTask) {
     return new RegExp(logRegex, "gim");
 }
 /*
-    Returns string chunks of maximum 1MB size
-
+    Removes the prefix and suffix matching the boundary.
+    For example if data = "prefixwithnodate<date><msg><date><msg><date><incompletemsg>"
+    then it will remove prefixwithnodate and <date><incompletemsg>.
+    It will iterate over index of <date> and divide the remaining string to chunks
+     of maximum 1MB size.
+    datalenSent is set to bytelength of prefixwithnodate<date><msg><date><msg><date>
+    so that in next invocation it will pick up from <date><incompletemsg>
  */
 function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
-    var dataLenSent = 0;
+
     var dataChunks = [];
     let defaultEncoding = "utf8";
     // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.
     var data = dataBytesBuffer.toString(defaultEncoding);
     // remove prefix before first date
-    // add prefix length to dataLenSent ideally this should always be 0
     // remove suffix after last date
     let logRegex = getBoundaryRegex(serviceBusTask);
     let firstIdx = regexIndexOf(data, logRegex);
     let lastIndex = regexLastIndexOf(data, logRegex, firstIdx+1);
 
-    // This method extracts the characters in a string between "start" and "end", not including "end" itself.
+    // data.substring method extracts the characters in a string between "start" and "end", not including "end" itself.
     let prefix = data.substring(0,firstIdx);
     // in case only one time string
     if (lastIndex === -1) {
         lastIndex = data.length;
     }
     let suffix = data.substring(lastIndex, data.length);
-    dataLenSent = Buffer.byteLength(data.substring(0, lastIndex), defaultEncoding);
+    // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
+    // for new files offset will always start from date
+    var ignoredprefixLen = Buffer.byteLength(prefix, defaultEncoding);
     // data with both prefix and suffix removed
     data = data.substring(firstIdx, lastIndex);
-    // let matches = data.matchAll(logRegex);
+    // can't use matchAll since it's available only after version > 12
     let startpos = 0;
     let maxChunkSize = 1 * 1024 * 1024; // 1 MB
     while((match = logRegex.exec(data)) !== null) {
@@ -527,19 +535,24 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
             startpos = match.index;
         }
     }
+    // pushing the remaining chunk
     dataChunks.push(data.substring(startpos, data.length));
 
-    context.log(`rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} prefix: ${prefix} suffix: ${suffix}  dataLenSent: ${dataLenSent}`);
-    return [dataLenSent, dataChunks];
+    // context.log(`rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
+    return [ignoredprefixLen, dataChunks];
 }
-
+/*
+    Creates a promise chain for each of the chunk recieved from decodeDataChunks
+    It increments
+ */
 function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, serviceBusTask) {
 
 
     var results = decodeDataChunks(context, dataBytesBuffer, serviceBusTask);
-    var dataLenSent = results[0];
+    var ignoredprefixLen = results[0];
     var dataChunks = results[1];
     var numChunksSent = 0;
+    var dataLenSent = 0;
     return new Promise(function(resolve, reject) {
 
         let promiseChain = Promise.resolve();
@@ -553,13 +566,13 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
             promiseChain = promiseChain.then(makeNextPromise(dataChunks[i]));
         }
         return promiseChain.catch(function(err) {
-            context.log(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`)
-            resolve(dataLenSent);
+            context.log(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`)
+            resolve(dataLenSent+ignoredprefixLen);
         }).then(function() {
             if (numChunksSent === dataChunks.length) {
-                context.log(`All chunks sucessfully sent to sumo blob ${serviceBusTask.rowKey} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
+                context.log(`All chunks sucessfully sent to sumo blob ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
             }
-            resolve(dataLenSent);
+            resolve(dataLenSent+ignoredprefixLen);
         });
 
     });
@@ -1084,10 +1097,7 @@ module.exports = function (context, triggerData) {
         if (triggerData.blobType === undefined || triggerData.blobType === "BlockBlob") {
             servicebushandler(context, triggerData);
         } else {
-
             appendBlobStreamMessageHandler(context, triggerData);
-
-
         }
 
     } else {

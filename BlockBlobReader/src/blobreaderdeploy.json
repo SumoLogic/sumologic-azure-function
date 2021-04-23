@@ -3,15 +3,15 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_BlobReader_name": {
-            "defaultValue": "[concat('SUMOBRTaskProducer', resourceGroup().name, uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRTaskProducer', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "sites_blobreaderconsumer_name": {
-            "defaultValue": "[concat('SUMOBRTaskConsumer', resourceGroup().name, uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRTaskConsumer', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "sites_DLQProcessor_name": {
-            "defaultValue": "[concat('SUMOBRDLQProcessor', resourceGroup().name, uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SUMOBRDLQProcessor', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_ConsumerPlan_name": {
@@ -66,7 +66,7 @@
             "defaultValue": "RootManageSharedAccessKey",
             "type": "String"
         },
-        "consumergroups_$Default_name": {
+        "consumergroupName": {
             "defaultValue": "$Default",
             "type": "String"
         },
@@ -328,6 +328,8 @@
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
                         { "name": "Project", "value": "BlockBlobReader/target/producer_build/" },
+                        { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
+                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_BlobReader_name'))]" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -384,6 +386,8 @@
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
                             "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
                         },
+                        { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
+                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_blobreaderconsumer_name'))]" },
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
@@ -438,7 +442,9 @@
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
                         { "name": "TASKQUEUE_NAME", "value": "[parameters('queues_rangetaskqueue_name')]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
-                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" }
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" },
+                        { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
+                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_DLQProcessor_name'))]" }
                     ]
                 }
             },
@@ -499,7 +505,7 @@
         {
             "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub/consumergroups/$Default'.",
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
-            "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'), '/', parameters('consumergroups_$Default_name'))]",
+            "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'), '/', parameters('consumergroupName'))]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "scale": null,

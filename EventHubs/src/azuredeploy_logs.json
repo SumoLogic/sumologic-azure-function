@@ -30,7 +30,7 @@
             "defaultValue": "RootManageSharedAccessKey",
             "type": "String"
         },
-        "consumergroups_$Default_name": {
+        "consumerGroupName": {
             "defaultValue": "$Default",
             "type": "String"
         },
@@ -47,7 +47,6 @@
             "type": "String"
         },
         "SumoEndpointURL": {
-            "defaultValue": "Enter HTTP Source URL",
             "type": "String"
         }
     },
@@ -242,7 +241,7 @@
         },
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
-            "name": "[concat(parameters('namespaces_SumoAzureLogs_name'), '/', parameters('eventhubs_insights_operational_logs_name'), '/', parameters('consumergroups_$Default_name'))]",
+            "name": "[concat(parameters('namespaces_SumoAzureLogs_name'), '/', parameters('eventhubs_insights_operational_logs_name'), '/', parameters('consumerGroupName'))]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "scale": null,

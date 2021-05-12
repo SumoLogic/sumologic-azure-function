@@ -24,10 +24,9 @@ jobs:
     node_js: '6.5'
     env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=blob
 before_install:
-- curl https://bootstrap.pypa.io/get-pip.py | sudo python3
 - cd $FUNCTION_DIR
-- pip3 install --user -r ../requirements.txt
-- pip3 install --user requests[security]
+- pip install --user -r ../requirements.txt
+- pip install --user requests[security]
 script:
 - travis_wait 25 python $TEST_FILE
 env:

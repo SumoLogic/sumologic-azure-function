@@ -2,7 +2,7 @@ sudo: required
 dist: trusty
 language: node_js
 python:
-- '2.7'
+- '3.8'
 jobs:
   include:
   - stage: EventHub Node 6.5
@@ -24,7 +24,6 @@ jobs:
     node_js: '6.5'
     env: FUNCTION_DIR=BlockBlobReader/tests TEST_FILE=test_blobreader.py LOG_TYPE=blob
 before_install:
-- curl https://bootstrap.pypa.io/get-pip.py | sudo python
 - cd $FUNCTION_DIR
 - pip install --user -r ../requirements.txt
 - pip install --user requests[security]

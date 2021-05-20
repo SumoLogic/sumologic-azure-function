@@ -327,7 +327,6 @@
                     "alwaysOn": true,
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
-                        { "name": "Project", "value": "BlockBlobReader/target/producer_build/" },
                         { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_BlobReader_name'))]" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
@@ -339,24 +338,11 @@
                         { "name": "AzureEventHubConnectionString", "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_BlobReaderNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name')), '2017-04-01').primaryConnectionString]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
-                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"}
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},
+                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskproducer1.0.0.zip"}
                     ]
                 }
             },
-            "resources": [
-             {
-                  "apiVersion": "2015-08-01",
-                  "name": "web",
-                  "type": "sourcecontrols",
-                  "dependsOn": [
-                    "[resourceId('Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]"
-                  ],
-                  "properties": {
-                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
-                    "branch": "[parameters('sourceCodeBranch')]",
-                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
-                  }
-            }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
@@ -380,7 +366,6 @@
                 "siteConfig": {
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
-                        { "name": "Project", "value": "BlockBlobReader/target/consumer_build/" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -391,24 +376,11 @@
                         { "name": "SumoLogEndpoint", "value": "[parameters('SumoEndpointURL')]" },
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2017-04-01').primaryConnectionString]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
-                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"}
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},
+                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskconsumer1.0.0.zip"}
                     ]
                 }
             },
-            "resources": [
-             {
-                  "apiVersion": "2015-08-01",
-                  "name": "web",
-                  "type": "sourcecontrols",
-                  "dependsOn": [
-                    "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
-                  ],
-                  "properties": {
-                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
-                    "branch": "[parameters('sourceCodeBranch')]",
-                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
-                  }
-            }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
@@ -432,7 +404,6 @@
                 "siteConfig": {
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
-                        { "name": "Project", "value": "BlockBlobReader/target/dlqprocessor_build/" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -444,24 +415,11 @@
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "6.5.0" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" },
                         { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
-                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_DLQProcessor_name'))]" }
+                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_DLQProcessor_name'))]" },
+                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/dlqprocessor1.0.0.zip"}
                     ]
                 }
             },
-            "resources": [
-             {
-                  "apiVersion": "2015-08-01",
-                  "name": "web",
-                  "type": "sourcecontrols",
-                  "dependsOn": [
-                    "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]"
-                  ],
-                  "properties": {
-                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
-                    "branch": "[parameters('sourceCodeBranch')]",
-                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
-                  }
-            }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"

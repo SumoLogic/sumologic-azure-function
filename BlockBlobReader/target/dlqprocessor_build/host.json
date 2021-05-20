@@ -1,4 +1,9 @@
 {
     "functionTimeout": "00:10:00",
-    "functions": ["DLQTaskConsumer"]
+    "functions": ["DLQTaskConsumer"],
+    "applicationInsights": {
+        "sampling": {
+            "isEnabled": true
+        }
+    }
 }

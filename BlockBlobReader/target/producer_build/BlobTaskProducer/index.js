@@ -1,6 +1,6 @@
-///////////////////////////////////////////////////////////////////////////////////
-//           Function to create tasks using EventGrid Events into Azure EventHubs               //
-///////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//           Function to create Block Blob tasks using EventGrid Events into Azure Service Bus //
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
 var storage = require('azure-storage');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
@@ -31,6 +31,28 @@ function getBlobMetadata(message, contentLength) {
     };
 }
 
+/*
+*  FileOffsetMap table has following fields
+*  PartitionKey - container name
+*  RowKey - combination of storage, containername and blobname
+*  blobName - blobpath
+*  containerName
+*  storageName
+*  resourceGroupName
+*  subscriptionId
+*  offset - stores the location to the last send data
+*  eventdate - blob creation event date (set by TaskProducer)
+*
+*  Below Fields are specific to Append Blob only
+*
+*  lastEnqueLockTime - last Append Blob task enque(to Service Bus) date  (set by AppendBlob TaskProducer)
+*  senddate - last successful Append Blob data send (non empty data to Sumo) date (set by TaskConsumer)
+*  updatedate - last Append Blob task process date by Task Consumer
+*  done - denotes that Append Blob task is locked for new task creation
+*  blobType - AppendBlob/BlockBlob
+*
+*
+ */
 function getEntity(metadata, startByte, currentEtag) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     var entGen = storage.TableUtilities.entityGenerator;
@@ -64,6 +86,7 @@ function getEntity(metadata, startByte, currentEtag) {
  * This is done to take care of the ordering of events in a batch
  */
 function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap, context) {
+
     eventHubMessages.forEach(function (message) {
         var contentLength = message.data.contentLength;
         var metadata = getBlobMetadata(message, contentLength);
@@ -85,7 +108,7 @@ function getBlobPointerMap(PartitionKey, RowKey, context) {
     // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
     return new Promise(function (resolve, reject) {
         tableService.retrieveEntity(process.env.APPSETTING_TABLE_NAME, PartitionKey, RowKey, function (error, result, response) {
-            // context.log("inside getBlobPointerMap", response.statusCode);
+            context.log("inside getBlobPointerMap: ", RowKey, response.statusCode);
             if (response.statusCode === 404 || !error) {
                 resolve(response);
             } else {
@@ -99,7 +122,7 @@ function updateBlobPointerMap(entity, context) {
     return new Promise(function (resolve, reject) {
         var insertOrReplace = ".metadata" in entity ? tableService.replaceEntity.bind(tableService) : tableService.insertEntity.bind(tableService);
         insertOrReplace(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
-            // context.log("inside updateBlobPointerMap", response.statusCode);
+            // context.log("inside updateBlobPointerMap: ", response.statusCode);
             if (!error) {
                 resolve(response);
             } else {
@@ -184,6 +207,7 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
 
 module.exports = function (context, eventHubMessages) {
     try {
+        eventHubMessages = [].concat.apply([], eventHubMessages);
         context.log("blobtaskproducer message received: ", eventHubMessages.length);
         var metadatamap = {};
         var allcontentlengths = {};
@@ -196,14 +220,17 @@ module.exports = function (context, eventHubMessages) {
             var sortedcontentlengths = allcontentlengths[RowKey].sort(); // ensuring increasing order of contentlengths
             var metadata = metadatamap[RowKey];
             var PartitionKey = metadata.containerName;
+
             createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context, metadata, function (err, msg) {
                 processed += 1;
-                // context.log(RowKey, processed, err, msg);
+
                 if (err) {
                     errArr.push(err);
+                } else {
+                    context.log("Created Entry in Offset Table: ", RowKey, processed, err, msg);
                 }
                 if (totalRows === processed) {
-                    context.log("Tasks Created: " + JSON.stringify(context.bindings.tasks) + " Blobpaths: " + JSON.stringify(allcontentlengths));
+                    context.log("ALL Events Processed: " + context.bindings.tasks.length + " Blobpaths: " + JSON.stringify(allcontentlengths));
                     if (errArr.length > 0) {
                         context.done(errArr.join('\n'));
                     } else {

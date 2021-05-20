@@ -1,0 +1,19 @@
+{
+  "name": "BlobReader",
+  "version": "1.0.0",
+  "description": "Azure functions for reading new logs from Azure Blobs by listening to a container and then forwarding it to Sumo collector HTTP endpoint.",
+  "main": "index.js",
+  "dependencies": {
+    "azure-sb": "^0.10.6",
+    "azure-storage": "^2.10.1",
+    "azure-arm-storage": "^6.0.0",
+    "ms-rest-azure": "^2.5.9"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "",
+    "build": "cp producer.js ../target/producer_build/BlobTaskProducer/index.js && cp appendblobproducer.js ../target/appendblob_producer_build/AppendBlobTaskProducer/index.js && cp ../../sumo-function-utils/lib/*.js ../target/consumer_build/BlobTaskConsumer/ && cp consumer.js ../target/consumer_build/BlobTaskConsumer/index.js"
+  },
+  "author": "Himanshu Pal",
+  "license": "Apache-2.0"
+}

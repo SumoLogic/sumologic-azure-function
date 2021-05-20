@@ -1,0 +1,17 @@
+{
+  "eventHub": {
+    "maxBatchSize": 400,
+    "prefetchCount": 800,
+    "batchCheckpointFrequency": 400
+  },
+  "functionTimeout": "00:30:00",
+  "functions": [
+    "BlobTaskProducer"
+  ],
+  "applicationInsights": {
+    "sampling": {
+      "isEnabled": true,
+      "maxTelemetryItemsPerSecond": 20000
+    }
+  }
+}

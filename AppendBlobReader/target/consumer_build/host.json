@@ -1,0 +1,16 @@
+{
+    "serviceBus": {
+      "maxConcurrentCalls": 100,
+      "prefetchCount": 200,
+      "autoRenewTimeout": "00:10:00",
+      "autoComplete": true
+    },
+    "functionTimeout": "00:10:00",
+    "functions": ["BlobTaskConsumer"],
+    "applicationInsights": {
+        "sampling": {
+          "isEnabled": false,
+          "maxTelemetryItemsPerSecond" : 20000
+        }
+    }
+}

@@ -1,9 +1,14 @@
 {
     "serviceBus": {
-      "maxConcurrentCalls": 30,
-      "prefetchCount": 400,
+      "maxConcurrentCalls": 50,
+      "prefetchCount": 100,
       "autoRenewTimeout": "00:10:00"
     },
     "functionTimeout": "00:10:00",
-    "functions": ["BlobTaskConsumer"]
+    "functions": ["BlobTaskConsumer"],
+    "applicationInsights": {
+        "sampling": {
+          "isEnabled": true
+        }
+    }
 }

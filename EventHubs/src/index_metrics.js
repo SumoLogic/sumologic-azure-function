@@ -55,7 +55,9 @@ module.exports = function (context, eventHubMessages) {
     var metricObjectArray = transformer.generateMetricObjectsFromAzureRawData(azureMetricArray,selectStatsForMetric,'carbon20');
     sumoMetricClient.addData(metricObjectArray);
 
-    context.log(metricObjectArray.map(function(x) { return JSON.stringify(x);}).join("\n"));
+
+    context.log("Sending: " + metricObjectArray.length);
+
 
     // handlers for success and failures
     function failureHandler(msgArray,ctx) {
@@ -66,7 +68,7 @@ module.exports = function (context, eventHubMessages) {
         }
     }
     function successHandler(ctx) {
-        ctx.log('Successfully sent to Sumo');
+        ctx.log('Successfully sent chunk to Sumo');
         if (sumoMetricClient.messagesAttempted === sumoMetricClient.messagesReceived) {
             ctx.log('Sent all metric data to Sumo. Exit now.');
             context.done();

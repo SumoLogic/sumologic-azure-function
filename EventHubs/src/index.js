@@ -23,7 +23,7 @@ module.exports = function (context, eventHubMessages) {
         setSourceCategory(context, msg);
         sumoClient.addData(msg);
     });
-    context.log(messageArray.map(function(x) { return JSON.stringify(x);}).join("\n"));
+    context.log("Sending: " + messageArray.length);
 
     function failureHandler(msgArray,ctx) {
         ctx.log("Failed to send to Sumo, backup to storageaccount now");
@@ -33,7 +33,7 @@ module.exports = function (context, eventHubMessages) {
         }
     }
     function successHandler(ctx) {
-        ctx.log('Successfully sent to Sumo');
+        ctx.log('Successfully sent chunk to Sumo');
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.log('Sent all data to Sumo. Exit now.');
             context.done();

@@ -172,7 +172,7 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
             var entity = getEntity(metadata, lastoffset, currentEtag);
             updateBlobPointerMap(entity, context).then(function (response) {
                 context.bindings.tasks = context.bindings.tasks.concat(tasks);
-                finalcontext(null, tasks.length + " Tasks added for RowKey: " + RowKey);
+                finalcontext(null, tasks.length + " Block blob Entry added for RowKey: " + RowKey);
             }).catch(function (err) {
                 //handle catch with retry when If-match fails else other err
                 if (err.code === "UpdateConditionNotSatisfied") {

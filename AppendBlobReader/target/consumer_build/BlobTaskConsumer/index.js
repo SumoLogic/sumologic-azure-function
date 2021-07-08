@@ -409,7 +409,7 @@ function getCachedAccountKey(context, task) {
 
     } else {
         return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin *1000*60) - (new Date()).getTime())/(1000 * 60);
+            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
             context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", task.rowKey, timeRemainingToRefreshToken);
             resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
         });
@@ -430,14 +430,9 @@ function getStorageAccountAccessKey(context, task) {
 
 }
 
-function getStaticAccountKey(context, task) {
-
-    return "";
-}
-
 function getBlockBlobService(context, task) {
 
-    return getStaticAccountKey(context, task).then(function (accountKey) {
+    return getCachedAccountKey(context, task).then(function (accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
         return blobService;
     });
@@ -587,23 +582,26 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
     // remove suffix after last date
     let logRegex = getBoundaryRegex(serviceBusTask);
 
-
+    // returm -1 if not found
     let firstIdx = regexIndexOf(data, logRegex);
     let lastIndex = regexLastIndexOf(data, logRegex, firstIdx+1);
 
     // data.substring method extracts the characters in a string between "start" and "end", not including "end" itself.
     let prefix = data.substring(0,firstIdx);
     // in case only one time string
-    if (lastIndex === -1) {
+    if (lastIndex === -1 && data.length > 0) {
         lastIndex = data.length;
     }
     let suffix = data.substring(lastIndex, data.length);
+
     try {
         // if last chunk is parseable then make lastIndex = data.length
-        JSON.parse(suffix)
-        lastIndex = data.length;
+        if (suffix.length > 0) {
+            JSON.parse(suffix)
+            lastIndex = data.length;
+        }
     } catch(e) {
-        context.log("last chunk not json parseable so ignoring", suffix, e);
+        context.log("last chunk not json parseable so ignoring", suffix, lastIndex,  e);
     }
     // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
     // for new files offset will always start from date
@@ -694,7 +692,7 @@ function errorHandler(err, serviceBusTask, context) {
         // sometimes it may happen that the file/container gets deleted
         context.log("Error in appendBlobStreamMessageHandlerv2 File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
-    } else if (err !== undefined && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET")) {
+    } else if (err !== undefined && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET" || err.code === "ETIMEDOUT")) {
         context.log("Error in appendBlobStreamMessageHandlerv2 Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
 
@@ -702,6 +700,20 @@ function errorHandler(err, serviceBusTask, context) {
         context.log("Error in appendBlobStreamMessageHandlerv2 Unknown error blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
     }
     return discardError;
+}
+
+function archiveIngestedFile(serviceBusTask, context) {
+    return tableService.deleteEntity(process.env.APPSETTING_TABLE_NAME, {
+        PartitionKey: serviceBusTask.containerName,
+        RowKey: serviceBusTask.rowKey
+    }, function(err, resp) {
+        if (!err) {
+            context.log("Archived non existing file", serviceBusTask.rowKey);
+        } else {
+            context.log("Error in appendBlobStreamMessageHandlerv2: not able to delete table row", serviceBusTask.rowKey, err);
+        }
+        context.done()
+    });
 }
 
 function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
@@ -770,17 +782,23 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         readStream.on('error', function(err) {
             // Todo: Test error cases for fetching
-            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function(dataLenSent) {
+        return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function(dataLenSent) {
                 contentDownloaded = dataLenSent;
                 let discardError = errorHandler(err, serviceBusTask, context);
-                return releaseLockfromOffsetTable(context, serviceBusTask,dataLenSent).then(function() {
-                    if (discardError) {
-                        context.done();
-                    } else {
-                        // after 1 hr lock automatically releases
-                        context.done(err);
-                    }
-                });
+                if (err !== undefined && (err.code === "BlobNotFound" || err.statusCode == 404)) {
+                    // delete the entry from table storage
+                    return archiveIngestedFile(serviceBusTask, context);
+                } else {
+                    return releaseLockfromOffsetTable(context, serviceBusTask,dataLenSent).then(function() {
+                        if (discardError) {
+                            context.done()
+                        } else {
+                            // after 1 hr lock automatically releases
+                            context.done(err);
+                        }
+                    });
+                }
+
             }).catch(function(err) {
                 context.log(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`)
                 return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {

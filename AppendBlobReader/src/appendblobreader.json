@@ -135,7 +135,7 @@
                     "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]",
                     "scope": "[variables('roleScope')]"
                   }
-                }
+                },
                 {
                     "name": "[parameters('eventGridTopicName')]",
                     "type": "Microsoft.EventGrid/topics",
@@ -252,7 +252,7 @@
         },
         {
           "type": "microsoft.insights/autoscalesettings",
-          "name": "[concat([parameters('serverfarms_BlobReaderPlan_name')],'-Autoscale')]",
+          "name": "[concat(parameters('serverfarms_BlobReaderPlan_name'), 'Autoscale')]",
           "apiVersion": "2015-04-01",
           "location": "[resourceGroup().location]",
           "dependsOn": [
@@ -316,8 +316,78 @@
             "notifications": [],
             "targetResourceLocation": "[resourceGroup().location]",
             "enabled": true,
-            "name": "[concat([parameters('serverfarms_BlobReaderPlan_name')],'-Autoscale')]",
+            "name": "[concat(parameters('serverfarms_BlobReaderPlan_name'), 'Autoscale')]",
             "targetResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]"
+          }
+        },
+        {
+          "type": "microsoft.insights/autoscalesettings",
+          "name": "[concat(parameters('serverfarms_ConsumerPlan_name'), 'Autoscale')]",
+          "apiVersion": "2015-04-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
+          ],
+          "properties": {
+            "profiles": [
+                {
+                    "name": "Auto created scale condition",
+                    "capacity": {
+                        "minimum": "2",
+                        "maximum": "10",
+                        "default": "2"
+                    },
+                    "rules": [
+                        {
+                            "scaleAction": {
+                                "direction": "Increase",
+                                "type": "ChangeCount",
+                                "value": "1",
+                                "cooldown": "PT5M"
+                            },
+                            "metricTrigger": {
+                                "metricName": "CpuPercentage",
+                                "metricNamespace": "microsoft.web/serverfarms",
+                                "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
+                                "operator": "GreaterThanOrEqual",
+                                "statistic": "Max",
+                                "threshold": 70,
+                                "timeAggregation": "Maximum",
+                                "timeGrain": "PT1M",
+                                "timeWindow": "PT10M",
+                                "Dimensions": [],
+                                "dividePerInstance": true
+                            }
+                        },
+                        {
+                            "scaleAction": {
+                                "direction": "Decrease",
+                                "type": "ChangeCount",
+                                "value": "1",
+                                "cooldown": "PT5M"
+                            },
+                            "metricTrigger": {
+                                "metricName": "CpuPercentage",
+                                "metricNamespace": "microsoft.web/serverfarms",
+                                "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
+                                "operator": "LessThanOrEqual",
+                                "statistic": "Max",
+                                "threshold": 30,
+                                "timeAggregation": "Maximum",
+                                "timeGrain": "PT1M",
+                                "timeWindow": "PT10M",
+                                "Dimensions": [],
+                                "dividePerInstance": true
+                            }
+                        }
+                    ]
+                }
+            ],
+            "notifications": [],
+            "targetResourceLocation": "[resourceGroup().location]",
+            "enabled": true,
+            "name": "[concat(parameters('serverfarms_ConsumerPlan_name'), 'Autoscale')]",
+            "targetResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
           }
         },
         {
@@ -332,18 +402,14 @@
             },
             "kind": "app",
             "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
-            "apiVersion": "2016-09-01",
+            "apiVersion": "2018-02-01",
             "location": "[resourceGroup().location]",
-            "scale": null,
             "properties": {
-                "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
-                "workerTierName": null,
-                "adminSiteName": null,
-                "hostingEnvironmentProfile": null,
+                "maximumElasticWorkerCount": 1,
                 "perSiteScaling": false,
-                "reserved": false,
                 "targetWorkerCount": 0,
                 "targetWorkerSizeId": 0,
+                "reserved": false,
                 "isSpot": false,
                 "isXenon": false,
                 "hyperV": false
@@ -354,27 +420,26 @@
         {
             "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/ConsumerPlan'.",
             "type": "Microsoft.Web/serverfarms",
-            "sku": {
-                "name": "Y1",
-                "tier": "Dynamic",
-                "size": "Y1",
-                "family": "Y",
-                "capacity": 0
-            },
-            "kind": "functionapp",
+            "kind": "app",
             "name": "[parameters('serverfarms_ConsumerPlan_name')]",
-            "apiVersion": "2016-09-01",
+            "apiVersion": "2018-02-01",
             "location": "[resourceGroup().location]",
-            "scale": null,
+            "sku": {
+                "name": "P1v2",
+                "tier": "PremiumV2",
+                "size": "P1v2",
+                "family": "Pv2",
+                "capacity": 2
+            },
             "properties": {
-                "name": "[parameters('serverfarms_ConsumerPlan_name')]",
-                "workerTierName": null,
-                "adminSiteName": null,
-                "hostingEnvironmentProfile": null,
+                "maximumElasticWorkerCount": 1,
                 "perSiteScaling": false,
-                "reserved": false,
                 "targetWorkerCount": 0,
-                "targetWorkerSizeId": 0
+                "targetWorkerSizeId": 0,
+                "reserved": false,
+                "isSpot": false,
+                "isXenon": false,
+                "hyperV": false
             },
             "dependsOn": []
         },
@@ -429,7 +494,8 @@
             }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
-                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name'))]"
             ]
         },
         {
@@ -470,6 +536,20 @@
                     ]
                 }
             },
+            "resources": [
+             {
+                  "apiVersion": "2015-08-01",
+                  "name": "web",
+                  "type": "sourcecontrols",
+                  "dependsOn": [
+                    "[resourceId('Microsoft.Web/sites/', parameters('sites_AppendBlobProcessor_name'))]"
+                  ],
+                  "properties": {
+                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
+                    "branch": "[parameters('sourceCodeBranch')]",
+                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
+                  }
+            }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
@@ -491,6 +571,7 @@
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
+                    "alwaysOn": true,
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
                         { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2015-05-01-preview').key1)]" },
@@ -509,6 +590,20 @@
                     ]
                 }
             },
+            "resources": [
+             {
+                  "apiVersion": "2015-08-01",
+                  "name": "web",
+                  "type": "sourcecontrols",
+                  "dependsOn": [
+                    "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
+                  ],
+                  "properties": {
+                    "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
+                    "branch": "[parameters('sourceCodeBranch')]",
+                    "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
+                  }
+            }],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"

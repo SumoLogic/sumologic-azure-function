@@ -282,7 +282,8 @@ function getFixedNumberOfEntitiesbyEnqueTime(context, entities) {
     let filesPerStorageAccountCount = {};
     let allFileCount = 0;
     let maxFileTaskPerInvoke = 8000;
-    let maxFileTaskPerInvokePerStorageAccount = 700;
+    // 800 because 25 is the max number of requests one invoke can make 25*800 = 20000 which is equal to max request per sec.
+    let maxFileTaskPerInvokePerStorageAccount = 800;
     var filteredEntities = [];
     let entity = null;
     for (let idx = 0; idx < entities.length; idx += 1) {
@@ -318,10 +319,11 @@ function setBatchSizePerStorageAccount(newFiletasks) {
             filesPerStorageAccountCount[task.storageName] += 1;
         }
     };
-    let MAX_READ_API_LIMIT_PER_FIVE_MIN = 800;
+    let MAX_READ_API_LIMIT_PER_SEC = 10000;
+    let MAX_GET_BLOB_REQUEST_PER_INVOKE = 25;
     for (let idx = 0; idx < newFiletasks.length; idx += 1) {
         task = newFiletasks[idx];
-        task.batchSize = Math.floor(MAX_READ_API_LIMIT_PER_FIVE_MIN/filesPerStorageAccountCount[task.storageName])*4*1024*1024;
+        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, Math.floor(MAX_READ_API_LIMIT_PER_SEC/filesPerStorageAccountCount[task.storageName]))*4*1024*1024;
     }
     return newFiletasks;
 }

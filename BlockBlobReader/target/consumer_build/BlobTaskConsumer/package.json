@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "azure-sb": "^0.10.6",
-    "azure-storage": "^2.8.2",
-    "azure-arm-storage": "^6.0.0",
-    "ms-rest-azure": "^2.5.9"
-  }
-}

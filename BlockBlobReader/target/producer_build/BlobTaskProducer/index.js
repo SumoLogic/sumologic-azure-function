@@ -136,6 +136,7 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
 
 module.exports = function (context, eventHubMessages) {
     try {
+        eventHubMessages = [].concat.apply([], eventHubMessages);
         // context.log("blobtaskproducer message received: ", eventHubMessages.length);
         var metadatamap = {};
         var allcontentlengths = {};

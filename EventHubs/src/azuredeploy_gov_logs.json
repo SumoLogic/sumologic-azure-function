@@ -30,7 +30,7 @@
             "defaultValue": "RootManageSharedAccessKey",
             "type": "String"
         },
-        "consumergroups_$Default_name": {
+        "consumergroups_name": {
             "defaultValue": "$Default",
             "type": "String"
         },
@@ -48,6 +48,10 @@
         },
         "SumoEndpointURL": {
             "defaultValue": "Enter HTTP Source URL",
+            "type": "String"
+        },
+        "appInsightsName": {
+            "defaultValue": "[concat('SumoAzureLogsAppInsights', uniqueString(resourceGroup().id))]",
             "type": "String"
         }
     },
@@ -171,9 +175,15 @@
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
                         { "name": "Project", "value": "EventHubs/target/logs_build/" },
                         {"name": "AzureWebJobsStorage", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAppLogs_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.usgovcloudapi.net')]"},
-                        {"name": "AzureWebJobsDashboard", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAppLogs_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.usgovcloudapi.net')]"},
                         {"name": "SumoLogsEndpoint", "value" : "[parameters('SumoEndpointURL')]"},
                         {"name": "AzureEventHubConnectionString", "value" : "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoAzureLogs_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString]"},
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                        },
+                        {"name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAppLogs_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.usgovcloudapi.net')]"},
+                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_SumoAzureLogsFunctionApp_name'))]" },
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},
                         {"name": "StorageConnectionString", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoAzureFailedMsg_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureFailedMsg_name')),'2015-05-01-preview').key1,';EndpointSuffix=core.usgovcloudapi.net')]"}
 
                     ]
@@ -197,7 +207,8 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoAzureLogsAppServicePlan_name'))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoAzureAppLogs_name'))]",
-                "[concat('Microsoft.EventHub/namespaces/', parameters('namespaces_SumoAzureLogs_name'))]"
+                "[concat('Microsoft.EventHub/namespaces/', parameters('namespaces_SumoAzureLogs_name'))]",
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
             ]
         },
         {
@@ -242,7 +253,7 @@
         },
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
-            "name": "[concat(parameters('namespaces_SumoAzureLogs_name'), '/', parameters('eventhubs_insights_operational_logs_name'), '/', parameters('consumergroups_$Default_name'))]",
+            "name": "[concat(parameters('namespaces_SumoAzureLogs_name'), '/', parameters('eventhubs_insights_operational_logs_name'), '/', parameters('consumergroups_name'))]",
             "apiVersion": "2017-04-01",
             "location": "[resourceGroup().location]",
             "scale": null,
@@ -254,6 +265,17 @@
                 "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoAzureLogs_name'))]",
                 "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_SumoAzureLogs_name'), parameters('eventhubs_insights_operational_logs_name'))]"
             ]
+        },
+        {
+          "name": "[parameters('appInsightsName')]",
+          "type": "Microsoft.Insights/components",
+          "apiVersion": "2015-05-01",
+          "location": "[resourceGroup().location]",
+          "kind": "web",
+          "properties": {
+            "Application_Type": "web",
+           "applicationId": "[parameters('appInsightsName')]"
+          }
         }
     ]
 }

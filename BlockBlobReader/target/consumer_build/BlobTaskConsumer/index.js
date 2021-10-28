@@ -210,6 +210,42 @@ function getData(task, blobService, context) {
     });
 
 }
+var lastTokenGenTime = null;
+var refreshTokenDuratoninMin = 60;
+var cachedTokenResponse = null;
+
+
+function isRefreshTokenDurationExceeded() {
+    if (!lastTokenGenTime) {
+        return true;
+    }
+    var currentTimestamp = new Date().getTime();
+    return ((currentTimestamp - lastTokenGenTime)/(1000 * 60)) >= refreshTokenDuratoninMin ? true : false;
+}
+
+/**
+- * @param  {} task
+- * @param  {} context
+- *
+- * fetching token and caching it for refreshTokenDuratoninMin
+- */
+function getCachedToken(context, task) {
+    if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
+        context.log("Regenerating token at: %s", new Date().toISOString());
+        return getToken(context, task).then(function(tokenResponse) {
+            lastTokenGenTime = new Date().getTime();
+            cachedTokenResponse = tokenResponse;
+            return cachedTokenResponse;
+        })
+    } else {
+        return new Promise(function (resolve, reject) {
+            var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
+            // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
+            resolve(cachedTokenResponse);
+        });
+    }
+}
+
 
 function getToken() {
     var options = {msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET};
@@ -224,26 +260,70 @@ function getToken() {
     });
 }
 
-function getStorageAccountAccessKey(task) {
-    return getToken().then(function (credentials) {
+var lastAccountKeyGenTime = {};
+var refreshAccountKeyDuratoninMin = 60;
+var cachedAccountKeyResponse = {};
+
+function isRefreshAccountKeyDurationExceeded(task) {
+    if (!lastAccountKeyGenTime[getStorageAccountCacheKey(task)]) {
+        return true;
+    }
+    var currentTimestamp = new Date().getTime();
+    return ((currentTimestamp - lastAccountKeyGenTime[getStorageAccountCacheKey(task)])/(1000 * 60)) >= refreshAccountKeyDuratoninMin ? true : false;
+}
+
+function getStorageAccountCacheKey(task) {
+    return task.resourceGroupName + "-" + task.storageName;
+}
+/**
+ * @param  {} task
+ * @param  {} context
+ *
+ * fetching account key and caching it for refreshAccountKeyDuratoninMin
+ */
+function getCachedAccountKey(context, task) {
+    if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
+        // context.log("Regenerating accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
+        return getStorageAccountAccessKey(context, task).then(function(accountKey) {
+            lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
+            cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
+            context.log("Regenerated accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
+            return accountKey;
+        });
+
+    } else {
+        return new Promise(function (resolve, reject) {
+            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
+            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", task.rowKey, timeRemainingToRefreshToken);
+            resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
+        });
+    }
+}
+
+function getStorageAccountAccessKey(context, task) {
+
+    return getCachedToken(context, task).then(function(credentials) {
         var storagecli = new storageManagementClient(
-          credentials,
-          task.subscriptionId
+            credentials,
+            task.subscriptionId
         );
         return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
             return resp.keys[0].value;
         });
     });
+
 }
+
 
 function getBlockBlobService(context, task) {
 
-    return getStorageAccountAccessKey(task).then(function (accountKey) {
+    return getCachedAccountKey(context, task).then(function (accountKey) {
         var blobService = storage.createBlobService(task.storageName, accountKey);
         return blobService;
     });
 
 }
+
 
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();

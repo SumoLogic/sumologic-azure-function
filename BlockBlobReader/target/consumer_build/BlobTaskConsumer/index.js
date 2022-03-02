@@ -283,18 +283,18 @@ function getStorageAccountCacheKey(task) {
  */
 function getCachedAccountKey(context, task) {
     if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
-        // context.log("Regenerating accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
+        // context.log("Regenerating accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
         return getStorageAccountAccessKey(context, task).then(function(accountKey) {
             lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
             cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
-            context.log("Regenerated accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
+            context.log("Regenerated accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
             return accountKey;
         });
 
     } else {
         return new Promise(function (resolve, reject) {
             var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
-            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", task.rowKey, timeRemainingToRefreshToken);
+            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", getStorageAccountCacheKey(task), timeRemainingToRefreshToken);
             resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
         });
     }
@@ -437,13 +437,12 @@ function timetriggerhandler(context, timetrigger) {
             // Message received and locked and try to resend
             var options = {
                 urlString: process.env.APPSETTING_SumoLogEndpoint,
-                metadata: getSourceCategory(serviceBusTask),
                 MaxAttempts: 3,
                 RetryInterval: 3000,
                 compress_data: true,
                 clientHeader: "dlqblobreader-azure-function"
             };
-
+            setSourceCategory(serviceBusTask, options);
             var sumoClient;
             function failureHandler(msgArray, ctx) {
                 ctx.log("Failed to send to Sumo");
@@ -486,8 +485,17 @@ function timetriggerhandler(context, timetrigger) {
 }
 
 module.exports = function (context, triggerData) {
-
-   if (triggerData.isPastDue === undefined) {
+    // var triggerData = {
+    //    startByte: 0,
+    //    endByte: 325356,
+    //    url: "https://allbloblogseastus.blob.core.windows.net/testappendblob/PT1H.json",
+    //    storageName:"allbloblogseastus",
+    //    containerName: "testappendblob",
+    //    blobName: "PT1H.json",
+    //    resourceGroupName: 'SumoAuditCollection',
+    //    subscriptionId: 'c088dc46-d692-42ad-a4b6-9a542d28ad2a'
+    // }
+    if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {
         timetriggerhandler(context, triggerData);

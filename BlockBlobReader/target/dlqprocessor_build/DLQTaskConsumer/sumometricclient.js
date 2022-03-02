@@ -139,7 +139,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                             resolve(body);
                             // TODO: anything here?
                         } else {
-                            reject({'error':null,'res':res});
+                            reject({'error':"statusCode: " + res.statusCode + " body: " + body,'res':null});
                         }
                         // TODO: finalizeContext();
                     });
@@ -177,14 +177,15 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                         //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                 )
-                .catch(() => {
-                        //self.context.log("Uh oh, failed to send to Sumo after "+self.MaxAttempts);
-                        self.messagesFailed += msgArray.length;
+                .catch((err) => {
+                    self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
+                    self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 });
                 } else {
                     self.messagesAttempted += msgArray.length;
+                    self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 }
             });
@@ -192,9 +193,10 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
             //self.context.log('Send raw data to Sumo');
             sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
                 .then(()=> { self.success_callback(self.context);})
-        .catch(() => {
-                self.messagesFailed += msgArray.length;
+        .catch((err) => {
+            self.messagesFailed += msgArray.length;
             self.messagesAttempted += msgArray.length;
+            self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
             self.failure_callback(msgArray,self.context);
         });
         }

@@ -180,15 +180,16 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                         )
-                    .catch(() => {
-                        //self.context.log("Uh oh, failed to send to Sumo after "+self.MaxAttempts);
+                    .catch((err) => {
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
+                        self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                         self.failure_callback(msgArray,self.context);
                     });
                 } else {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
+                    self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 }
             });
@@ -196,9 +197,10 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             //self.context.log('Send raw data to Sumo');
             sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
                     .then(()=> { self.success_callback(self.context);})
-            .catch(() => {
+            .catch((err) => {
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
+                self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                 self.failure_callback(msgArray,self.context);
             });
         }

@@ -437,13 +437,12 @@ function timetriggerhandler(context, timetrigger) {
             // Message received and locked and try to resend
             var options = {
                 urlString: process.env.APPSETTING_SumoLogEndpoint,
-                metadata: getSourceCategory(serviceBusTask),
                 MaxAttempts: 3,
                 RetryInterval: 3000,
                 compress_data: true,
                 clientHeader: "dlqblobreader-azure-function"
             };
-
+            setSourceCategory(serviceBusTask, options);
             var sumoClient;
             function failureHandler(msgArray, ctx) {
                 ctx.log("Failed to send to Sumo");

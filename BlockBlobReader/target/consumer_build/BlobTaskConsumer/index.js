@@ -332,7 +332,8 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     }
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
     if (!(file_ext in msghandler)) {
-        context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.blobName);
+        context.log("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName)
+        context.done();
         return;
     }
     if (file_ext === "json") {
@@ -375,20 +376,22 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             }
         });
     }).catch(function (err) {
-        context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-        context.done(err);
+        if(err.statusCode === 404) {
+            context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.done()
+        } else {
+            context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.done(err);
+        }
+
     });
 }
 
 function setSourceCategory(serviceBusTask, options) {
-    // var sourcecategory;
-    // switch(serviceBusTask.containerName) {
-    //   case "avionte-prod-aero-web-logs":
-    //     sourcecategory = "PROD/Azure/IIS"
-    //     break;
-    //   default:
-    // }
-    // options.metadata["category"] =  sourcecategory;
+
+    options.metadata = options.metadata || {};
+    options.metadata["name"]= serviceBusTask.storageName + "/" + serviceBusTask.containerName + "/" + serviceBusTask.blobName;
+    // options.metadata["category"] = <custom source category>
 }
 
 function servicebushandler(context, serviceBusTask) {

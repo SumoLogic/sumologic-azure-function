@@ -64,7 +64,7 @@ cd ../../
 
 echo "removing packagejson"
 
-rm producer_build/BlobTaskProducerpackage.json
+rm producer_build/BlobTaskProducer/package.json
 rm consumer_build/BlobTaskConsumer/package.json
 rm dlqprocessor_build/DLQTaskConsumer/package.json
 

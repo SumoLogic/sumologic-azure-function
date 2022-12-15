@@ -184,6 +184,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                     self.failure_callback(msgArray,self.context);
                 });
                 } else {
+                    self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);

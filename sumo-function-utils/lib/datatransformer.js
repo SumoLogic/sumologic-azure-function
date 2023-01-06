@@ -40,28 +40,45 @@ Transformer.prototype.azureAudit = function (data) {
  */
 Transformer.prototype.generateRawMetricObjectsFromAzureRawMetricRecord = function(msg, selectStatsForMetricFn) {
     let finalMetricArray = [];
-    let stat_method;
-    // build core component
-    let core = Object.assign({},msg);
-    delete core.count;
-    delete core.total;
-    delete core.average;
-    delete core.maximum;
-    delete core.minimum;
-    delete core.metricName;
-    delete core.time;
-    core['timestamp'] = Math.ceil((new Date(msg.time)).getTime()/1000); //need to convert to epoch seconds
-    core['metric'] = msg['metricName'];
 
-    for (stat_method of selectStatsForMetricFn(msg)) {
-        if (msg && stat_method in msg) {
-            // in case some metrics don't have this statistic
-            let newDatapoint = Object.assign({},core);
-            newDatapoint['statistic']=stat_method;
-            newDatapoint['value']=msg[stat_method];
-            finalMetricArray.push(newDatapoint);
+    if (msg.SourceSystem && msg.SourceSystem === "Insights") {
+        let newDatapoint = Object.assign({}, msg);
+        // need to convert to epoch seconds
+        newDatapoint['timestamp'] = Math.ceil((new Date(msg.TimeGenerated)).getTime()/1000);
+        newDatapoint['metric'] = msg.Name;
+        newDatapoint['namespace'] = msg.Namespace;
+        newDatapoint['value'] = msg.Val;
+        delete newDatapoint.Val;
+        delete newDatapoint.Namespace;
+        delete newDatapoint.Name;
+        delete newDatapoint.TimeGenerated;
+        finalMetricArray.push(newDatapoint);
+    } else {
+        let stat_method;
+        // build core component
+        let core = Object.assign({},msg);
+        delete core.count;
+        delete core.total;
+        delete core.average;
+        delete core.maximum;
+        delete core.minimum;
+        delete core.metricName;
+        delete core.time;
+        // need to convert to epoch seconds
+        core['timestamp'] = Math.ceil((new Date(msg.time)).getTime()/1000);
+        core['metric'] = msg['metricName'];
+        for (stat_method of selectStatsForMetricFn(msg)) {
+            if (msg && stat_method in msg) {
+                // in case some metrics don't have this statistic
+                let newDatapoint = Object.assign({},core);
+                newDatapoint['statistic']=stat_method;
+                newDatapoint['value']=msg[stat_method];
+                finalMetricArray.push(newDatapoint);
+            }
         }
     }
+
+
     return finalMetricArray
 }
 

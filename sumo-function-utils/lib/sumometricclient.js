@@ -169,8 +169,9 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
 
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
-
-            zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
+            var payload = msgArray.join('\n');
+            // self.context.log("Sending Uncompressed Payload size: " + Buffer.byteLength(payload, 'utf-8'));
+            zlib.gzip(payload,function(e,compressed_data){
                 if (!e)  {
                     sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                         .then(()=> {
@@ -181,12 +182,14 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                    // self.context.log(payload);
                     self.failure_callback(msgArray,self.context);
                 });
                 } else {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                    // self.context.log(payload);
                     self.failure_callback(msgArray,self.context);
                 }
             });

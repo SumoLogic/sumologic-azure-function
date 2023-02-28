@@ -49,13 +49,15 @@ Transformer.prototype.generateRawMetricObjectsFromAzureRawMetricRecord = functio
         newDatapoint['metric'] = msg.Name;
         newDatapoint['namespace'] = msg.Namespace;
         newDatapoint['value'] = msg.Val;
-        try {
-            tagObj = JSON.parse(msg.Tags);
-            newDatapoint = Object.assign(newDatapoint, tagObj);
-            // self.context.log(tagObj);
-            // self.context.log(newDatapoint);
-        } catch (e) {
-            self.context.log("Error in TagsParsing", e);
+        if (process.env.APPSETTING_EnableTagsInLogAnalytics && process.env.APPSETTING_EnableTagsInLogAnalytics === "true") {
+            try {
+                tagObj = JSON.parse(msg.Tags);
+                newDatapoint = Object.assign(newDatapoint, tagObj);
+                // self.context.log(tagObj);
+                // self.context.log(newDatapoint);
+            } catch (e) {
+                self.context.log("Error in TagsParsing", e);
+            }
         }
         delete newDatapoint.Tags
         delete newDatapoint.Val;

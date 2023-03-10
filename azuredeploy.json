@@ -90,9 +90,9 @@
             "defaultValue": "FileOffsetMap",
             "type": "String"
         },
-        "StorageAccountName": {
-          "type": "String"
-        },
+        // "StorageAccountName": {
+        //   "type": "String"
+        // },
         "StorageAccountResourceGroupName": {
           "type": "String"
         },
@@ -105,12 +105,12 @@
         "consumer_roleGuid": "[guid(parameters('sites_blobreaderconsumer_name'), uniqueString(deployment().name, resourceGroup().id))]",
         "dlq_roleGuid": "[guid(parameters('sites_DLQProcessor_name'), uniqueString(deployment().name, resourceGroup().id))]",
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '81a9662b-bebf-436f-a333-f67b29880f12')]",
-        "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
+        //"roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
     },
   "resources": [
         {
-          "apiVersion": "2017-05-10",
+          "apiVersion": "2021-04-01",
           "name": "[concat('nestedTemplate', resourceGroup().name)]",
           "type": "Microsoft.Resources/deployments",
           "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
@@ -125,23 +125,23 @@
               "contentVersion": "1.0.0.0",
               "resources": [
                 {
-                  "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
-                  "apiVersion": "2017-05-01",
-                  "name": "[concat(parameters('StorageAccountName'),'/Microsoft.Authorization/', variables('consumer_roleGuid'))]",
+                  "type": "Microsoft.Authorization/roleAssignments",
+                  "apiVersion": "2022-04-01",
+                  "name": "[variables('consumer_roleGuid')]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
-                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]",
-                    "scope": "[variables('roleScope')]"
+                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]"
+                //"scope": "[variables('roleScope')]"
                   }
                 },
                 {
-                  "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
-                  "apiVersion": "2017-05-01",
-                  "name": "[concat(parameters('StorageAccountName'),'/Microsoft.Authorization/', variables('dlq_roleGuid'))]",
+                  "type": "Microsoft.Authorization/roleAssignments",
+                  "apiVersion": "2022-04-01",
+                  "name": "[variables('dlq_roleGuid')]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
-                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '2019-08-01', 'Full').Identity.principalId]",
-                    "scope": "[variables('roleScope')]"
+                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '2019-08-01', 'Full').Identity.principalId]"
+                    //"scope": "[variables('roleScope')]"
                   }
                 },
                 {
@@ -151,10 +151,10 @@
                     "apiVersion": "2022-06-15"
                 },
                 {
-                    "type": "Microsoft.Storage/storageAccounts/providers/eventSubscriptions",
-                    "name": "[concat(parameters('StorageAccountName'), '/Microsoft.EventGrid/', parameters('eventgridsubscription_name'))]",
+                    "type": "Microsoft.EventGrid/eventSubscriptions",
+                    "name": "[parameters('eventgridsubscription_name')]",
                     "location": "[resourceGroup().location]",
-                    "apiVersion": "2018-01-01",
+                    "apiVersion": "2021-12-01",
                     "properties": {
                         "destination": {
                             "endpointType": "EventHub",

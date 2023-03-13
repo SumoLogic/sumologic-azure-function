@@ -1,5 +1,5 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
         "sites_BlobReader_name": {
@@ -22,10 +22,6 @@
             "defaultValue": "[concat('SUMOBRProducerPlan', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        // "config_web_name": {
-        //     "defaultValue": "web",
-        //     "type": "String"
-        // },
         "storageAccounts_blobreaderaea3_name": {
             "defaultValue": "[concat('sumobrlogs', uniqueString(resourceGroup().id))]",
             "type": "String"
@@ -42,8 +38,8 @@
             "defaultValue": "[concat('SUMOBRSubscription', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "eventGridTopicName": {
-            "defaultValue": "[concat('SUMOBREventGridTopic', uniqueString(resourceGroup().id))]",
+        "eventGridSystemTopicName": {
+            "defaultValue": "[concat('SUMOBREventGridSystemTopic', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "filterPrefix": {
@@ -83,16 +79,16 @@
             "type": "String"
         },
         "SumoEndpointURL": {
-            // "defaultValue": "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV3E4cvBj4bn_aSzLVTWzwW9z5jLZ-BDdMuOQlqc4lThoIikoaMixdZKLlYR5GJ4JVNnIlNTQ5zOOS0fSKd8Ev5t8FIRFEGO4z8Cyaak4clykA==",
+            "defaultValue": "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV3E4cvBj4bn_aSzLVTWzwW9z5jLZ-BDdMuOQlqc4lThoIikoaMixdZKLlYR5GJ4JVNnIlNTQ5zOOS0fSKd8Ev5t8FIRFEGO4z8Cyaak4clykA==",
             "type": "String"
         },
         "TABLE_NAME": {
             "defaultValue": "FileOffsetMap",
             "type": "String"
         },
-        // "StorageAccountName": {
-        //   "type": "String"
-        // },
+        "StorageAccountName": {
+          "type": "String"
+        },
         "StorageAccountResourceGroupName": {
           "type": "String"
         },
@@ -105,7 +101,7 @@
         "consumer_roleGuid": "[guid(parameters('sites_blobreaderconsumer_name'), uniqueString(deployment().name, resourceGroup().id))]",
         "dlq_roleGuid": "[guid(parameters('sites_DLQProcessor_name'), uniqueString(deployment().name, resourceGroup().id))]",
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '81a9662b-bebf-436f-a333-f67b29880f12')]",
-        //"roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
+        "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
     },
   "resources": [
@@ -128,51 +124,64 @@
                   "type": "Microsoft.Authorization/roleAssignments",
                   "apiVersion": "2022-04-01",
                   "name": "[variables('consumer_roleGuid')]",
+                  "scope": "[variables('roleScope')]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
                     "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]"
-                //"scope": "[variables('roleScope')]"
                   }
                 },
                 {
                   "type": "Microsoft.Authorization/roleAssignments",
                   "apiVersion": "2022-04-01",
                   "name": "[variables('dlq_roleGuid')]",
+                  "scope": "[variables('roleScope')]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
                     "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '2019-08-01', 'Full').Identity.principalId]"
-                    //"scope": "[variables('roleScope')]"
                   }
                 },
                 {
-                    "name": "[parameters('eventGridTopicName')]",
-                    "type": "Microsoft.EventGrid/topics",
-                    "location": "[resourceGroup().location]",
-                    "apiVersion": "2022-06-15"
+                  "type": "Microsoft.EventGrid/systemTopics",
+                  "apiVersion": "2022-06-15",
+                  "name": "[parameters('eventGridSystemTopicName')]",
+                  "location": "[resourceGroup().location]",
+                  "properties": {
+                    "source": "[variables('roleScope')]",
+                    "topicType": "Microsoft.Storage.StorageAccounts"
+                    }
                 },
                 {
-                    "type": "Microsoft.EventGrid/eventSubscriptions",
-                    "name": "[parameters('eventgridsubscription_name')]",
-                    "location": "[resourceGroup().location]",
-                    "apiVersion": "2021-12-01",
+                  "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
+                  "apiVersion": "2022-06-15",
+                  "name": "[concat(parameters('eventGridSystemTopicName'), '/', parameters('eventgridsubscription_name'))]",
+                  "dependsOn": [
+                    "[resourceId('Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
+                  ],
+                  "properties": {
+                  "destination": {
                     "properties": {
-                        "destination": {
-                            "endpointType": "EventHub",
-                            "properties": {
-                                "resourceId": "[variables('eventhub_resourceId')]"
-                            }
-                        },
-                        "filter": {
-                            "subjectBeginsWith": "[parameters('filterPrefix')]",
-                            "isSubjectCaseSensitive": false,
-                            "includedEventTypes": [
-                                "Microsoft.Storage.BlobCreated"
-                            ]
-                        }
+                        "resourceId": "[variables('eventhub_resourceId')]"
                     },
-                    "dependsOn": [
-                        "[parameters('eventGridTopicName')]"
+                    "endpointType": "EventHub"
+                  },
+                  "filter": {
+                    "includedEventTypes": [
+                        "Microsoft.Storage.BlobCreated"
+                    ],
+                    "enableAdvancedFilteringOnArrays": true,
+                    "subjectBeginsWith": "[parameters('filterPrefix')]",
+                    "isSubjectCaseSensitive": false
+                  },
+                  "labels": [],
+                  "eventDeliverySchema": "EventGridSchema",
+                  "retryPolicy": {
+                     "maxDeliveryAttempts": 30,
+                     "eventTimeToLiveInMinutes": 1440
+                  },
+                  "dependsOn": [
+                    "[resourceId('Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
                     ]
+                 }
                 }
               ]
             }
@@ -271,9 +280,8 @@
             "scale": null,
             "properties": {
                 "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
-                "workerTierName": null,
+                "workerTierName": "",
                 "adminSiteName": null,
-                "hostingEnvironmentProfile": null,
                 "perSiteScaling": false,
                 "reserved": false,
                 "targetWorkerCount": 0,
@@ -298,9 +306,8 @@
             "scale": null,
             "properties": {
                 "name": "[parameters('serverfarms_ConsumerPlan_name')]",
-                "workerTierName": null,
+                "workerTierName": "",
                 "adminSiteName": null,
-                "hostingEnvironmentProfile": null,
                 "perSiteScaling": false,
                 "reserved": false,
                 "targetWorkerCount": 0,

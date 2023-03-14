@@ -87,10 +87,20 @@
             "type": "String"
         },
         "StorageAccountName": {
-          "type": "String"
+          "type": "String",
+          "defaultValue": "publisheraccountrg2",
+          "metadata": {
+        "description": "Enter the storage account whose logs you want to ingest in SUMO"
+      }
         },
         "StorageAccountResourceGroupName": {
-          "type": "String"
+          "type": "String",
+          "defaultValue": "azureBlobUpgradeRG2"
+        },
+        "StorageAccountLocation": {
+          "defaultValue": "East US",
+          "type": "String",
+          "allowedValues": ["East US"]
         },
         "appInsightsName": {
             "defaultValue": "[concat('SUMOBRAppInsights', uniqueString(resourceGroup().id))]",
@@ -112,7 +122,7 @@
           "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
           "dependsOn": [
             "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
-            "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
+            "[resourceId(resourceGroup().name,'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
          ],
           "properties": {
             "mode": "Incremental",
@@ -127,7 +137,7 @@
                   "scope": "[variables('roleScope')]",
                   "properties": {
                     "roleDefinitionId": "[variables('roleDefinitionId')]",
-                    "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]"
+                    "principalId": "[reference(resourceId(resourceGroup().name,'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2019-08-01', 'Full').Identity.principalId]"
                   }
                 },
                 {
@@ -144,7 +154,7 @@
                   "type": "Microsoft.EventGrid/systemTopics",
                   "apiVersion": "2022-06-15",
                   "name": "[parameters('eventGridSystemTopicName')]",
-                  "location": "[resourceGroup().location]",
+                  "location": "[parameters('StorageAccountLocation')]",
                   "properties": {
                     "source": "[variables('roleScope')]",
                     "topicType": "Microsoft.Storage.StorageAccounts"
@@ -155,7 +165,7 @@
                   "apiVersion": "2022-06-15",
                   "name": "[concat(parameters('eventGridSystemTopicName'), '/', parameters('eventgridsubscription_name'))]",
                   "dependsOn": [
-                    "[resourceId('Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
+                    "[resourceId(parameters('StorageAccountResourceGroupName'),'Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
                   ],
                   "properties": {
                   "destination": {
@@ -177,10 +187,7 @@
                   "retryPolicy": {
                      "maxDeliveryAttempts": 30,
                      "eventTimeToLiveInMinutes": 1440
-                  },
-                  "dependsOn": [
-                    "[resourceId('Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
-                    ]
+                  }
                  }
                 }
               ]
@@ -357,7 +364,7 @@
                 "type": "sourcecontrols",
                 "location": "[resourceGroup().location]",
                 "dependsOn": [
-                  "[resourceId('Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]"
+                  "[resourceId(resourceGroup().name,'Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]"
                 ],
                 "properties": {
                   "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
@@ -410,7 +417,7 @@
                   "type": "sourcecontrols",
                   "location": "[resourceGroup().location]",
                   "dependsOn": [
-                    "[resourceId('Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
+                    "[resourceId(resourceGroup().name,'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]"
                   ],
                   "properties": {
                     "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",

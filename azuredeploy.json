@@ -121,9 +121,9 @@
     },
   "resources": [
         {
+          "type": "Microsoft.Resources/deployments",
           "apiVersion": "2021-04-01",
           "name": "[concat('nestedTemplate', resourceGroup().name)]",
-          "type": "Microsoft.Resources/deployments",
           "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
           "dependsOn": [
             "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
@@ -200,7 +200,7 @@
           }
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace'.",
+            "comments": "Generalized from resource: 'Microsoft.EventHub/namespaces/BlobReaderNamespace'.",
             "type": "Microsoft.EventHub/namespaces",
             "sku": {
                 "name": "Standard",
@@ -219,7 +219,7 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.ServiceBus/namespaces/blobreadertaskqueue'.",
+            "comments": "Generalized from resource: 'Microsoft.ServiceBus/namespaces/blobreadertaskqueue'.",
             "type": "Microsoft.ServiceBus/namespaces",
             "sku": {
                 "name": "Standard",
@@ -241,7 +241,7 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Storage/storageAccounts/blobreaderaea3'.",
+            "comments": "Generalized from resource: 'Microsoft.Storage/storageAccounts/blobreaderaea3'.",
             "type": "Microsoft.Storage/storageAccounts",
             "sku": {
                 "name": "Standard_LRS",
@@ -276,7 +276,7 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/BlobReaderPlan'.",
+            "comments": "Generalized from resource: 'Microsoft.Web/serverfarms/BlobReaderPlan'.",
             "type": "Microsoft.Web/serverfarms",
             "sku": {
                 "name": "S1",
@@ -302,7 +302,7 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/ConsumerPlan'.",
+            "comments": "Generalized from resource: 'Microsoft.Web/serverfarms/ConsumerPlan'.",
             "type": "Microsoft.Web/serverfarms",
             "sku": {
                 "name": "Y1",
@@ -328,7 +328,7 @@
             "dependsOn": []
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/sites/BlobReader'.",
+            "comments": "Generalized from resource: 'Microsoft.Web/sites/BlobReader'.",
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_BlobReader_name')]",
@@ -383,7 +383,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/BlobReaderGroup/providers/Microsoft.Web/sites/blobreaderconsumer'.",
+            "comments": "Generalized from resource: 'Microsoft.Web/sites/blobreaderconsumer'.",
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_blobreaderconsumer_name')]",
@@ -436,7 +436,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/ArmTestingWest/providers/Microsoft.Web/sites/DLQProcessor'.",
+            "comments": "Generalized from resource: 'Microsoft.Web/sites/DLQProcessor'.",
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_DLQProcessor_name')]",
@@ -491,7 +491,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/AuthorizationRules/RootManageSharedAccessKey'.",
+            "comments": "Generalized from resource: '/Microsoft.EventHub/namespaces/BlobReaderNamespace/AuthorizationRules/RootManageSharedAccessKey'.",
             "type": "Microsoft.EventHub/namespaces/AuthorizationRules",
             "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name'))]",
             "apiVersion": "2022-01-01-preview",
@@ -509,7 +509,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub'.",
+            "comments": "Generalized from resource: 'Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub'.",
             "type": "Microsoft.EventHub/namespaces/eventhubs",
             "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'))]",
             "apiVersion": "2022-01-01-preview",
@@ -525,7 +525,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub/consumergroups/$Default'.",
+            "comments": "Generalized from resource: 'Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub/consumergroups/$Default'.",
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
             "name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'), '/', parameters('consumergroupName'))]",
             "apiVersion": "2022-01-01-preview",
@@ -538,7 +538,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.ServiceBus/namespaces/blobreadertaskqueue/AuthorizationRules/RootManageSharedAccessKey'.",
+            "comments": "Generalized from resource: 'Microsoft.ServiceBus/namespaces/blobreadertaskqueue/AuthorizationRules/RootManageSharedAccessKey'.",
             "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
             "name": "[concat(parameters('namespaces_blobreadertaskqueue_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name'))]",
             "apiVersion": "2022-01-01-preview",
@@ -556,7 +556,7 @@
             ]
         },
         {
-            "comments": "Generalized from resource: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.ServiceBus/namespaces/blobreadertaskqueue/queues/rangetaskqueue'.",
+            "comments": "Microsoft.ServiceBus/namespaces/blobreadertaskqueue/queues/rangetaskqueue'.",
             "type": "Microsoft.ServiceBus/namespaces/queues",
             "name": "[concat(parameters('namespaces_blobreadertaskqueue_name'), '/', parameters('queues_rangetaskqueue_name'))]",
             "apiVersion": "2022-01-01-preview",

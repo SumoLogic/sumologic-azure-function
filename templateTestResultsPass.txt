@@ -1,0 +1,82 @@
+
+Validating sumologic-azure-function\azuredeploytemplatePass3.json
+  JSONFiles Should Be Valid
+    [+] JSONFiles Should Be Valid (3 ms)
+Fail  : 0
+Pass  : 1
+Total : 1
+
+
+
+  adminUsername Should Not Be A Literal
+    [+] adminUsername Should Not Be A Literal (120 ms)
+  apiVersions Should Be Recent In Reference Functions
+    [+] apiVersions Should Be Recent In Reference Functions (117 ms)
+  apiVersions Should Be Recent
+    [?] apiVersions Should Be Recent (206 ms)
+        The apiVersion 2022-04-01 was not found for the resource type: Microsoft.Resources/deployments/Microsoft.Authorization/roleAssignments
+        The apiVersion 2022-04-01 was not found for the resource type: Microsoft.Resources/deployments/Microsoft.Authorization/roleAssignments
+        The apiVersion 2022-06-15 was not found for the resource type: Microsoft.Resources/deployments/Microsoft.EventGrid/systemTopics
+        The apiVersion 2022-06-15 was not found for the resource type: Microsoft.Resources/deployments/Microsoft.EventGrid/systemTopics/eventSubscriptions
+
+  artifacts parameter
+    [+] artifacts parameter (1 ms)
+  CommandToExecute Must Use ProtectedSettings For Secrets
+    [+] CommandToExecute Must Use ProtectedSettings For Secrets (137 ms)
+  DependsOn Best Practices
+    [+] DependsOn Best Practices (115 ms)
+  Deployment Resources Must Not Be Debug
+    [+] Deployment Resources Must Not Be Debug (109 ms)
+  DeploymentTemplate Must Not Contain Hardcoded Uri
+    [+] DeploymentTemplate Must Not Contain Hardcoded Uri (6 ms)
+  DeploymentTemplate Schema Is Correct
+    [+] DeploymentTemplate Schema Is Correct (1 ms)
+  Dynamic Variable References Should Not Use Concat
+    [+] Dynamic Variable References Should Not Use Concat (1 ms)
+  IDs Should Be Derived From ResourceIDs
+    [+] IDs Should Be Derived From ResourceIDs (129 ms)
+  Location Should Not Be Hardcoded
+    [+] Location Should Not Be Hardcoded (341 ms)
+  ManagedIdentityExtension must not be used
+    [+] ManagedIdentityExtension must not be used (2 ms)
+  Min And Max Value Are Numbers
+    [+] Min And Max Value Are Numbers (1 ms)
+  Outputs Must Not Contain Secrets
+    [+] Outputs Must Not Contain Secrets (1 ms)
+  Parameter Types Should Be Consistent
+    [+] Parameter Types Should Be Consistent (142 ms)
+  Parameters Must Be Referenced
+    [+] Parameters Must Be Referenced (66 ms)
+  Password params must be secure
+    [+] Password params must be secure (1 ms)
+  providers apiVersions Is Not Permitted
+    [+] providers apiVersions Is Not Permitted (2 ms)
+  ResourceIds should not contain
+    [+] ResourceIds should not contain (1 ms)
+  Resources Should Have Location
+    [+] Resources Should Have Location (1 ms)
+  Resources Should Not Be Ambiguous
+    [+] Resources Should Not Be Ambiguous (2 ms)
+  Secure Params In Nested Deployments
+    [+] Secure Params In Nested Deployments (124 ms)
+  Secure String Parameters Cannot Have Default
+    [+] Secure String Parameters Cannot Have Default (1 ms)
+  Template Should Not Contain Blanks
+    [+] Template Should Not Contain Blanks (329 ms)
+  URIs Should Be Properly Constructed
+    [+] URIs Should Be Properly Constructed (167 ms)
+  Variables Must Be Referenced
+    [+] Variables Must Be Referenced (14 ms)
+  Virtual Machines Should Not Be Preview
+    [+] Virtual Machines Should Not Be Preview (146 ms)
+  VM Images Should Use Latest Version
+    [+] VM Images Should Use Latest Version (1 ms)
+  VM Size Should Be A Parameter
+    [+] VM Size Should Be A Parameter (135 ms)
+Fail  : 0
+Pass  : 31
+Total : 31
+
+
+
+

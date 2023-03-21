@@ -84,10 +84,6 @@
 				"description": "Enter the SUMO source endpoint"
 			}
 		},
-		"TABLE_NAME": {
-			"defaultValue": "FileOffsetMap",
-			"type": "String"
-		},
 		"StorageAccountName": {
 			"type": "String",
 			"metadata": {
@@ -114,10 +110,6 @@
 		"location": {
 			"type": "string",
 			"defaultValue": "[resourceGroup().location]"
-		},
-		"resourceGroupName": {
-			"type": "string",
-			"defaultValue": "[resourceGroup().name]"
 		}
 	},
 	"variables": {
@@ -127,9 +119,11 @@
 		"roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '81a9662b-bebf-436f-a333-f67b29880f12')]",
 		"roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
 		"DLQProcessor_resourceId": "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
-		"blobreaderconsumer_respurceId": "[resourceId(parameters('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]",
-		"BlobReader_resourceId": "[resourceId(parameters('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]",
-		"eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]"
+		"blobreaderconsumer_respurceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]",
+		"BlobReader_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]",
+		"eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]",
+        "TABLE_NAME": "FileOffsetMap",
+        "resourceGroupName": "[resourceGroup().name]"
 	},
 	"resources": [{
 			"type": "Microsoft.Resources/deployments",
@@ -152,7 +146,7 @@
 							"scope": "[variables('roleScope')]",
 							"properties": {
 								"roleDefinitionId": "[variables('roleDefinitionId')]",
-								"principalId": "[reference(resourceId(parameters('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2022-03-01', 'Full').Identity.principalId]"
+								"principalId": "[reference(resourceId(variables('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2022-03-01', 'Full').Identity.principalId]"
 							}
 						},
 						{
@@ -162,7 +156,7 @@
 							"scope": "[variables('roleScope')]",
 							"properties": {
 								"roleDefinitionId": "[variables('roleDefinitionId')]",
-								"principalId": "[reference(resourceId(parameters('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '2022-03-01', 'Full').Identity.principalId]"
+								"principalId": "[reference(resourceId(variables('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_DLQProcessor_name')), '2022-03-01', 'Full').Identity.principalId]"
 							}
 						},
 						{
@@ -362,7 +356,7 @@
 						},
 						{
 							"name": "TABLE_NAME",
-							"value": "[parameters('TABLE_NAME')]"
+							"value": "[variables('TABLE_NAME')]"
 						},
 						{
 							"name": "AzureEventHubConnectionString",

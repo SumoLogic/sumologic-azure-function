@@ -71,7 +71,7 @@
 			"type": "String"
 		},
 		"sourceCodeBranch": {
-			"defaultValue": "AzureBlobUpgrade",
+			"defaultValue": "master",
 			"type": "String"
 		},
 		"sourceCodeManualIntegration": {

@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@azure/data-tables": "^13.2.1",
+    "@azure/storage-blob": "^12.13.0",
+    "@azure/storage-file-share": "^12.13.0",
+    "@azure/storage-queue": "^12.12.0"
+  }
+}

@@ -2,8 +2,11 @@
 //           Function to create tasks using EventGrid Events into Azure EventHubs               //
 ///////////////////////////////////////////////////////////////////////////////////
 
-var storage = require('azure-storage');
-var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
+// var storage = require('azure-storage');
+// var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
+
+const { TableServiceClient } = require("@azure/data-tables");
+const tableService = TableServiceClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage);
 
 function getRowKey(metadata) {
     var storageName =  metadata.url.split("//").pop().split(".")[0];

@@ -125,7 +125,8 @@
         "TABLE_NAME": "FileOffsetMap",
         "resourceGroupName": "[resourceGroup().name]"
 	},
-	"resources": [{
+	"resources": [
+		{
 			"type": "Microsoft.Resources/deployments",
 			"apiVersion": "2021-04-01",
 			"name": "[concat('nestedTemplate', resourceGroup().name)]",
@@ -332,7 +333,7 @@
 					"alwaysOn": true,
 					"appSettings": [{
 							"name": "FUNCTIONS_EXTENSION_VERSION",
-							"value": "~1"
+							"value": "~4"
 						},
 						{
 							"name": "Project",
@@ -413,7 +414,7 @@
 				"siteConfig": {
 					"appSettings": [{
 							"name": "FUNCTIONS_EXTENSION_VERSION",
-							"value": "~1"
+							"value": "~4"
 						},
 						{
 							"name": "Project",
@@ -490,7 +491,7 @@
 				"siteConfig": {
 					"appSettings": [{
 							"name": "FUNCTIONS_EXTENSION_VERSION",
-							"value": "~1"
+							"value": "~4"
 						},
 						{
 							"name": "Project",

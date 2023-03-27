@@ -1,5 +1,10 @@
 {
-    "serviceBus": {
+  "version": "2.0",
+  "extensionBundle": {
+      "id": "Microsoft.Azure.Functions.ExtensionBundle",
+      "version": "[3.3.0, 4.0.0)"
+  },
+  "serviceBus": {
       "maxConcurrentCalls": 30,
       "prefetchCount": 400,
       "autoRenewTimeout": "00:10:00"

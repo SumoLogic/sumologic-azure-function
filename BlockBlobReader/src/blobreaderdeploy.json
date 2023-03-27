@@ -368,7 +368,7 @@
 						},
 						{
 							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "6.5.0"
+							"value": "8.19.2"
 						},
 						{
 							"name": "FUNCTION_APP_EDIT_MODE",
@@ -445,7 +445,7 @@
 						},
 						{
 							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "6.5.0"
+							"value": "8.19.2"
 						},
 						{
 							"name": "FUNCTION_APP_EDIT_MODE",
@@ -518,7 +518,7 @@
 						},
 						{
 							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "6.5.0"
+							"value": "8.19.2"
 						},
 						{
 							"name": "FUNCTION_APP_EDIT_MODE",

@@ -341,7 +341,7 @@
 						},
 						{
 							"name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
-							"value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2022-05-01').keys[0].value)]"
+							"value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccounts_blobreaderaea3_name'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')), '2022-05-01').keys[0].value)]"
 						},
 						{
 							"name": "WEBSITE_CONTENTSHARE",
@@ -349,7 +349,7 @@
 						},
 						{
 							"name": "AzureWebJobsStorage",
-							"value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_blobreaderaea3_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')),'2022-05-01').keys[0].value)]"
+							"value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccounts_blobreaderaea3_name'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')), '2022-05-01').keys[0].value)]"
 						},
 						{
 							"name": "APPINSIGHTS_INSTRUMENTATIONKEY",
@@ -368,8 +368,12 @@
 							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-01-01-preview').primaryConnectionString]"
 						},
 						{
+							"name": "FUNCTIONS_WORKER_RUNTIME",
+							"value": "node"
+						},
+						{
 							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "8.19.2"
+							"value": "~18"
 						},
 						{
 							"name": "FUNCTION_APP_EDIT_MODE",
@@ -445,8 +449,12 @@
 							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-01-01-preview').primaryConnectionString]"
 						},
 						{
+							"name": "FUNCTIONS_WORKER_RUNTIME",
+							"value": "node"
+						},
+						{
 							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "8.19.2"
+							"value": "~18"
 						},
 						{
 							"name": "FUNCTION_APP_EDIT_MODE",
@@ -518,8 +526,12 @@
 							"value": "[parameters('queues_rangetaskqueue_name')]"
 						},
 						{
+							"name": "FUNCTIONS_WORKER_RUNTIME",
+							"value": "node"
+						},
+						{
 							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "8.19.2"
+							"value": "~18"
 						},
 						{
 							"name": "FUNCTION_APP_EDIT_MODE",

@@ -2,17 +2,8 @@
 //           Function to create tasks using EventGrid Events into Azure EventHubs               //
 ///////////////////////////////////////////////////////////////////////////////////
 
-// var storage = require('azure-storage');
-// var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
-
 const { TableClient } = require("@azure/data-tables");
 const tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage,process.env.APPSETTING_TABLE_NAME);
-// const tableName = process.env.APPSETTING_TABLE_NAME;
-// const tablesEndpoint = process.env.APPSETTING_AzureWebJobsStorage;
-// const tableClient = new TableClient(
-//     tablesEndpoint,
-//     tableName  
-// );
 
 function getRowKey(metadata) {
     var storageName =  metadata.url.split("//").pop().split(".")[0];
@@ -41,7 +32,6 @@ function getBlobMetadata(message) {
 
 function getEntity(metadata, endByte, currentEtag) {
      //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    //var entGen = storage.TableUtilities.entityGenerator;
     // rowKey/partitionKey cannot contain "/"
     var entity = {
         partitionKey: metadata.containerName,
@@ -49,8 +39,8 @@ function getEntity(metadata, endByte, currentEtag) {
         blobName: metadata.blobName,
         containerName: metadata.containerName,
         storageName: metadata.storageName,
-        offset: Int64(endByte),
-        date: DateTime((new Date()).toISOString())
+        offset: endByte,
+        date: (new Date()).toISOString()
     };
     if (currentEtag) {
         entity['.metadata'] = { etag: currentEtag };
@@ -67,40 +57,32 @@ function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatama
     });
 }
 
-function getBlobPointerMap(partitionKey, rowKey, context) {
+async function getBlobPointerMap(partitionKey, rowKey, context) {
     // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
-    return new Promise(function (resolve, reject) {
-        tableClient.getEntity(partitionKey, rowKey, function (error, result, response) {
-          // context.log("inside getBlobPointerMap", response.statusCode);
-          if (response.statusCode === 404 || !error) {
-            resolve(response);
-          } else {
-            reject(error);
-          }
-        });
+    var statusCode = 200;
+    const entity = await tableClient.getEntity(partitionKey, rowKey).catch(function (error){
+        // context.log(error)
+        statusCode = 404;
+        return null
     });
+    return {statusCode: statusCode, entity: entity};
 }
 
-function updateBlobPointerMap(entity, context) {
-    return new Promise(function (resolve, reject) {
-        var insertOrReplace = ".metadata" in entity ? tableClient.updateEntity.bind(tableClient) : tableClient.createEntity.bind(tableClient);
-        insertOrReplace(tableName, entity, function (error, result, response) {
-            // context.log("inside updateBlobPointerMap", response.statusCode);
-            if(!error) {
-                resolve(response);
-            } else {
-                reject(error);
-            }
-        });
+async function updateBlobPointerMap(entity, context) {
+    var insertOrReplace = ".metadata" in entity ? tableClient.updateEntity.bind(tableClient) : tableClient.createEntity.bind(tableClient);
+    const response = await insertOrReplace(entity).catch(function (error){
+        // context.log(error)
+        return error;
     });
+    return response;
 }
 
 function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context, metadata, finalcontext) {
     // context.log("inside createTasksForBlob", partitionKey, rowKey, sortedcontentlengths, metadata);
     getBlobPointerMap(partitionKey, rowKey, context).then(function (response) {
         var tasks = [];
-        var currentoffset = response.statusCode === 404 ? -1 : Number(response.body.offset);
-        var currentEtag = response.statusCode === 404 ? null : response.body['odata.etag'];
+        var currentoffset = response.statusCode === 404 ? -1 : Number(response.entity.offset);
+        var currentEtag = response.statusCode === 404 ? null : response.entity.etag;
         var lastoffset = currentoffset;
         var i, endByte, task;
         for (i = 0; i < sortedcontentlengths.length; i += 1) {

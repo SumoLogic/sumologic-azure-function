@@ -2,8 +2,8 @@
 //           Function to create tasks using EventGrid Events into Azure EventHubs               //
 ///////////////////////////////////////////////////////////////////////////////////
 
-const { TableClient } = require("@azure/data-tables");
-const tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage,process.env.APPSETTING_TABLE_NAME);
+var { TableClient } = require("@azure/data-tables");
+var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage,process.env.APPSETTING_TABLE_NAME);
 
 function getRowKey(metadata) {
     var storageName =  metadata.url.split("//").pop().split(".")[0];
@@ -60,7 +60,7 @@ function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatama
 async function getBlobPointerMap(partitionKey, rowKey, context) {
     // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
     var statusCode = 200;
-    const entity = await tableClient.getEntity(partitionKey, rowKey).catch(function (error){
+    var entity = await tableClient.getEntity(partitionKey, rowKey).catch(function (error){
         // context.log(error)
         statusCode = 404;
         return null
@@ -70,7 +70,7 @@ async function getBlobPointerMap(partitionKey, rowKey, context) {
 
 async function updateBlobPointerMap(entity, context) {
     var insertOrReplace = ".metadata" in entity ? tableClient.updateEntity.bind(tableClient) : tableClient.createEntity.bind(tableClient);
-    const response = await insertOrReplace(entity).catch(function (error){
+    var response = await insertOrReplace(entity).catch(function (error){
         // context.log(error)
         return error;
     });

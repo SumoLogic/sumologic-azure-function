@@ -4,8 +4,9 @@
 
 var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
-var storage = require('azure-storage');
-var storageManagementClient = require('azure-arm-storage');
+//var storage = require('azure-storage');
+var { BlobServiceClient } = require("@azure/storage-blob");
+var storageManagementClient = require('@azure/arm-storage');
 var MsRest = require('ms-rest-azure');
 var servicebus = require('azure-sb');
 var DEFAULT_CSV_SEPARATOR = ",";
@@ -318,7 +319,8 @@ function getStorageAccountAccessKey(context, task) {
 function getBlockBlobService(context, task) {
 
     return getCachedAccountKey(context, task).then(function (accountKey) {
-        var blobService = storage.createBlobService(task.storageName, accountKey);
+        //var blobService = storage.createBlobService(task.storageName, accountKey);
+        var blobService = BlobServiceClient.fromConnectionString(task.storageName, accountKey);
         return blobService;
     });
 

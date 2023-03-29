@@ -6,7 +6,8 @@ var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 //var storage = require('azure-storage');
 var { BlobServiceClient } = require("@azure/storage-blob");
-var storageManagementClient = require('@azure/arm-storage');
+var { StorageManagementClient } = require('@azure/arm-storage');
+var { DefaultAzureCredential } = require("@azure/identity");
 var MsRest = require('ms-rest-azure');
 var servicebus = require('azure-sb');
 var DEFAULT_CSV_SEPARATOR = ",";
@@ -58,10 +59,9 @@ function hasAllHeaders(text) {
     }
 }
 
-function getHeaderRecursively(headertext, task, blobService, context) {
+async function getHeaderRecursively(headertext, task, blobService, context) {
 
-    return new Promise(function (resolve, reject) {
-        getData(task, blobService, context).then(function (text) {
+    var data = await getData(task, blobService, context).then(function (text) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
             var bytesOffset = MAX_CHUNK_SIZE;
@@ -84,7 +84,7 @@ function getHeaderRecursively(headertext, task, blobService, context) {
         }).catch(function (err) {
             reject(err);
         });
-    });
+    return data;
 
 }
 
@@ -191,7 +191,7 @@ function logHandler(msg) {
     return [msg];
 }
 
-function getData(task, blobService, context) {
+async function getData(task, blobService, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
@@ -200,15 +200,14 @@ function getData(task, blobService, context) {
     var blobName = task.blobName;
     var options = {rangeStart: task.startByte, rangeEnd: task.endByte};
 
-    return new Promise(function (resolve, reject) {
-        blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blob) {
+    var blobToText = await blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blob) {
             if (err) {
                 reject(err);
             } else {
                 resolve(blobContent);
             }
         });
-    });
+    return blobToText;
 
 }
 var lastTokenGenTime = null;
@@ -230,7 +229,7 @@ function isRefreshTokenDurationExceeded() {
 - *
 - * fetching token and caching it for refreshTokenDuratoninMin
 - */
-function getCachedToken(context, task) {
+async function getCachedToken(context, task) {
     if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
         context.log("Regenerating token at: %s", new Date().toISOString());
         return getToken(context, task).then(function(tokenResponse) {
@@ -239,26 +238,25 @@ function getCachedToken(context, task) {
             return cachedTokenResponse;
         })
     } else {
-        return new Promise(function (resolve, reject) {
+        return function(resolve, reject) {
             var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
             // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
             resolve(cachedTokenResponse);
-        });
+        };
     }
 }
 
 
-function getToken() {
+async function getToken() {
     var options = {msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET};
-    return new Promise(function (resolve, reject) {
-        MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
+    token = await MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
             if (err) {
                 reject(err);
             } else {
                 resolve(tokenResponse);
             }
-        });
     });
+    return token;
 }
 
 var lastAccountKeyGenTime = {};
@@ -282,7 +280,7 @@ function getStorageAccountCacheKey(task) {
  *
  * fetching account key and caching it for refreshAccountKeyDuratoninMin
  */
-function getCachedAccountKey(context, task) {
+async function getCachedAccountKey(context, task) {
     if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
         // context.log("Regenerating accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
         return getStorageAccountAccessKey(context, task).then(function(accountKey) {
@@ -293,21 +291,18 @@ function getCachedAccountKey(context, task) {
         });
 
     } else {
-        return new Promise(function (resolve, reject) {
+        return function (resolve, reject) {
             var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
             context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", getStorageAccountCacheKey(task), timeRemainingToRefreshToken);
             resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
-        });
+        };
     }
 }
 
 function getStorageAccountAccessKey(context, task) {
 
     return getCachedToken(context, task).then(function(credentials) {
-        var storagecli = new storageManagementClient(
-            credentials,
-            task.subscriptionId
-        );
+        var storagecli =  new StorageManagementClient(new DefaultAzureCredential(), task.subscriptionId);
         return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
             return resp.keys[0].value;
         });

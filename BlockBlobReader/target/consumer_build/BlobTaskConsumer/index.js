@@ -176,6 +176,7 @@ function blobHandler(msg) {
     
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    msg = msg.replace(/\0/g, '');
     msg = msg.replace(/(\r?\n|\r)/g, ",");
     jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;

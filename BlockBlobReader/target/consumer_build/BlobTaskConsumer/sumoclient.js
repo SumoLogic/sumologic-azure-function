@@ -3,7 +3,7 @@
  * Created by duc on 6/30/17.
  */
 var https = require('node:https');
-const zlib = require('node:zlib');
+var zlib = require('node:zlib');
 import { URL } from 'node:url';
 
 var bucket = require('./messagebucket');

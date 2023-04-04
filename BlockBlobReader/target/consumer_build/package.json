@@ -1,5 +1,4 @@
 {
-  "type": "module",
   "dependencies": {
     "@azure/abort-controller": "^1.1.0",
     "@azure/arm-storage": "^18.1.0",
@@ -7,8 +6,5 @@
     "@azure/storage-blob": "^12.13.0",
     "azure-sb": "^0.11.2",
     "encoding": "^0.1.13"
-  },
-  "devDependencies": {
-    "@types/node": "^18.15.11"
   }
 }

@@ -4,7 +4,7 @@
  */
 var https = require('node:https');
 var zlib = require('node:zlib');
-import { URL } from 'node:url';
+var url = require('node:url');
 
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
@@ -25,7 +25,7 @@ var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sou
 function SumoClient(options, context, flush_failure_callback, success_callback) {
     let myOptions = options || {};
     if (myOptions.urlString) {
-        let urlObj = new URL(options.urlString);
+        let urlObj = url.parse(options.urlString);
         myOptions.hostname = urlObj.hostname;
         myOptions.path = urlObj.pathname;
         myOptions.protocol = urlObj.protocol;

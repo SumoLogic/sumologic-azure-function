@@ -4,11 +4,10 @@
 
 var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
-//var storage = require('azure-storage');
-var { BlobServiceClient } = require("@azure/storage-blob");
+var { ContainerClient, BlobServiceClient, StorageSharedKeyCredential } = require("@azure/storage-blob");
 var { StorageManagementClient } = require('@azure/arm-storage');
 var { DefaultAzureCredential } = require("@azure/identity");
-var MsRest = require('ms-rest-azure');
+var { AbortController } = require("@azure/abort-controller");
 var servicebus = require('azure-sb');
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
@@ -59,9 +58,9 @@ function hasAllHeaders(text) {
     }
 }
 
-async function getHeaderRecursively(headertext, task, blobService, context) {
+function getHeaderRecursively(headertext, task, blobService, context) {
 
-    var data = await getData(task, blobService, context).then(function (text) {
+    getData(task, blobService, context).then(function (text) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
             var bytesOffset = MAX_CHUNK_SIZE;
@@ -84,11 +83,9 @@ async function getHeaderRecursively(headertext, task, blobService, context) {
         }).catch(function (err) {
             reject(err);
         });
-    return data;
-
 }
 
-function getcsvHeader(containerName, blobName, context, blobService) {
+function getcsvHeader(containerName, blobName, blobService, context) {
     // Todo optimize to avoid multiple request
     var bytesOffset = MAX_CHUNK_SIZE;
     var task = {
@@ -181,9 +178,19 @@ function blobHandler(msg) {
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
 
     var jsonArray = [];
+    try {
+        const myObject = JSON.parse(msg);
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          console.error('Invalid JSON:', error.message);
+        } else {
+          throw error;
+        }
+      }
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     msg = msg.replace(/(\r?\n|\r)/g, ",");
     jsonArray = JSON.parse("[" + msg + "]");
+    jsonArray = JSON.parse(msg);
     return jsonArray;
 }
 
@@ -191,143 +198,56 @@ function logHandler(msg) {
     return [msg];
 }
 
+async function storageAccountListKey(task) {
+    var subscriptionId = task.subscriptionId;
+    var resourceGroupName = task.resourceGroupName;
+    var accountName = task.storageName;
+    var credential = new DefaultAzureCredential();
+    var client = new StorageManagementClient(credential, subscriptionId);
+    var result = await client.storageAccounts.listKeys(resourceGroupName, accountName);
+    return result.keys[0].value
+  }
+
 async function getData(task, blobService, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
-
-    var containerName = task.containerName;
-    var blobName = task.blobName;
-    var options = {rangeStart: task.startByte, rangeEnd: task.endByte};
-
-    var blobToText = await blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blob) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(blobContent);
-            }
+    context.log("Inside get data function:");
+    var sharedKeyCredential = new StorageSharedKeyCredential(task.storageName, storageAccountListKey(task));
+    var containerClient = new ContainerClient(
+        `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
+        sharedKeyCredential
+      );
+    var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+    var buffer = Buffer.alloc(4 * 1024 * 1024);
+    try {
+        await blockBlobClient.downloadToBuffer(buffer, task.startByte, task.endByte, {
+        abortSignal: AbortController.timeout(30 * 60 * 1000),
+        blockSize: 4 * 1024 * 1024,
+        concurrency: 20
         });
-    return blobToText;
-
-}
-var lastTokenGenTime = null;
-var refreshTokenDuratoninMin = 60;
-var cachedTokenResponse = null;
-
-
-function isRefreshTokenDurationExceeded() {
-    if (!lastTokenGenTime) {
-        return true;
+    } catch (err) {
+        console.log(err);
     }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastTokenGenTime)/(1000 * 60)) >= refreshTokenDuratoninMin ? true : false;
+    console.log(buffer.toString());
 }
-
-/**
-- * @param  {} task
-- * @param  {} context
-- *
-- * fetching token and caching it for refreshTokenDuratoninMin
-- */
-async function getCachedToken(context, task) {
-    if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
-        context.log("Regenerating token at: %s", new Date().toISOString());
-        return getToken(context, task).then(function(tokenResponse) {
-            lastTokenGenTime = new Date().getTime();
-            cachedTokenResponse = tokenResponse;
-            return cachedTokenResponse;
-        })
-    } else {
-        return function(resolve, reject) {
-            var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
-            // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
-            resolve(cachedTokenResponse);
-        };
-    }
-}
-
-
-async function getToken() {
-    var options = {msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET};
-    token = await MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(tokenResponse);
-            }
-    });
-    return token;
-}
-
-var lastAccountKeyGenTime = {};
-var refreshAccountKeyDuratoninMin = 60;
-var cachedAccountKeyResponse = {};
-
-function isRefreshAccountKeyDurationExceeded(task) {
-    if (!lastAccountKeyGenTime[getStorageAccountCacheKey(task)]) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastAccountKeyGenTime[getStorageAccountCacheKey(task)])/(1000 * 60)) >= refreshAccountKeyDuratoninMin ? true : false;
-}
-
-function getStorageAccountCacheKey(task) {
-    return task.resourceGroupName + "-" + task.storageName;
-}
-/**
- * @param  {} task
- * @param  {} context
- *
- * fetching account key and caching it for refreshAccountKeyDuratoninMin
- */
-async function getCachedAccountKey(context, task) {
-    if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
-        // context.log("Regenerating accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
-        return getStorageAccountAccessKey(context, task).then(function(accountKey) {
-            lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
-            cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
-            context.log("Regenerated accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
-            return accountKey;
-        });
-
-    } else {
-        return function (resolve, reject) {
-            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
-            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", getStorageAccountCacheKey(task), timeRemainingToRefreshToken);
-            resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
-        };
-    }
-}
-
-function getStorageAccountAccessKey(context, task) {
-
-    return getCachedToken(context, task).then(function(credentials) {
-        var storagecli =  new StorageManagementClient(new DefaultAzureCredential(), task.subscriptionId);
-        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
-            return resp.keys[0].value;
-        });
-    });
-
-}
-
 
 function getBlockBlobService(context, task) {
-
-    return getCachedAccountKey(context, task).then(function (accountKey) {
-        //var blobService = storage.createBlobService(task.storageName, accountKey);
-        var blobService = BlobServiceClient.fromConnectionString(task.storageName, accountKey);
-        return blobService;
-    });
-
+    var tokenCredential = new DefaultAzureCredential();
+    var blobService = new BlobServiceClient(`https://${task.storageName}.blob.core.windows.net`,tokenCredential);  
+    context.log("Inside Block Blob Service")
+    return blobService;
 }
-
 
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
+    context.log("Reached Here nearest to blob handler");
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
+    context.log("message handler called: ")
+    context.log(msghandler);
     if (!(file_ext in msghandler)) {
         context.log("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName)
         context.done();
@@ -347,40 +267,36 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         }
 
     }
-    getBlockBlobService(context, serviceBusTask).then(function (blobService) {
-        return getData(serviceBusTask, blobService, context).then(function (msg) {
-            context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-            var messageArray;
-            if (file_ext === "csv") {
-                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
-                    context.log("Received headers %d", headers.length);
-                    messageArray = msghandler[file_ext](msg, headers);
-                    // context.log("Transformed data %s", JSON.stringify(messageArray));
-                    messageArray.forEach(function (msg) {
-                        sumoClient.addData(msg);
-                    });
-                    sumoClient.flushAll();
-                }).catch(function (err) {
-                    context.log("Error in creating json from csv " + err);
-                    context.done(err);
-                });
-            } else {
-                messageArray = msghandler[file_ext](msg);
+    var blobService = getBlockBlobService(context, serviceBusTask)
+    .catch(function (err) {
+    if(err.statusCode === 404) {
+        context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+        context.done()
+    }});
+    getData(serviceBusTask, blobService, context).then(function (msg) {
+        context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+        var messageArray;
+        if (file_ext === "csv") {
+            getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
+                context.log("Received headers %d", headers.length);
+                messageArray = msghandler[file_ext](msg, headers);
+                // context.log("Transformed data %s", JSON.stringify(messageArray));
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
                 sumoClient.flushAll();
-            }
-        });
-    }).catch(function (err) {
-        if(err.statusCode === 404) {
-            context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-            context.done()
+            }).catch(function (err) {
+                context.log("Error in creating json from csv " + err);
+                context.done(err);
+            });
         } else {
-            context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-            context.done(err);
+            context.log("before calling blobhandler");
+            messageArray = msghandler[file_ext](msg);
+            messageArray.forEach(function (msg) {
+                sumoClient.addData(msg);
+            });
+            sumoClient.flushAll();
         }
-
     });
 }
 
@@ -421,6 +337,7 @@ function servicebushandler(context, serviceBusTask) {
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+    context.log("Reached inside ServiceBus Handler")
     messageHandler(serviceBusTask, context, sumoClient);
 
 }
@@ -500,4 +417,7 @@ module.exports = function (context, triggerData) {
     } else {
         timetriggerhandler(context, triggerData);
     }
+
+
 };
+

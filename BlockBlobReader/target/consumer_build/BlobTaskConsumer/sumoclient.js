@@ -2,9 +2,9 @@
 /**
  * Created by duc on 6/30/17.
  */
-var https = require('https');
-var zlib= require('zlib');
-var url = require('url');
+var https = require('node:https');
+const zlib = require('node:zlib');
+import { URL } from 'node:url';
 
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
@@ -22,10 +22,10 @@ var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sou
  * has been attempted to sent to Sumo (either successfully or over max retries).
  * @constructor
  */
-function SumoClient(options, context, flush_failure_callback,success_callback) {
+function SumoClient(options, context, flush_failure_callback, success_callback) {
     let myOptions = options || {};
     if (myOptions.urlString) {
-        let urlObj = url.parse(options.urlString);
+        let urlObj = new URL(options.urlString);
         myOptions.hostname = urlObj.hostname;
         myOptions.path = urlObj.pathname;
         myOptions.protocol = urlObj.protocol;
@@ -129,7 +129,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
-            var req = https.request(curOptions, function (res) {
+            var req = https.request(curOptions, (res) => {
                 var body = '';
                 res.setEncoding('utf8');
                 res.on('data', function (chunk) {

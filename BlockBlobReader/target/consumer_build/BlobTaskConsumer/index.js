@@ -3,7 +3,7 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
-var { ContainerClient, BlobServiceClient, StorageSharedKeyCredential } = require("@azure/storage-blob");
+var { ContainerClient } = require("@azure/storage-blob");
 var { DefaultAzureCredential } = require("@azure/identity");
 var { AbortController } = require("@azure/abort-controller");
 var servicebus = require('azure-sb');
@@ -57,7 +57,8 @@ function hasAllHeaders(text) {
 
 function getHeaderRecursively(headertext, task, blobService, context) {
 
-    getData(task, blobService, context).then(function (text) {
+    return new Promise(function (resolve, reject) {
+        getData(task, blobService, context).then(function (text) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
             var bytesOffset = MAX_CHUNK_SIZE;
@@ -80,6 +81,8 @@ function getHeaderRecursively(headertext, task, blobService, context) {
         }).catch(function (err) {
             reject(err);
         });
+    });
+
 }
 
 function getcsvHeader(containerName, blobName, blobService, context) {
@@ -186,37 +189,43 @@ function logHandler(msg) {
     return [msg];
 }
 
-async function getData(task, blockBlobClient, context) {
+function getData(task, blockBlobClient, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
     context.log("Inside get data function:");
-    var buffer = Buffer.alloc(4 * 1024 * 1024);
-    try {
-        await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
-        abortSignal: AbortController.timeout(30 * 60 * 1000),
-        blockSize: 4 * 1024 * 1024,
-        concurrency: 1
-        });
-    } catch (err) {
-        context.log(err);
-    }
-    context.log(buffer.toString());
-    return buffer.toString();
-}
+    return new Promise(async function (resolve, reject) {
+        try {
+            var buffer = Buffer.alloc(4 * 1024 * 1024);
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
+            abortSignal: AbortController.timeout(30 * 60 * 1000),
+            blockSize: 4 * 1024 * 1024,
+            concurrency: 1
+            });
+            resolve(buffer.toString());
+        } catch (err) {
+            reject(err);
+        }
+        // context.log(buffer.toString());
+    })};
 
 function getBlockBlobService(context, task) {
-    var tokenCredential = new DefaultAzureCredential();
-    var containerClient = new ContainerClient(
-        `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
-        tokenCredential
-      );
-    var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
-    context.log("Inside Block Blob Service")
-    return blockBlobClient;
-}
+    return new Promise(function (resolve, reject) {
+    try{
+        context.log("Inside Block Blob Service")
+        var tokenCredential = new DefaultAzureCredential();
+        var containerClient = new ContainerClient(
+            `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
+            tokenCredential
+        );
+        var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+        resolve(blockBlobClient);
+        } catch (err){
+            reject(err);
+        }
+    })};
 
-async function messageHandler(serviceBusTask, context, sumoClient) {
+function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
@@ -244,38 +253,47 @@ async function messageHandler(serviceBusTask, context, sumoClient) {
         }
 
     }
-    var blobService = getBlockBlobService(context, serviceBusTask);
+    // var blobService = getBlockBlobService(context, serviceBusTask);
     // .catch(function (err) {
     // if(err.statusCode === 404) {
     //     context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
     //     context.done()
     // }});
-    var msg = await getData(serviceBusTask, blobService, context)//.then(function (msg) {
-        context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-        var messageArray;
-        if (file_ext === "csv") {
-            getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
-                context.log("Received headers %d", headers.length);
-                messageArray = msghandler[file_ext](msg, headers);
-                // context.log("Transformed data %s", JSON.stringify(messageArray));
+    getBlockBlobService(context, serviceBusTask).then(function (blobService) {
+        return getData(serviceBusTask, blobService, context).then(function (msg) {
+            context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            var messageArray;
+            if (file_ext === "csv") {
+                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
+                    context.log("Received headers %d", headers.length);
+                    messageArray = msghandler[file_ext](msg, headers);
+                    // context.log("Transformed data %s", JSON.stringify(messageArray));
+                    messageArray.forEach(function (msg) {
+                        sumoClient.addData(msg);
+                    });
+                    sumoClient.flushAll();
+                }).catch(function (err) {
+                    context.log("Error in creating json from csv " + err);
+                    context.done(err);
+                });
+            } else {
+                messageArray = msghandler[file_ext](msg);
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
                 sumoClient.flushAll();
-            }).catch(function (err) {
-                context.log("Error in creating json from csv " + err);
-                context.done(err);
-            });
+            }
+        });
+    }).catch(function (err) {
+        if(err.statusCode === 404) {
+            context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.done()
         } else {
-            context.log("before calling blobhandler, printing message");
-            context.log(msg);
-            messageArray = msghandler[file_ext](msg);
-            messageArray.forEach(function (msg) {
-                sumoClient.addData(msg);
-            });
-            sumoClient.flushAll();
+            context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.done(err);
         }
-    //});
+
+    });
 }
 
 function setSourceCategory(serviceBusTask, options) {
@@ -285,7 +303,7 @@ function setSourceCategory(serviceBusTask, options) {
     // options.metadata["category"] = <custom source category>
 }
 
-async function servicebushandler(context, serviceBusTask) {
+function servicebushandler(context, serviceBusTask) {
     var sumoClient;
 
     var options = {
@@ -297,13 +315,13 @@ async function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        // ctx.log("Failed to send to Sumo");
+        ctx.log("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
         }
     }
     function successHandler(ctx) {
-        // ctx.log('Successfully sent to Sumo', serviceBusTask);
+        ctx.log('Successfully sent to Sumo', serviceBusTask);
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             if (sumoClient.messagesFailed > 0) {
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
@@ -316,7 +334,7 @@ async function servicebushandler(context, serviceBusTask) {
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
     context.log("Reached inside ServiceBus Handler")
-    await messageHandler(serviceBusTask, context, sumoClient);
+    messageHandler(serviceBusTask, context, sumoClient);
 
 }
 
@@ -379,7 +397,7 @@ function timetriggerhandler(context, timetrigger) {
     });
 }
 
-module.exports = async function (context, triggerData) {
+module.exports = function (context, triggerData) {
     // var triggerData = {
     //    startByte: 0,
     //    endByte: 325356,
@@ -391,7 +409,7 @@ module.exports = async function (context, triggerData) {
     //    subscriptionId: 'c088dc46-d692-42ad-a4b6-9a542d28ad2a'
     // }
     if (triggerData.isPastDue === undefined) {
-        await servicebushandler(context, triggerData);
+        servicebushandler(context, triggerData);
     } else {
         timetriggerhandler(context, triggerData);
     }

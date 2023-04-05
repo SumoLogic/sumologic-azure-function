@@ -128,7 +128,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     this.context.log("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
-        return new Promise( (resolve,reject) => {
+        //return new Promise( (resolve,reject) => {
             var req = https.request(curOptions, (res) => {
                 var body = '';
                 res.setEncoding('utf8');
@@ -139,22 +139,22 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                     if (res.statusCode == 200) {
                         self.messagesSent += messageArray.length;
                         self.messagesAttempted += messageArray.length;
-                        resolve(body);
+                        //resolve(body);
                         // TODO: anything here?
                     } else {
-                        reject({'error':"statusCode: " + res.statusCode + " body: " + body,'res':null});
+                        self.context.log({'error':"statusCode: " + res.statusCode + " body: " + body,'res':null});
                     }
                     // TODO: finalizeContext();
                 });
             });
 
             req.on('error', function (e) {
-                reject({'error':e,'res':null});
+                self.context.log({'error':e,'res':null});
                 // TODO: finalizeContext();
             });
             req.write(data);
             req.end();
-        });
+       // });
     }
 
     if (targetBuffer) {

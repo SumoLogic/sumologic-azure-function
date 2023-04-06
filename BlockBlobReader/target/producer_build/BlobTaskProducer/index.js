@@ -60,20 +60,22 @@ function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatama
 async function getBlobPointerMap(partitionKey, rowKey, context) {
     // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
     var statusCode = 200;
-    var entity = await tableClient.getEntity(partitionKey, rowKey).catch(function (error){
-        // context.log(error)
+    try{
+        var entity = await tableClient.getEntity(partitionKey, rowKey);
+    }catch(err){
         statusCode = 404;
-        return null
-    });
+    }
     return {statusCode: statusCode, entity: entity};
 }
 
 async function updateBlobPointerMap(entity, context) {
+    
     var insertOrReplace = ".metadata" in entity ? tableClient.updateEntity.bind(tableClient) : tableClient.createEntity.bind(tableClient);
-    var response = await insertOrReplace(entity).catch(function (error){
-        // context.log(error)
-        return error;
-    });
+    try{
+        var response = await insertOrReplace(entity);
+    }catch(err){
+        return err;
+    }
     return response;
 }
 

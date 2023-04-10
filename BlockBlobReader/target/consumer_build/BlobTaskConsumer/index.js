@@ -6,7 +6,7 @@ var sumoHttp = require('./sumoclient');
 var { ContainerClient } = require("@azure/storage-blob");
 var { DefaultAzureCredential } = require("@azure/identity");
 var { AbortController } = require("@azure/abort-controller");
-var servicebus = require('azure-sb');
+var { ServiceBusClient } = require("@azure/service-bus");
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
@@ -253,12 +253,6 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         }
 
     }
-    // var blobService = getBlockBlobService(context, serviceBusTask);
-    // .catch(function (err) {
-    // if(err.statusCode === 404) {
-    //     context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-    //     context.done()
-    // }});
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         return getData(serviceBusTask, blobService, context).then(function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
@@ -338,64 +332,76 @@ function servicebushandler(context, serviceBusTask) {
 
 }
 
-function timetriggerhandler(context, timetrigger) {
+async function timetriggerhandler(context, timetrigger) {
 
     if (timetrigger.isPastDue) {
         context.log("timetriggerhandler running late");
     }
-    var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
-    serviceBusService.receiveQueueMessage(process.env.APPSETTING_TASKQUEUE_NAME + '/$DeadLetterQueue', {isPeekLock: true}, function (error, lockedMessage) {
-        if (!error) {
-            var serviceBusTask = JSON.parse(lockedMessage.body);
-            // Message received and locked and try to resend
-            var options = {
-                urlString: process.env.APPSETTING_SumoLogEndpoint,
-                MaxAttempts: 3,
-                RetryInterval: 3000,
-                compress_data: true,
-                clientHeader: "dlqblobreader-azure-function"
-            };
-            setSourceCategory(serviceBusTask, options);
-            var sumoClient;
-            function failureHandler(msgArray, ctx) {
-                ctx.log("Failed to send to Sumo");
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                }
+
+    var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
+    var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME + '/$DeadLetterQueue');
+
+    try {
+        var message = await queueReceiver.receiveMessages(1, {
+            maxWaitTimeInMs: 60 * 1000,
+        });
+        if (!message.length) {
+            context.log("No more messages to receive");
+            context.done();
+            return;
+        }
+        var serviceBusTask = JSON.parse(message.body);
+        // Message received and locked and try to resend
+        var options = {
+            urlString: process.env.APPSETTING_SumoLogEndpoint,
+            MaxAttempts: 3,
+            RetryInterval: 3000,
+            compress_data: true,
+            clientHeader: "dlqblobreader-azure-function"
+        };
+        setSourceCategory(serviceBusTask, options);
+        var sumoClient;
+        function failureHandler(msgArray, ctx) {
+            ctx.log("Failed to send to Sumo");
+            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             }
-            function successHandler(ctx) {
-                ctx.log('Successfully sent to Sumo');
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    if (sumoClient.messagesFailed > 0) {
-                        ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                    } else {
-                        ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
-                        serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
-                            if (!deleteError) {
-                                context.log("sent and deleted");
-                                ctx.done();
-                            } else {
-                                ctx.done("Messages Sent but failed delete from DeadLetterQueue");
-                            }
-                        });
+        }
+        async function successHandler(ctx) {
+            ctx.log('Successfully sent to Sumo');
+            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                if (sumoClient.messagesFailed > 0) {
+                    ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                } else {
+                    ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
+                    try{
+                        await queueReceiver.completeMessage(message);
+                    }catch(err){
+                        if (!err) {
+                            context.log("sent and deleted");
+                            ctx.done();
+                        } else {
+                            ctx.done("Messages Sent but failed delete from DeadLetterQueue");
+                        }
                     }
                 }
             }
-            sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-            messageHandler(serviceBusTask, context, sumoClient);
-
-        } else {
-            if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-                context.log(error);
-                context.done();
-            } else {
-                context.log("Error in reading messages from DLQ: ", error, typeof(error));
-                context.done(error);
-            }
         }
-
-    });
-}
+        sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+        messageHandler(serviceBusTask, context, sumoClient);
+        await queueReceiver.close();
+      }catch(error){
+        if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
+            context.log(error);
+            context.done();
+        } else {
+            context.log("Error in reading messages from DLQ: ", error, typeof(error));
+            context.done(error);
+        }
+      } finally {
+        await sbClient.close();
+      }
+    }
 
 module.exports = function (context, triggerData) {
     // var triggerData = {

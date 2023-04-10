@@ -3,16 +3,14 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
-var dataTransformer = require('./datatransformer');
-var storage = require('azure-storage');
-var storageManagementClient = require('azure-arm-storage');
-var MsRest = require('ms-rest-azure');
+var { ContainerClient } = require("@azure/storage-blob");
+var { DefaultAzureCredential } = require("@azure/identity");
+var { AbortController } = require("@azure/abort-controller");
 var servicebus = require('azure-sb');
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
-var https = require('https');
 
 function csvToArray(strData, strDelimiter) {
     strDelimiter = (strDelimiter || ",");
@@ -87,7 +85,7 @@ function getHeaderRecursively(headertext, task, blobService, context) {
 
 }
 
-function getcsvHeader(containerName, blobName, context, blobService) {
+function getcsvHeader(containerName, blobName, blobService, context) {
     // Todo optimize to avoid multiple request
     var bytesOffset = MAX_CHUNK_SIZE;
     var task = {
@@ -178,9 +176,10 @@ function jsonHandler(msg) {
 function blobHandler(msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
-
+    
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    msg = msg.replace(/\0/g, '');
     msg = msg.replace(/(\r?\n|\r)/g, ",");
     jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;
@@ -190,147 +189,51 @@ function logHandler(msg) {
     return [msg];
 }
 
-function getData(task, blobService, context) {
+function getData(task, blockBlobClient, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
-
-    var containerName = task.containerName;
-    var blobName = task.blobName;
-    var options = {rangeStart: task.startByte, rangeEnd: task.endByte};
-
-    return new Promise(function (resolve, reject) {
-        blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blob) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(blobContent);
-            }
-        });
-    });
-
-}
-var lastTokenGenTime = null;
-var refreshTokenDuratoninMin = 60;
-var cachedTokenResponse = null;
-
-
-function isRefreshTokenDurationExceeded() {
-    if (!lastTokenGenTime) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastTokenGenTime)/(1000 * 60)) >= refreshTokenDuratoninMin ? true : false;
-}
-
-/**
-- * @param  {} task
-- * @param  {} context
-- *
-- * fetching token and caching it for refreshTokenDuratoninMin
-- */
-function getCachedToken(context, task) {
-    if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
-        context.log("Regenerating token at: %s", new Date().toISOString());
-        return getToken(context, task).then(function(tokenResponse) {
-            lastTokenGenTime = new Date().getTime();
-            cachedTokenResponse = tokenResponse;
-            return cachedTokenResponse;
-        })
-    } else {
-        return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
-            // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
-            resolve(cachedTokenResponse);
-        });
-    }
-}
-
-
-function getToken() {
-    var options = {msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET};
-    return new Promise(function (resolve, reject) {
-        MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(tokenResponse);
-            }
-        });
-    });
-}
-
-var lastAccountKeyGenTime = {};
-var refreshAccountKeyDuratoninMin = 60;
-var cachedAccountKeyResponse = {};
-
-function isRefreshAccountKeyDurationExceeded(task) {
-    if (!lastAccountKeyGenTime[getStorageAccountCacheKey(task)]) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastAccountKeyGenTime[getStorageAccountCacheKey(task)])/(1000 * 60)) >= refreshAccountKeyDuratoninMin ? true : false;
-}
-
-function getStorageAccountCacheKey(task) {
-    return task.resourceGroupName + "-" + task.storageName;
-}
-/**
- * @param  {} task
- * @param  {} context
- *
- * fetching account key and caching it for refreshAccountKeyDuratoninMin
- */
-function getCachedAccountKey(context, task) {
-    if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
-        // context.log("Regenerating accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
-        return getStorageAccountAccessKey(context, task).then(function(accountKey) {
-            lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
-            cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
-            context.log("Regenerated accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
-            return accountKey;
-        });
-
-    } else {
-        return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
-            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", getStorageAccountCacheKey(task), timeRemainingToRefreshToken);
-            resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
-        });
-    }
-}
-
-function getStorageAccountAccessKey(context, task) {
-
-    return getCachedToken(context, task).then(function(credentials) {
-        var storagecli = new storageManagementClient(
-            credentials,
-            task.subscriptionId
-        );
-        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
-            return resp.keys[0].value;
-        });
-    });
-
-}
-
+    context.log("Inside get data function:");
+    return new Promise(async function (resolve, reject) {
+        try {
+            var buffer = Buffer.alloc(4 * 1024 * 1024);
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
+            abortSignal: AbortController.timeout(30 * 60 * 1000),
+            blockSize: 4 * 1024 * 1024,
+            concurrency: 1
+            });
+            resolve(buffer.toString());
+        } catch (err) {
+            reject(err);
+        }
+        // context.log(buffer.toString());
+    })};
 
 function getBlockBlobService(context, task) {
-
-    return getCachedAccountKey(context, task).then(function (accountKey) {
-        var blobService = storage.createBlobService(task.storageName, accountKey);
-        return blobService;
-    });
-
-}
-
+    return new Promise(function (resolve, reject) {
+    try{
+        context.log("Inside Block Blob Service")
+        var tokenCredential = new DefaultAzureCredential();
+        var containerClient = new ContainerClient(
+            `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
+            tokenCredential
+        );
+        var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+        resolve(blockBlobClient);
+        } catch (err){
+            reject(err);
+        }
+    })};
 
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
+    context.log("Reached Here nearest to blob handler");
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
+    context.log("message handler called: ")
+    context.log(msghandler);
     if (!(file_ext in msghandler)) {
         context.log("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName)
         context.done();
@@ -350,6 +253,12 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         }
 
     }
+    // var blobService = getBlockBlobService(context, serviceBusTask);
+    // .catch(function (err) {
+    // if(err.statusCode === 404) {
+    //     context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+    //     context.done()
+    // }});
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         return getData(serviceBusTask, blobService, context).then(function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
@@ -406,13 +315,13 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        // ctx.log("Failed to send to Sumo");
+        ctx.log("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
         }
     }
     function successHandler(ctx) {
-        // ctx.log('Successfully sent to Sumo', serviceBusTask);
+        ctx.log('Successfully sent to Sumo', serviceBusTask);
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             if (sumoClient.messagesFailed > 0) {
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
@@ -424,6 +333,7 @@ function servicebushandler(context, serviceBusTask) {
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+    context.log("Reached inside ServiceBus Handler")
     messageHandler(serviceBusTask, context, sumoClient);
 
 }

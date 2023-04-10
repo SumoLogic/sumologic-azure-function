@@ -413,7 +413,4 @@ module.exports = function (context, triggerData) {
     } else {
         timetriggerhandler(context, triggerData);
     }
-
-
 };
-

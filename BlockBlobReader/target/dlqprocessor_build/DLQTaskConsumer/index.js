@@ -258,7 +258,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
             if (file_ext === "csv") {
-                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
+                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
                     context.log("Received headers %d", headers.length);
                     messageArray = msghandler[file_ext](msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));

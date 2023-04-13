@@ -166,7 +166,7 @@ function nsgLogsHandler(jsonArray) {
 function jsonHandler(msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
-
+    msg = JSON.stringify(msg)
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
     jsonArray = (jsonArray.length > 0 && jsonArray[0].category === "NetworkSecurityGroupFlowEvent") ? nsgLogsHandler(jsonArray) : jsonArray;

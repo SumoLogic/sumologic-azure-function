@@ -43,7 +43,9 @@ function getEntity(metadata, endByte, currentEtag) {
         date: (new Date()).toISOString()
     };
     if (currentEtag) {
-        entity['.metadata'] = { etag: currentEtag };
+        entity['options'] = {
+            ifMatch: currentEtag, // Replace with the current ETag value of the entity
+          };
     }
     return entity;
 }
@@ -69,12 +71,24 @@ async function getBlobPointerMap(partitionKey, rowKey, context) {
 }
 
 async function updateBlobPointerMap(entity, context) {
-    
-    var insertOrReplace = ".metadata" in entity ? tableClient.updateEntity.bind(tableClient) : tableClient.createEntity.bind(tableClient);
+    let response;
     try{
-        var response = await insertOrReplace(entity);
+        if(entity.options){
+            const options = entity.options;
+            delete entity.options;
+            response = await tableClient.updateEntity(entity,"Replace",options)
+        }else{
+            response = await tableClient.createEntity(entity)
+        }
     }catch(err){
+        context.log(err)
         return err;
+    }
+    try{
+        var entity = await tableClient.getEntity(entity.partitionKey,entity.rowKey);
+        context.log(entity)
+    }catch(err){
+        context.log(err)
     }
     return response;
 }
@@ -128,7 +142,6 @@ function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context,
 module.exports = function (context, eventHubMessages) {
     try {
         eventHubMessages = [].concat.apply([], eventHubMessages);
-        // context.log("blobtaskproducer message received: ", eventHubMessages.length);
         var metadatamap = {};
         var allcontentlengths = {};
         getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap);
@@ -142,7 +155,6 @@ module.exports = function (context, eventHubMessages) {
             var partitionKey = metadata.containerName;
             createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context, metadata, function (err, msg) {
                 processed += 1;
-                // context.log(rowKey, processed, err, msg);
                 if (err) {
                     errArr.push(err);
                 }

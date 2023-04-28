@@ -178,9 +178,9 @@ function blobHandler(msg) {
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
     
     var jsonArray = [];
-    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     msg = msg.replace(/\0/g, '');
     msg = msg.replace(/(\r?\n|\r)/g, ",");
+    msg = msg.trim().replace(/(^,+)|(,+$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;
 }

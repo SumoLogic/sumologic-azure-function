@@ -196,7 +196,7 @@ function getData(task, blockBlobClient, context) {
     context.log("Inside get data function:");
     return new Promise(async function (resolve, reject) {
         try {
-            var buffer = Buffer.alloc(4 * 1024 * 1024);
+            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
             await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
             abortSignal: AbortController.timeout(30 * 60 * 1000),
             blockSize: 4 * 1024 * 1024,

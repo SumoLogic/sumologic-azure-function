@@ -1,7 +1,9 @@
 import os
+import uuid
 from datetime import datetime
 from azure.core.exceptions import ResourceExistsError
-from azure.storage.blob import BlobServiceClient, BlobClient
+from azure.storage.blob import BlobServiceClient,BlobBlock # BlockBlobService
+# from azure.storage.blob.models import BlobBlock
 
 
 def getLastLogLineNumber(blob_client, current_file_size):
@@ -21,6 +23,68 @@ def utf8len(s):
     length = len(s)
     del s
     return length
+
+def get_current_blocks(block_blob_service, container_name, filename):
+        blocks = []
+        if block_blob_service.exists(container_name,
+                                          filename):
+            blockslist = block_blob_service.get_block_list(
+                container_name, filename, None, 'all')
+            for block in blockslist.committed_blocks:
+                blocks.append(BlobBlock(id=block.id))
+        return blocks
+
+def get_random_name(length=32):
+    return str(uuid.uuid4())
+    
+def create_or_update_blockblob(block_blob_service_client, current_file_size, log_line_num, container_name, blob_name, account_name, blocks):
+    max_file_size = int(os.getenv("MaxLogFileSize"))
+    logline = '''{ "time": "TIMESTAMP", "resourceId": "/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/SUMOAUDITCOLLECTION/PROVIDERS/MICROSOFT.WEB/SITES/HIMTEST", "operationName": "Microsoft.Web/sites/log", "category": "AppServiceConsoleLogs", "resultDescription": "000000000 WARNING:root:testing warn level\\n\\n", "level": "Error", "EventStampType": "Stamp", "EventPrimaryStampName": "waws-prod-blu-161", "EventStampName": "waws-prod-blu-161h", "Host": "RD501AC57BA3D4", "LineNo": LINENUM}''' 
+    
+    while current_file_size < max_file_size:
+        # since (4*1024*1024)/512(size of logline) = 8192
+        msg = []
+        block_id = get_random_name()
+        for idx in range(8192):
+            log_line_num += 1
+            current_datetime = datetime.now().isoformat()
+            cur_msg = logline.replace("TIMESTAMP", current_datetime)
+            cur_msg = cur_msg.replace("LINENUM", f'{log_line_num:10d}')
+            msg.append(cur_msg)
+        chunk = "\n".join(msg) + "\n"
+        fileBytes = chunk.encode()
+        block_blob_service_client.stage_block(block_id=block_id, data=fileBytes)
+        cur_size = utf8len(chunk)
+        current_file_size += cur_size
+        blocks.append(BlobBlock(block_id=block_id))
+        block_blob_service_client.commit_block_list(blocks)
+    print(f"current_chunk_size (in MB): {cur_size/(1024*1024)} log_line_num: {log_line_num} current_file_size: {current_file_size/(1024*1024)} storage: {account_name} container: {container_name} blob: {blob_name} ")
+    print("inserted %s" % len(blocks))
+
+def upload_file_chunks_using_block_blobs():
+    account_name = os.getenv("AccountName")
+    account_access_key = os.getenv("AccessKey")
+    blob_name = os.getenv("BlobName")
+    container_name = os.getenv("ContainerName")
+    
+    blob_service_client = BlobServiceClient(account_url="https://%s.blob.core.windows.net" % account_name, credential=account_access_key)
+
+    container_client = blob_service_client.get_container_client(container_name)
+    blob_client = None
+    try:
+        container_client.create_container()
+    except ResourceExistsError:
+        print("Container Already Exists")
+    
+    blob_client = container_client.get_blob_client(blob_name)
+    if not blob_client.exists():
+        create_or_update_blockblob(blob_client, 0, 0, container_name, blob_name, account_name, [])
+    else:
+        blocks = get_current_blocks(blob_client, container_name, blob_name)
+        current_file_size = blob_client.get_blob_properties().size
+        log_line_num = getLastLogLineNumber(blob_client, current_file_size)
+        create_or_update_blockblob(blob_client, current_file_size, log_line_num, container_name, blob_name, account_name, blocks)
+
 
 def upload_file_chunks_using_append_blobs():
 
@@ -60,8 +124,7 @@ def upload_file_chunks_using_append_blobs():
     while current_file_size < max_file_size:
         # since (4*1024*1024)/512(size of logline) = 8192
         msg = []
-        lines_remaining = 8192 - log_line_num
-        for idx in range(lines_remaining):
+        for idx in range(8192):
             log_line_num += 1
             current_datetime = datetime.now().isoformat()
             cur_msg = logline.replace("TIMESTAMP", current_datetime)
@@ -76,10 +139,6 @@ def upload_file_chunks_using_append_blobs():
             # time.sleep(20)
 
     print(f"Finished uploading current_file_size (in MB): {current_file_size/(1024*1024)} last_log_line_num: {log_line_num} storage: {account_name} container: {container_name} blob: {blob_name} ")
-
-
-def upload_file_chunks_using_block_blobs():
-    pass
 
 
 if __name__ == '__main__':

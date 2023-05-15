@@ -179,7 +179,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                     self.context.log("gzip successful");
                     return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                             .then(()=> {
-                        self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
+                        self.context.log("Succesfully sent " + self.messagesSent + " messages to Sumo");
                         self.success_callback(self.context);}
                         )
                     .catch((err) => {

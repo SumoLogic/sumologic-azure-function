@@ -129,7 +129,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
-            self.context.log("Inside HTTP Send");
+            //self.context.log("Inside HTTP Send");
             var req = https.request(curOptions, function (res) {
                 var body = '';
                 res.setEncoding('utf8');

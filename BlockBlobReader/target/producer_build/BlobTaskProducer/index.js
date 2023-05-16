@@ -65,30 +65,24 @@ async function getBlobPointerMap(partitionKey, rowKey, context) {
     try{
         var entity = await tableClient.getEntity(partitionKey, rowKey);
     }catch(err){
+        // err object keys : [ 'name', 'code', 'statusCode', 'request', 'response', 'details' ]
+        if(err.statusCode === 404){
         statusCode = 404;
+        }else{
+            throw err;
+        }
     }
     return {statusCode: statusCode, entity: entity};
 }
 
 async function updateBlobPointerMap(entity, context) {
     let response;
-    try{
-        if(entity.options){
-            const options = entity.options;
-            delete entity.options;
-            response = await tableClient.updateEntity(entity,"Replace",options)
-        }else{
-            response = await tableClient.createEntity(entity)
-        }
-    }catch(err){
-        context.log(err)
-        return err;
-    }
-    try{
-        var entity = await tableClient.getEntity(entity.partitionKey,entity.rowKey);
-        context.log(entity)
-    }catch(err){
-        context.log(err)
+    if(entity.options){
+        let options = entity.options;
+        delete entity.options;
+        response = await tableClient.updateEntity(entity,"Replace",options)
+    }else{
+        response = await tableClient.createEntity(entity)
     }
     return response;
 }
@@ -122,7 +116,7 @@ function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context,
                 finalcontext(null, tasks.length + " Tasks added for rowKey: " + rowKey);
             }).catch(function (err) {
                 //handle catch with retry when If-match fails else other err
-                if (err.code === "UpdateConditionNotSatisfied" && error.statusCode === 412) {
+                if (err && err.details && err.details.odataError && err.details.odataError.code === "UpdateConditionNotSatisfied" && err.statusCode === 412) {
                     context.log("Need to Retry: " + rowKey, entity);
                 }
                 finalcontext(err, "Unable to Update offset for rowKey: " + rowKey);

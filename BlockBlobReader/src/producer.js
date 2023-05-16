@@ -2,8 +2,8 @@
 //           Function to create tasks using EventGrid Events into Azure EventHubs               //
 ///////////////////////////////////////////////////////////////////////////////////
 
-var storage = require('azure-storage');
-var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
+var { TableClient } = require("@azure/data-tables");
+var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage,process.env.APPSETTING_TABLE_NAME);
 
 function getRowKey(metadata) {
     var storageName =  metadata.url.split("//").pop().split(".")[0];
@@ -32,68 +32,68 @@ function getBlobMetadata(message) {
 
 function getEntity(metadata, endByte, currentEtag) {
      //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    var entGen = storage.TableUtilities.entityGenerator;
-    // RowKey/Partition key cannot contain "/"
+    // rowKey/partitionKey cannot contain "/"
     var entity = {
-        PartitionKey: entGen.String(metadata.containerName),
-        RowKey: entGen.String(getRowKey(metadata)),
-        blobName: entGen.String(metadata.blobName),
-        containerName: entGen.String(metadata.containerName),
-        storageName: entGen.String(metadata.storageName),
-        offset: entGen.Int64(endByte),
-        date: entGen.DateTime((new Date()).toISOString())
+        partitionKey: metadata.containerName,
+        rowKey: getRowKey(metadata),
+        blobName: metadata.blobName,
+        containerName: metadata.containerName,
+        storageName: metadata.storageName,
+        offset: endByte,
+        date: (new Date()).toISOString()
     };
     if (currentEtag) {
-        entity['.metadata'] = { etag: currentEtag };
+        entity['options'] = {
+            ifMatch: currentEtag, // Replace with the current ETag value of the entity
+          };
     }
-
-
     return entity;
 }
 
 function getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap) {
     eventHubMessages.forEach(function (message) {
         var metadata = getBlobMetadata(message);
-        var RowKey = getRowKey(metadata);
-        metadatamap[RowKey] = metadata;
-        (allcontentlengths[RowKey] || (allcontentlengths[RowKey] = [])).push(message.data.contentLength);
+        var rowKey = getRowKey(metadata);
+        metadatamap[rowKey] = metadata;
+        (allcontentlengths[rowKey] || (allcontentlengths[rowKey] = [])).push(message.data.contentLength);
     });
 }
 
-function getBlobPointerMap(PartitionKey, RowKey, context) {
+async function getBlobPointerMap(partitionKey, rowKey, context) {
     // Todo Add retries for node migration in cases of timeouts(non 400 & 500 errors)
-    return new Promise(function (resolve, reject) {
-        tableService.retrieveEntity(process.env.APPSETTING_TABLE_NAME, PartitionKey, RowKey, function (error, result, response) {
-          // context.log("inside getBlobPointerMap", response.statusCode);
-          if (response.statusCode === 404 || !error) {
-            resolve(response);
-          } else {
-            reject(error);
-          }
-        });
-    });
+    var statusCode = 200;
+    try{
+        var entity = await tableClient.getEntity(partitionKey, rowKey);
+    }catch(err){
+        // err object keys : [ 'name', 'code', 'statusCode', 'request', 'response', 'details' ]
+        if(err.statusCode === 404){
+        statusCode = 404;
+        }else{
+            throw err;
+        }
+    }
+    return {statusCode: statusCode, entity: entity};
 }
 
-function updateBlobPointerMap(entity, context) {
-    return new Promise(function (resolve, reject) {
-        var insertOrReplace = ".metadata" in entity ? tableService.replaceEntity.bind(tableService) : tableService.insertEntity.bind(tableService);
-        insertOrReplace(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
-            // context.log("inside updateBlobPointerMap", response.statusCode);
-            if(!error) {
-                resolve(response);
-            } else {
-                reject(error);
-            }
-        });
-    });
+async function updateBlobPointerMap(entity, context) {
+    let response;
+    if(entity.options){
+        let options = entity.options;
+        delete entity.options;
+        response = await tableClient.updateEntity(entity,"Replace",options)
+    }else{
+        response = await tableClient.createEntity(entity)
+    }
+    return response;
 }
 
-function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context, metadata, finalcontext) {
-    // context.log("inside createTasksForBlob", PartitionKey, RowKey, sortedcontentlengths, metadata);
-    getBlobPointerMap(PartitionKey, RowKey, context).then(function (response) {
+function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context, metadata, finalcontext) {
+    // context.log("inside createTasksForBlob", partitionKey, rowKey, sortedcontentlengths, metadata);
+    getBlobPointerMap(partitionKey, rowKey, context).then(function (response) {
+        //TODO: Do error handling for status code other than 200 and 404
         var tasks = [];
-        var currentoffset = response.statusCode === 404 ? -1 : Number(response.body.offset);
-        var currentEtag = response.statusCode === 404 ? null : response.body['odata.etag'];
+        var currentoffset = response.statusCode === 404 ? -1 : Number(response.entity.offset);
+        var currentEtag = response.statusCode === 404 ? null : response.entity.etag;
         var lastoffset = currentoffset;
         var i, endByte, task;
         for (i = 0; i < sortedcontentlengths.length; i += 1) {
@@ -114,22 +114,22 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
             var entity = getEntity(metadata, lastoffset, currentEtag);
             updateBlobPointerMap(entity, context).then(function (response) {
                 context.bindings.tasks = context.bindings.tasks.concat(tasks);
-                finalcontext(null, tasks.length + " Tasks added for RowKey: " + RowKey);
+                finalcontext(null, tasks.length + " Tasks added for rowKey: " + rowKey);
             }).catch(function (err) {
                 //handle catch with retry when If-match fails else other err
-                if (err.code === "UpdateConditionNotSatisfied" && error.statusCode === 412) {
-                    context.log("Need to Retry: " + RowKey, entity);
+                if (err && err.details && err.details.odataError && err.details.odataError.code === "UpdateConditionNotSatisfied" && err.statusCode === 412) {
+                    context.log("Need to Retry: " + rowKey, entity);
                 }
-                finalcontext(err, "Unable to Update offset for RowKey: " + RowKey);
+                finalcontext(err, "Unable to Update offset for rowKey: " + rowKey);
 
             });
         } else {
-            finalcontext(null, "No tasks created for RowKey: " + RowKey);
+            finalcontext(null, "No tasks created for rowKey: " + rowKey);
         }
 
     }).catch(function (err) {
         // unable to retrieve offset
-        finalcontext(err, "Unable to Retrieve offset for RowKey: " + RowKey);
+        finalcontext(err, "Unable to Retrieve offset for rowKey: " + rowKey);
     });
 
 }
@@ -137,21 +137,19 @@ function createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context,
 module.exports = function (context, eventHubMessages) {
     try {
         eventHubMessages = [].concat.apply([], eventHubMessages);
-        // context.log("blobtaskproducer message received: ", eventHubMessages.length);
         var metadatamap = {};
         var allcontentlengths = {};
         getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap);
         var processed = 0;
         context.bindings.tasks = [];
         var totalRows = Object.keys(allcontentlengths).length;
-        var errArr = [], RowKey;
-        for (RowKey in allcontentlengths) {
-            var sortedcontentlengths = allcontentlengths[RowKey].sort(); // ensuring increasing order of contentlengths
-            var metadata = metadatamap[RowKey];
-            var PartitionKey = metadata.containerName;
-            createTasksForBlob(PartitionKey, RowKey, sortedcontentlengths, context, metadata, function (err, msg) {
+        var errArr = [], rowKey;
+        for (rowKey in allcontentlengths) {
+            var sortedcontentlengths = allcontentlengths[rowKey].sort(); // ensuring increasing order of contentlengths
+            var metadata = metadatamap[rowKey];
+            var partitionKey = metadata.containerName;
+            createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context, metadata, function (err, msg) {
                 processed += 1;
-                // context.log(RowKey, processed, err, msg);
                 if (err) {
                     errArr.push(err);
                 }

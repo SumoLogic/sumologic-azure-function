@@ -121,7 +121,7 @@ function nsgLogsHandler(msg,context) {
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
-    var splitted_tuples, eventsArr = [];
+    var eventsArr = [];
     jsonArray.forEach(function (record) {
         version = record.properties.Version;
         record.properties.flows.forEach(function (rule) {
@@ -197,7 +197,7 @@ function getData(task, blockBlobClient, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
-    context.log("Inside get data function:");
+    //context.log("Inside get data function:");
     return new Promise(async function (resolve, reject) {
         try {
             var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
@@ -210,13 +210,12 @@ function getData(task, blockBlobClient, context) {
         } catch (err) {
             reject(err);
         }
-        // context.log(buffer.toString());
     })};
 
 function getBlockBlobService(context, task) {
     return new Promise(function (resolve, reject) {
     try{
-        context.log("Inside Block Blob Service")
+        //context.log("Inside Block Blob Service")
         var tokenCredential = new DefaultAzureCredential();
         var containerClient = new ContainerClient(
             `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
@@ -234,10 +233,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    context.log("Reached Here nearest to blob handler");
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
-    context.log("message handler called: ")
-    context.log(msghandler);
     if (!(file_ext in msghandler)) {
         context.log("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName)
         context.done();
@@ -253,7 +249,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
             serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
         } else {
-            serviceBusTask.startByte -= 1;
+            serviceBusTask.startByte -= 1; //to remove comma before json object
         }
         file_ext = "nsg";
     }
@@ -331,7 +327,7 @@ function servicebushandler(context, serviceBusTask) {
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-    context.log("Reached inside ServiceBus Handler")
+    //context.log("Reached inside ServiceBus Handler")
     messageHandler(serviceBusTask, context, sumoClient);
 
 }

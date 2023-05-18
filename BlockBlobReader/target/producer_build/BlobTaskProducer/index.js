@@ -67,17 +67,17 @@ async function getBlobPointerMap(partitionKey, rowKey, context) {
     var statusCode = 200;
     try{
         var entity = await tableClient.getEntity(partitionKey, rowKey);
-        context.log("retreived existing rowkey: " + rowKey)
+        //context.log("retreived existing rowkey: " + rowKey)
     }catch(err){
         // err object keys : [ 'name', 'code', 'statusCode', 'request', 'response', 'details' ]
         if(err.statusCode === 404){
-            context.log("no existing row found, new file scenario for rowkey: " + rowKey)
+            //context.log("no existing row found, new file scenario for rowkey: " + rowKey)
             statusCode = 404;
         }else{
             throw err;
         }
     }
-    context.log({statusCode: statusCode, entity: entity});
+    //context.log({statusCode: statusCode, entity: entity});
     return {statusCode: statusCode, entity: entity};
 }
 
@@ -115,37 +115,37 @@ function getNewTask(currentoffset,sortedcontentlengths,metadata){
 }
 
 async function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, context, metadata) {
-    context.log("inside createTasksForBlob", partitionKey, rowKey, sortedcontentlengths, metadata);
+    //context.log("inside createTasksForBlob", partitionKey, rowKey, sortedcontentlengths, metadata);
     if (sortedcontentlengths.length === 0) {
         return Promise.resolve({status: "success", message: "No tasks created for rowKey: " + rowKey});
     }
     try{
         var retrievedResponse = await getBlobPointerMap(partitionKey, rowKey, context);
-        context.log("retrieved blob pointer successsfully for rowkey: " + rowKey + " response: "+ retrievedResponse)
+        //context.log("retrieved blob pointer successsfully for rowkey: " + rowKey + " response: "+ retrievedResponse)
     }catch(err){
        // unable to retrieve offset, hence ingesting whole file from starting byte
        let lastoffset = sortedcontentlengths[sortedcontentlengths.length - 1] - 1;
-       return Promise.reject({status: "failed", message: "Unable to Retrieve offset for rowKey: " + rowKey + " Error: " + JSON.stringify(err), lastoffset : lastoffset, currentoffset: -1}); 
+       return Promise.reject({status: "failed", rowKey: rowKey, message: "Unable to Retrieve offset for rowKey: " + rowKey + " Error: " + err, lastoffset : lastoffset, currentoffset: -1});
     }
     var currentoffset = retrievedResponse.statusCode === 404 ? -1 : Number(retrievedResponse.entity.offset);
     var currentEtag = retrievedResponse.statusCode === 404 ? null : retrievedResponse.entity.etag;
-    var [tasks,lastoffset] = getNewTask(currentoffset,sortedcontentlengths,retrievedResponse.metadata);
+    var [tasks,lastoffset] = getNewTask(currentoffset,sortedcontentlengths,metadata);
 
     if (tasks.length > 0) { // modify offset only when it's been changed
         var entity = getEntity(metadata, lastoffset, currentEtag);
         try{
             var updatedResponse = await updateBlobPointerMap(entity, context);
-            context.log("updated blob pointer successsfully for rowkey: " + rowKey + " response: "+ updatedResponse)
+            //context.log("updated blob pointer successsfully for rowkey: " + rowKey + " response: "+ updatedResponse)
             context.bindings.tasks = context.bindings.tasks.concat(tasks);
-            return Promise.resolve({status: "success", message: tasks.length + " Tasks added for rowKey: " + rowKey});
+            return Promise.resolve({status: "success",rowKey: rowKey, message: tasks.length + " Tasks added for rowKey: " + rowKey});
         }catch(err){
             if (err && err.details && err.details.odataError && err.details.odataError.code === "UpdateConditionNotSatisfied" && err.statusCode === 412) {
-                context.log("Need to Retry: " + rowKey, entity);
+                context.log("Need to Retry: " + rowKey);
             }
-            return Promise.reject({status: "failed", message: "Unable to Update offset for rowKey: " + rowKey + " Error: " + err, lastoffset : lastoffset, currentoffset: currentoffset});
+            return Promise.reject({status: "failed",rowKey: rowKey, message: "Unable to Update offset for rowKey: " + rowKey + " Error: " + err, lastoffset : lastoffset, currentoffset: currentoffset});
         }
     } else {
-        return Promise.resolve({status: "success", message: "No tasks created for rowKey: " + rowKey});
+        return Promise.resolve({status: "success",rowKey: rowKey, message: "No tasks created for rowKey: " + rowKey});
     }
 }
 
@@ -170,13 +170,12 @@ module.exports = async function (context, eventHubMessages) {
                 //creating duplicate task for file causing an error when update condition is not satisfied in mutiple read and write scenarios for same row key in fileOffSetMap table
                 for (let response of responseValues){
                     processed += 1;
-                    context.log(response)
                     if(response.status === "failed"){
-                        context.log("creating duplicate task since retry failed for rowkey: " + rowKey);
+                        context.log("creating duplicate task since retry failed for rowkey: " + response.rowKey);
                         var duplicateTask = Object.assign({
                             startByte: response.currentoffset + 1,
                             endByte: response.lastoffset
-                        }, metadata);
+                        }, metadatamap[response.rowKey]);
                         context.bindings.tasks = context.bindings.tasks.concat([duplicateTask]);
                         errArr.push(response.message);
                     }
@@ -190,7 +189,6 @@ module.exports = async function (context, eventHubMessages) {
             context.done();
         }
     } catch (error) {
-        context.log(error)
         context.done(error);
     }
 };

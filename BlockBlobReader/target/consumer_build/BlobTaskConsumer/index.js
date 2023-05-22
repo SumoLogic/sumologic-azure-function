@@ -98,7 +98,7 @@ function getcsvHeader(containerName, blobName, blobService, context) {
     return getHeaderRecursively("", task, blobService, context);
 }
 
-function csvHandler(msgtext, headers) {
+function csvHandler(context,msgtext, headers) {
     var messages = csvToArray(msgtext, DEFAULT_CSV_SEPARATOR);
     var messageArray = [];
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
@@ -116,7 +116,7 @@ function csvHandler(msgtext, headers) {
     return messageArray;
 }
 
-function nsgLogsHandler(msg,context) {
+function nsgLogsHandler(context,msg) {
 
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
@@ -167,17 +167,16 @@ function nsgLogsHandler(msg,context) {
     return eventsArr;
 }
 
-function jsonHandler(msg) {
+function jsonHandler(context,msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
     msg = JSON.stringify(msg)
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
-    jsonArray = (jsonArray.length > 0 && jsonArray[0].category === "NetworkSecurityGroupFlowEvent") ? nsgLogsHandler(jsonArray) : jsonArray;
     return jsonArray;
 }
 
-function blobHandler(msg) {
+function blobHandler(context,msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
     
@@ -189,7 +188,7 @@ function blobHandler(msg) {
     return jsonArray;
 }
 
-function logHandler(msg) {
+function logHandler(context,msg) {
     return [msg];
 }
 
@@ -228,6 +227,40 @@ function getBlockBlobService(context, task) {
         }
     })};
 
+function getMessageSize(msg) {
+    // increasing one to accommodate \n
+    return 1 + Buffer.byteLength(JSON.stringify(msg), 'utf8');
+}
+
+function getSplittedArray(messageArray,context){
+
+    let allChunks = [];
+    let currentChunkSize = 0;
+    let currentChunk = [];
+    const maxChunkSize =  1*1024*1024; // 1MB
+    for (const msg of messageArray) {
+      let currentMsgSize = getMessageSize(msg);
+      if (currentMsgSize > maxChunkSize) {
+        context.log(`Warning: Ignoring msg of size: ${currentMsgSize} > maxChunkSize`)
+        continue;
+      }
+      if (currentMsgSize + currentChunkSize > maxChunkSize) {
+          allChunks.push(currentChunk);
+          context.log(`Chunk created of size: ${currentChunkSize} length: ${currentChunk.length}`)
+          currentChunk = [msg];
+          currentChunkSize = currentMsgSize;
+      } else {
+        currentChunk.push(msg);
+        currentChunkSize += currentMsgSize;
+      }
+    }
+    if (currentChunk.length > 0) {
+      context.log(`Chunk created of size: ${currentChunkSize} length: ${currentChunk.length}`)
+      allChunks.push(currentChunk);
+    }
+    return allChunks;
+}
+
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
@@ -254,13 +287,13 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         file_ext = "nsg";
     }
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
-        return getData(serviceBusTask, blobService, context).then(function (msg) {
+        return getData(serviceBusTask, blobService, context).then(async function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
             if (file_ext === "csv") {
-                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
+                return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
                     context.log("Received headers %d", headers.length);
-                    messageArray = msghandler[file_ext](msg, headers);
+                    messageArray = msghandler[file_ext](context,msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
                     messageArray.forEach(function (msg) {
                         sumoClient.addData(msg);
@@ -271,11 +304,27 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     context.done(err);
                 });
             } else {
-                messageArray = msghandler[file_ext](msg);
-                messageArray.forEach(function (msg) {
-                    sumoClient.addData(msg);
-                });
-                sumoClient.flushAll();
+                messageArray = msghandler[file_ext](context,msg);
+                var splittedArrays = getSplittedArray(messageArray,context);
+                context.log("No of chunks created: "+splittedArrays.length);
+                for(splitArray of splittedArrays){
+                    splitArray.forEach(function(msg){
+                        sumoClient.addData(msg)
+                    })
+                    await sumoClient.flushAll();
+                }
+                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                    if (sumoClient.messagesFailed > 0) {
+                        context.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                    } else {
+                        context.log('Exiting now.');
+                        context.done();
+                    }
+                }else{
+                    context.log("Messages Attempted: " + sumoClient.messagesAttempted);
+                    context.log("Messages Received: " + sumoClient.messagesReceived);
+                    context.done();
+                }
             }
         });
     }).catch(function (err) {
@@ -309,21 +358,10 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        ctx.log("Failed to send to Sumo");
-        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-            ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-        }
+        //ctx.log("Failed to send to Sumo");
     }
     function successHandler(ctx) {
-        ctx.log('Successfully sent to Sumo', serviceBusTask);
-        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-            if (sumoClient.messagesFailed > 0) {
-                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-            } else {
-                ctx.log('Exiting now.');
-                ctx.done();
-            }
-        }
+        //ctx.log('Successfully sent to Sumo');
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);

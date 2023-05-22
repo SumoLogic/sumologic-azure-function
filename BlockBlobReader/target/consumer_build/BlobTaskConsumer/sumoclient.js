@@ -8,6 +8,7 @@ var url = require('node:url');
 
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
+var { promisify } = require('node:util');
 
 
 var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
@@ -125,7 +126,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    this.context.log("Flush buffer for metaKey:"+metaKey);
+    //this.context.log("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
@@ -173,28 +174,25 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
-
-            return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
-                if (!e)  {
-                    self.context.log("gzip successful");
+            const gzipPromise = promisify(zlib.gzip);
+            return gzipPromise(msgArray.join('\n')).then(function(compressed_data){
+                    //self.context.log("gzip successful");
                     return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                             .then(()=> {
                         self.context.log("Succesfully sent " + self.messagesSent + " messages to Sumo");
-                        self.success_callback(self.context);}
-                        )
-                    .catch((err) => {
+                        self.success_callback(self.context);
+                    }).catch((err) => {
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
                         self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                         self.failure_callback(msgArray,self.context);
                     });
-                } else {
+                }).catch((e)=> {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
-                }
-            });
+                });
         }  else {
             //self.context.log('Send raw data to Sumo');
             return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
@@ -212,11 +210,13 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 /**
  * Flush all internal buckets to Sumo
  */
-SumoClient.prototype.flushAll = function() {
+SumoClient.prototype.flushAll = async function() {
     var self = this;
+    var allPromises = [];
     this.dataMap.forEach( function(buffer,key,dataMap) {
-        self.flushBucketToSumo(key);
+        allPromises.push(self.flushBucketToSumo(key));
     });
+    await Promise.all(allPromises);
 };
 
 SumoClient.prototype.addData = function(data) {

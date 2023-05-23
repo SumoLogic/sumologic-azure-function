@@ -227,40 +227,6 @@ function getBlockBlobService(context, task) {
         }
     })};
 
-function getMessageSize(msg) {
-    // increasing one to accommodate \n
-    return 1 + Buffer.byteLength(JSON.stringify(msg), 'utf8');
-}
-
-function getSplittedArray(messageArray,context){
-
-    let allChunks = [];
-    let currentChunkSize = 0;
-    let currentChunk = [];
-    const maxChunkSize =  1*1024*1024; // 1MB
-    for (const msg of messageArray) {
-      let currentMsgSize = getMessageSize(msg);
-      if (currentMsgSize > maxChunkSize) {
-        context.log(`Warning: Ignoring msg of size: ${currentMsgSize} > maxChunkSize`)
-        continue;
-      }
-      if (currentMsgSize + currentChunkSize > maxChunkSize) {
-          allChunks.push(currentChunk);
-          context.log(`Chunk created of size: ${currentChunkSize} length: ${currentChunk.length}`)
-          currentChunk = [msg];
-          currentChunkSize = currentMsgSize;
-      } else {
-        currentChunk.push(msg);
-        currentChunkSize += currentMsgSize;
-      }
-    }
-    if (currentChunk.length > 0) {
-      context.log(`Chunk created of size: ${currentChunkSize} length: ${currentChunk.length}`)
-      allChunks.push(currentChunk);
-    }
-    return allChunks;
-}
-
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
@@ -305,26 +271,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                 });
             } else {
                 messageArray = msghandler[file_ext](context,msg);
-                var splittedArrays = getSplittedArray(messageArray,context);
-                context.log("No of chunks created: "+splittedArrays.length);
-                for(splitArray of splittedArrays){
-                    splitArray.forEach(function(msg){
-                        sumoClient.addData(msg)
-                    })
-                    await sumoClient.flushAll();
-                }
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    if (sumoClient.messagesFailed > 0) {
-                        context.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                    } else {
-                        context.log('Exiting now.');
-                        context.done();
-                    }
-                }else{
-                    context.log("Messages Attempted: " + sumoClient.messagesAttempted);
-                    context.log("Messages Received: " + sumoClient.messagesReceived);
-                    context.done();
-                }
+                messageArray.forEach(function (msg) {
+                    sumoClient.addData(msg);
+                });
+                sumoClient.flushAll();
             }
         });
     }).catch(function (err) {
@@ -358,10 +308,21 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        //ctx.log("Failed to send to Sumo");
+        ctx.log("Failed to send to Sumo");
+        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+            ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
+        }
     }
     function successHandler(ctx) {
-        //ctx.log('Successfully sent to Sumo');
+        ctx.log('Successfully sent to Sumo', serviceBusTask);
+        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+            if (sumoClient.messagesFailed > 0) {
+                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
+            } else {
+                ctx.log('Exiting now.');
+                ctx.done();
+            }
+        }
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);

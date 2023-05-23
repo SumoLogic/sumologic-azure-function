@@ -253,7 +253,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         file_ext = "nsg";
     }
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
-        return getData(serviceBusTask, blobService, context).then(async function (msg) {
+        return getData(serviceBusTask, blobService, context).then(function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
             if (file_ext === "csv") {

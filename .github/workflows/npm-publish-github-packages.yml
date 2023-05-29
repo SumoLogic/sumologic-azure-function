@@ -17,7 +17,3 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false
-          files: |
-            BlockBlobReader/target/*
-            EventHubs/target/logs_build/*
-            EventHubs/target/metrics_build/*     

@@ -18,6 +18,17 @@ Each integration is structured in three folders
 * target/  - directory used by azure's github integration to fetch source code
 * tests/   - contains integration tests
 
+## Release
+
+### Releasing appdev package
+  The new zip package gets released automatically after the tags are pushed using Github actions(Refer tagged-release in https://github.com/marvinpinto/action-automatic-releases).
+
+  Run below commands to create and push tags
+  
+     git tag -a v<major.minor.patch> <commit_id>
+ 
+     git push origin v<major.minor.patch>
+
 
 ### TLS 1.2 Requirement
 

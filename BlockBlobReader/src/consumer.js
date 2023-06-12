@@ -3,16 +3,14 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
-var dataTransformer = require('./datatransformer');
-var storage = require('azure-storage');
-var storageManagementClient = require('azure-arm-storage');
-var MsRest = require('ms-rest-azure');
-var servicebus = require('azure-sb');
+var { ContainerClient } = require("@azure/storage-blob");
+var { DefaultAzureCredential } = require("@azure/identity");
+var { AbortController } = require("@azure/abort-controller");
+var { ServiceBusClient } = require("@azure/service-bus");
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
-var https = require('https');
 
 function csvToArray(strData, strDelimiter) {
     strDelimiter = (strDelimiter || ",");
@@ -87,7 +85,7 @@ function getHeaderRecursively(headertext, task, blobService, context) {
 
 }
 
-function getcsvHeader(containerName, blobName, context, blobService) {
+function getcsvHeader(containerName, blobName, blobService, context) {
     // Todo optimize to avoid multiple request
     var bytesOffset = MAX_CHUNK_SIZE;
     var task = {
@@ -100,7 +98,7 @@ function getcsvHeader(containerName, blobName, context, blobService) {
     return getHeaderRecursively("", task, blobService, context);
 }
 
-function csvHandler(msgtext, headers) {
+function csvHandler(context,msgtext, headers) {
     var messages = csvToArray(msgtext, DEFAULT_CSV_SEPARATOR);
     var messageArray = [];
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
@@ -118,8 +116,12 @@ function csvHandler(msgtext, headers) {
     return messageArray;
 }
 
-function nsgLogsHandler(jsonArray) {
-    var splitted_tuples, eventsArr = [];
+function nsgLogsHandler(context,msg) {
+
+    var jsonArray = [];
+    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    jsonArray = JSON.parse("[" + msg + "]");
+    var eventsArr = [];
     jsonArray.forEach(function (record) {
         version = record.properties.Version;
         record.properties.flows.forEach(function (rule) {
@@ -165,178 +167,78 @@ function nsgLogsHandler(jsonArray) {
     return eventsArr;
 }
 
-function jsonHandler(msg) {
+function jsonHandler(context,msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
-
+    msg = JSON.stringify(msg)
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
-    jsonArray = (jsonArray.length > 0 && jsonArray[0].category === "NetworkSecurityGroupFlowEvent") ? nsgLogsHandler(jsonArray) : jsonArray;
     return jsonArray;
 }
 
-function blobHandler(msg) {
+function blobHandler(context,msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
-
+    
     var jsonArray = [];
-    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    msg = msg.replace(/\0/g, '');
     msg = msg.replace(/(\r?\n|\r)/g, ",");
+    msg = msg.trim().replace(/(^,+)|(,+$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;
 }
 
-function logHandler(msg) {
+function logHandler(context,msg) {
     return [msg];
 }
 
-function getData(task, blobService, context) {
+function getData(task, blockBlobClient, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
-
-    var containerName = task.containerName;
-    var blobName = task.blobName;
-    var options = {rangeStart: task.startByte, rangeEnd: task.endByte};
-
-    return new Promise(function (resolve, reject) {
-        blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blob) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(blobContent);
-            }
-        });
-    });
-
-}
-var lastTokenGenTime = null;
-var refreshTokenDuratoninMin = 60;
-var cachedTokenResponse = null;
-
-
-function isRefreshTokenDurationExceeded() {
-    if (!lastTokenGenTime) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastTokenGenTime)/(1000 * 60)) >= refreshTokenDuratoninMin ? true : false;
-}
-
-/**
-- * @param  {} task
-- * @param  {} context
-- *
-- * fetching token and caching it for refreshTokenDuratoninMin
-- */
-function getCachedToken(context, task) {
-    if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
-        context.log("Regenerating token at: %s", new Date().toISOString());
-        return getToken(context, task).then(function(tokenResponse) {
-            lastTokenGenTime = new Date().getTime();
-            cachedTokenResponse = tokenResponse;
-            return cachedTokenResponse;
-        })
-    } else {
-        return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
-            // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
-            resolve(cachedTokenResponse);
-        });
-    }
-}
-
-
-function getToken() {
-    var options = {msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET};
-    return new Promise(function (resolve, reject) {
-        MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(tokenResponse);
-            }
-        });
-    });
-}
-
-var lastAccountKeyGenTime = {};
-var refreshAccountKeyDuratoninMin = 60;
-var cachedAccountKeyResponse = {};
-
-function isRefreshAccountKeyDurationExceeded(task) {
-    if (!lastAccountKeyGenTime[getStorageAccountCacheKey(task)]) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastAccountKeyGenTime[getStorageAccountCacheKey(task)])/(1000 * 60)) >= refreshAccountKeyDuratoninMin ? true : false;
-}
-
-function getStorageAccountCacheKey(task) {
-    return task.resourceGroupName + "-" + task.storageName;
-}
-/**
- * @param  {} task
- * @param  {} context
- *
- * fetching account key and caching it for refreshAccountKeyDuratoninMin
- */
-function getCachedAccountKey(context, task) {
-    if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
-        // context.log("Regenerating accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
-        return getStorageAccountAccessKey(context, task).then(function(accountKey) {
-            lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
-            cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
-            context.log("Regenerated accountKey for %s at: %s ", getStorageAccountCacheKey(task), new Date().toISOString());
-            return accountKey;
-        });
-
-    } else {
-        return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
-            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", getStorageAccountCacheKey(task), timeRemainingToRefreshToken);
-            resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
-        });
-    }
-}
-
-function getStorageAccountAccessKey(context, task) {
-
-    return getCachedToken(context, task).then(function(credentials) {
-        var storagecli = new storageManagementClient(
-            credentials,
-            task.subscriptionId
-        );
-        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
-            return resp.keys[0].value;
-        });
-    });
-
-}
-
+    //context.log("Inside get data function:");
+    return new Promise(async function (resolve, reject) {
+        try {
+            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
+            abortSignal: AbortController.timeout(30 * 60 * 1000),
+            blockSize: 4 * 1024 * 1024,
+            concurrency: 1
+            });
+            resolve(buffer.toString());
+        } catch (err) {
+            reject(err);
+        }
+    })};
 
 function getBlockBlobService(context, task) {
-
-    return getCachedAccountKey(context, task).then(function (accountKey) {
-        var blobService = storage.createBlobService(task.storageName, accountKey);
-        return blobService;
-    });
-
-}
-
+    return new Promise(function (resolve, reject) {
+    try{
+        //context.log("Inside Block Blob Service")
+        var tokenCredential = new DefaultAzureCredential();
+        var containerClient = new ContainerClient(
+            `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
+            tokenCredential
+        );
+        var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+        resolve(blockBlobClient);
+        } catch (err){
+            reject(err);
+        }
+    })};
 
 function messageHandler(serviceBusTask, context, sumoClient) {
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler};
+    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
     if (!(file_ext in msghandler)) {
         context.log("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName)
         context.done();
         return;
     }
-    if (file_ext === "json") {
+    if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
         if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
             context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
@@ -346,18 +248,18 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
             serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
         } else {
-            serviceBusTask.startByte -= JSON_BLOB_TAIL_BYTES;
+            serviceBusTask.startByte -= 1; //to remove comma before json object
         }
-
+        file_ext = "nsg";
     }
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         return getData(serviceBusTask, blobService, context).then(function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
             if (file_ext === "csv") {
-                getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
+                return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
                     context.log("Received headers %d", headers.length);
-                    messageArray = msghandler[file_ext](msg, headers);
+                    messageArray = msghandler[file_ext](context,msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
                     messageArray.forEach(function (msg) {
                         sumoClient.addData(msg);
@@ -368,7 +270,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     context.done(err);
                 });
             } else {
-                messageArray = msghandler[file_ext](msg);
+                messageArray = msghandler[file_ext](context,msg);
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
@@ -406,98 +308,114 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        // ctx.log("Failed to send to Sumo");
+        ctx.log("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
         }
     }
     function successHandler(ctx) {
-        // ctx.log('Successfully sent to Sumo', serviceBusTask);
+        ctx.log('Successfully sent to Sumo', serviceBusTask);
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             if (sumoClient.messagesFailed > 0) {
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
-                ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
+                ctx.log('Exiting now.');
                 ctx.done();
             }
         }
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+    //context.log("Reached inside ServiceBus Handler")
     messageHandler(serviceBusTask, context, sumoClient);
 
 }
 
-function timetriggerhandler(context, timetrigger) {
+async function timetriggerhandler(context, timetrigger) {
 
     if (timetrigger.isPastDue) {
         context.log("timetriggerhandler running late");
     }
-    var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
-    serviceBusService.receiveQueueMessage(process.env.APPSETTING_TASKQUEUE_NAME + '/$DeadLetterQueue', {isPeekLock: true}, function (error, lockedMessage) {
-        if (!error) {
-            var serviceBusTask = JSON.parse(lockedMessage.body);
-            // Message received and locked and try to resend
-            var options = {
-                urlString: process.env.APPSETTING_SumoLogEndpoint,
-                MaxAttempts: 3,
-                RetryInterval: 3000,
-                compress_data: true,
-                clientHeader: "dlqblobreader-azure-function"
-            };
-            setSourceCategory(serviceBusTask, options);
-            var sumoClient;
-            function failureHandler(msgArray, ctx) {
-                ctx.log("Failed to send to Sumo");
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                }
+    try{
+        var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
+        var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME,{ subQueueType: "deadLetter", receiveMode: "peekLock" });
+    }catch(err){
+        context.log(err);
+        context.done("Failed to create service bus client and receiver");
+    }
+    try {
+        var messages = await queueReceiver.receiveMessages(1, {
+            maxWaitTimeInMs: 60 * 1000,
+        });
+        if (!messages.length) {
+            context.log("No more messages to receive");
+            await queueReceiver.close();
+            await sbClient.close();
+            context.done();
+            return;
+        }
+        var myJSON = JSON.stringify(messages[0].body);
+        var serviceBusTask = JSON.parse(myJSON);
+        // Message received and locked and try to resend
+        var options = {
+            urlString: process.env.APPSETTING_SumoLogEndpoint,
+            MaxAttempts: 3,
+            RetryInterval: 3000,
+            compress_data: true,
+            clientHeader: "dlqblobreader-azure-function"
+        };
+        setSourceCategory(serviceBusTask, options);
+        var sumoClient;
+        async function failureHandler(msgArray, ctx) {
+            ctx.log("Failed to send to Sumo");
+            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                await queueReceiver.close();
+                await sbClient.close();
+                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             }
-            function successHandler(ctx) {
-                ctx.log('Successfully sent to Sumo');
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    if (sumoClient.messagesFailed > 0) {
-                        ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                    } else {
-                        ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
-                        serviceBusService.deleteMessage(lockedMessage, function (deleteError) {
-                            if (!deleteError) {
-                                context.log("sent and deleted");
-                                ctx.done();
-                            } else {
-                                ctx.done("Messages Sent but failed delete from DeadLetterQueue");
-                            }
-                        });
+        }
+        async function successHandler(ctx) {
+            ctx.log('Successfully sent to Sumo');
+            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                //TODO: Test Scenario for combination of successful and failed requests
+                if (sumoClient.messagesFailed > 0) {
+                    await queueReceiver.close();
+                    await sbClient.close();
+                    ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                } else {
+                    ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
+                    try{
+                        await queueReceiver.completeMessage(messages[0]);
+                    }catch(err){
+                        await queueReceiver.close();
+                        await sbClient.close();
+                        if (!err) {
+                            context.log("sent and deleted");
+                            ctx.done();
+                        } else {
+                            context.log(err)
+                            ctx.done("Messages Sent but failed delete from DeadLetterQueue");
+                        }
                     }
                 }
             }
-            sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-            messageHandler(serviceBusTask, context, sumoClient);
-
-        } else {
-            if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-                context.log(error);
-                context.done();
-            } else {
-                context.log("Error in reading messages from DLQ: ", error, typeof(error));
-                context.done(error);
-            }
         }
-
-    });
-}
+        sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+        messageHandler(serviceBusTask, context, sumoClient);
+      }catch(error){
+        await queueReceiver.close();
+        await sbClient.close();
+        if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
+            context.log(error);
+            context.done();
+        } else {
+            context.log("Error in reading messages from DLQ: ", error, typeof(error));
+            context.done(error);
+        }
+      }
+    }
 
 module.exports = function (context, triggerData) {
-    // var triggerData = {
-    //    startByte: 0,
-    //    endByte: 325356,
-    //    url: "https://allbloblogseastus.blob.core.windows.net/testappendblob/PT1H.json",
-    //    storageName:"allbloblogseastus",
-    //    containerName: "testappendblob",
-    //    blobName: "PT1H.json",
-    //    resourceGroupName: 'SumoAuditCollection',
-    //    subscriptionId: 'c088dc46-d692-42ad-a4b6-9a542d28ad2a'
-    // }
     if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {

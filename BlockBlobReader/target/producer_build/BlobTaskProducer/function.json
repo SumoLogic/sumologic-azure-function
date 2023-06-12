@@ -4,7 +4,7 @@
       "type": "eventHubTrigger",
       "name": "eventHubMessages",
       "direction": "in",
-      "path": "blobreadereventhub",
+      "eventHubName": "blobreadereventhub",
       "connection": "AzureEventHubConnectionString",
       "cardinality": "many",
       "consumerGroup": "$Default"
@@ -14,7 +14,6 @@
       "connection": "TaskQueueConnectionString",
       "name": "tasks",
       "queueName": "blobrangetaskqueue",
-      "accessRights": "Manage",
       "direction": "out"
     }
   ],

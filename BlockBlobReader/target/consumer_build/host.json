@@ -1,9 +1,14 @@
 {
-    "serviceBus": {
+  "version": "2.0",
+  "extensionBundle": {
+        "id": "Microsoft.Azure.Functions.ExtensionBundle",
+        "version": "[4.0.0, 5.0.0)"
+  },
+  "serviceBus": {
       "maxConcurrentCalls": 30,
       "prefetchCount": 400,
       "autoRenewTimeout": "00:10:00"
     },
-    "functionTimeout": "00:10:00",
-    "functions": ["BlobTaskConsumer"]
+  "functionTimeout": "00:10:00",
+  "functions": ["BlobTaskConsumer"]
 }

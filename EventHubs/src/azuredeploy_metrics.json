@@ -60,7 +60,7 @@
                 "capacity": 1
             },
             "name": "[parameters('namespaces_SumoMetNamespace_name')]",
-            "apiVersion": "2017-04-01",
+            "apiVersion": "2022-10-01-preview",
             "location": "[resourceGroup().location]",
             "tags": {},
             "scale": null,
@@ -78,7 +78,7 @@
             },
             "kind": "Storage",
             "name": "[parameters('storageAccounts_sumometapplogs_name')]",
-            "apiVersion": "2017-10-01",
+            "apiVersion": "2022-09-01",
             "location": "[resourceGroup().location]",
             "tags": {},
             "scale": null,
@@ -112,7 +112,7 @@
             },
             "kind": "Storage",
             "name": "[parameters('storageAccounts_sumometricsfailedmsg')]",
-            "apiVersion": "2017-10-01",
+            "apiVersion": "2022-09-01",
             "location": "[resourceGroup().location]",
             "tags": {},
             "scale": null,
@@ -149,7 +149,7 @@
             },
             "kind": "functionapp",
             "name": "[parameters('serverfarms_SumoMetricsAppServicePlan_name')]",
-            "apiVersion": "2016-09-01",
+            "apiVersion": "2022-09-01",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
@@ -168,7 +168,7 @@
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_SumoMetricsFunctionApp_name')]",
-            "apiVersion": "2016-08-01",
+            "apiVersion": "2022-09-01",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
@@ -189,7 +189,7 @@
             },
             "resources": [
              {
-                  "apiVersion": "2015-08-01",
+                  "apiVersion": "2022-09-01",
                   "name": "web",
                   "type": "sourcecontrols",
                   "dependsOn": [
@@ -211,7 +211,7 @@
         {
             "type": "Microsoft.EventHub/namespaces/AuthorizationRules",
             "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_name'))]",
-            "apiVersion": "2017-04-01",
+            "apiVersion": "2022-10-01-preview",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
@@ -228,7 +228,7 @@
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs",
             "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('eventhubs_insights_metrics_pt1m_name'))]",
-            "apiVersion": "2017-04-01",
+            "apiVersion": "2022-10-01-preview",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {
@@ -243,7 +243,7 @@
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
             "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('eventhubs_insights_metrics_pt1m_name'), '/', parameters('consumerGroupName'))]",
-            "apiVersion": "2017-04-01",
+            "apiVersion": "2022-10-01-preview",
             "location": "[resourceGroup().location]",
             "scale": null,
             "properties": {},

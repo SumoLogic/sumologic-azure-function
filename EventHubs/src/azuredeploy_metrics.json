@@ -189,6 +189,7 @@
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
                     "appSettings": [
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" },
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
                         { "name": "Project", "value": "EventHubs/target/metrics_build/" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value)]" },

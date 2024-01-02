@@ -125,7 +125,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    //this.context.log("Flush buffer for metaKey:"+metaKey);
+    // this.context.log("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
@@ -155,7 +155,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             });
             req.write(data);
             req.end();
-       });
+        });
     }
 
     if (targetBuffer) {
@@ -176,10 +176,10 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
             return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
-                    self.context.log("gzip successful");
+                    // self.context.log("gzip successful");
                     return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                             .then(()=> {
-                        self.context.log("Succesfully sent " + self.messagesSent + " messages to Sumo");
+                        // self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                         )
                     .catch((err) => {
@@ -194,7 +194,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                     self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 }
-                });
+            });
         }  else {
             //self.context.log('Send raw data to Sumo');
             return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])

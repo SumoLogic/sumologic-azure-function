@@ -170,7 +170,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
 
-            zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
+            return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
                     sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                         .then(()=> {
@@ -192,13 +192,13 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
             });
         }  else {
             //self.context.log('Send raw data to Sumo');
-            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
+            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
                 .then(()=> { self.success_callback(self.context);})
-        .catch((err) => {
-            self.messagesFailed += msgArray.length;
-            self.messagesAttempted += msgArray.length;
-            self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
-            self.failure_callback(msgArray,self.context);
+            .catch((err) => {
+                self.messagesFailed += msgArray.length;
+                self.messagesAttempted += msgArray.length;
+                self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                self.failure_callback(msgArray,self.context);
         });
         }
     }

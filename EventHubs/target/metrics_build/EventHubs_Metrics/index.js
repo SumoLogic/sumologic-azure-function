@@ -5,7 +5,6 @@
 
 var sumoMetricHttp = require('./sumometricclient');
 var dataTransformer = require('./datatransformer');
-var sumoClient;
 
 function isMetricData(msg) {
     //if ((msg['metricName']) && (msg['time']) && ((msg['count']) || (msg['total']) || (msg['average'] in msg) ||(msg['maximum']) || (msg['minimum']) )) return true; else return false;

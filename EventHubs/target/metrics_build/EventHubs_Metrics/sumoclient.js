@@ -2,9 +2,9 @@
 /**
  * Created by duc on 6/30/17.
  */
-var https = require('https');
-var zlib= require('zlib');
-var url = require('url');
+var https = require('node:https');
+var zlib = require('node:zlib');
+var url = require('node:url');
 
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');

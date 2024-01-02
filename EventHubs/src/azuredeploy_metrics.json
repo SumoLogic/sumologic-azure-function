@@ -39,7 +39,7 @@
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue":"SUMO-229789",
+            "defaultValue":"master",
             "type": "String"
         },
         "sourceCodeManualIntegration": {

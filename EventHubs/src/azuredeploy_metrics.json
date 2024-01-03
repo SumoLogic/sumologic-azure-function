@@ -55,7 +55,7 @@
             "type": "String"
         },
         "logAnalyticsWorkspaceName": {
-			"defaultValue": "[concat('SUMOBRLAworkspace', uniqueString(resourceGroup().id))]",
+			"defaultValue": "[concat('SumoMetricsworkspace', uniqueString(resourceGroup().id))]",
 			"type": "String"
 		},
         "location": {

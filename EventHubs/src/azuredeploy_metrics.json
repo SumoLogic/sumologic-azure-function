@@ -55,7 +55,7 @@
             "type": "String"
         },
         "logAnalyticsWorkspaceName": {
-			"defaultValue": "[concat('SumoMetricsworkspace', uniqueString(resourceGroup().id))]",
+			"defaultValue": "[concat('SumoMetricsWorkspace', uniqueString(resourceGroup().id))]",
 			"type": "String"
 		},
         "location": {
@@ -278,7 +278,7 @@
         },
         {
 	      "type": "microsoft.operationalinsights/workspaces",
-	      "apiVersion": "2020-08-01",
+	      "apiVersion": "2022-10-01",
 	      "name": "[parameters('logAnalyticsWorkspaceName')]",
 	      "location": "[parameters('location')]",
 	      "properties": {
@@ -287,7 +287,7 @@
 	        },
 	        "retentionInDays": 30,
 	        "features": {
-	          "enableLogAccessUsingOnlyResourcePermissions": true
+              "enableLogAccessUsingOnlyResourcePermissions": true
 	        },
 	        "workspaceCapping": {
 	          "dailyQuotaGb": -1

@@ -198,6 +198,8 @@
                     "scmMinTlsVersion": "1.2",
                     "appSettings": [
                         { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~4" },
+                        { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node"},
+                        { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~18"},
                         { "name": "Project", "value": "EventHubs/target/metrics_build/" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]" },
                         { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2020-02-02').InstrumentationKey]" },

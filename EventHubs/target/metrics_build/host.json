@@ -8,14 +8,14 @@
     "maxEventBatchSize" : 400,
     "maxWaitTime" : "00:05:00",            
     "batchCheckpointFrequency" : 1,
-    "prefetchCount" : 800,
-    "clientRetryOptions":{
-        "mode" : "exponential",
-        "tryTimeout" : "00:10:00",
-        "delay" : "00:01:00.00",
-        "maximumDelay" : "00:10:00",
-        "maximumRetries" : 3
-    }
+    "prefetchCount" : 800
+  },
+  "logging": {
+    "applicationInsights": {
+          "samplingSettings": {
+              "isEnabled": false
+          }
+      }
   },
   "functions": [
     "EventHubs_Metrics"

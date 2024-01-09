@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_SumoMetricsFunctionApp_name": {
-            "defaultValue": "[concat('SumoMetricsFunctionApp', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SumoMetricsFuncApp', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "namespaces_SumoMetNamespace_name": {
@@ -54,6 +54,10 @@
             "defaultValue": "[concat('SumoMetricsAppInsights', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
+        "logAnalyticsWorkspaceName": {
+			"defaultValue": "[concat('SumoMetricsWorkspace', uniqueString(resourceGroup().id))]",
+			"type": "String"
+		},
         "location": {
             "type": "string",
             "defaultValue": "[resourceGroup().location]",
@@ -193,11 +197,13 @@
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
                     "appSettings": [
-                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
+                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~4" },
+                        { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node"},
+                        { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~18"},
                         { "name": "Project", "value": "EventHubs/target/metrics_build/" },
-                        { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value)]" },
-                        { "name": "APPINSIGHTS_INSTRUMENTATIONKEY", "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2020-02-02').InstrumentationKey]" },
-                        { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value)]"},
+                        { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]" },
+                        { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').ConnectionString]" },
+                        { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]"},
                         { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_SumoMetricsFunctionApp_name'))]" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},
                         { "name": "SumoLabsMetricEndpoint", "value": "[parameters('SumoEndpointURL')]" },
@@ -273,15 +279,36 @@
             ]
         },
         {
+	      "type": "microsoft.operationalinsights/workspaces",
+	      "apiVersion": "2022-10-01",
+	      "name": "[parameters('logAnalyticsWorkspaceName')]",
+	      "location": "[parameters('location')]",
+	      "properties": {
+	        "sku": {
+	          "name": "pergb2018"
+	        },
+	        "retentionInDays": 30,
+	        "features": {
+              "enableLogAccessUsingOnlyResourcePermissions": true
+	        },
+	        "workspaceCapping": {
+	          "dailyQuotaGb": -1
+	        },
+	        "publicNetworkAccessForIngestion": "Enabled",
+	        "publicNetworkAccessForQuery": "Enabled"
+	      }
+	    },
+        {
           "name": "[parameters('appInsightsName')]",
           "type": "Microsoft.Insights/components",
           "apiVersion": "2020-02-02",
           "location": "[parameters('location')]",
           "kind": "web",
           "properties": {
-            "Application_Type": "web",
-           "applicationId": "[parameters('appInsightsName')]"
-          }
+                "Application_Type": "web",
+                "applicationId": "[parameters('appInsightsName')]",
+                "WorkspaceResourceId": "[resourceId('microsoft.operationalinsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            }
         }
     ]
 }

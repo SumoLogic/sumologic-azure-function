@@ -4,7 +4,7 @@
      "type": "eventHubTrigger",
      "name": "eventHubMessages",
      "direction": "in",
-     "path": "insights-metrics-pt1m",
+     "eventHubName": "insights-metrics-pt1m",
      "connection": "AzureEventHubConnectionString",
      "cardinality": "many",
      "consumerGroup": "$Default"

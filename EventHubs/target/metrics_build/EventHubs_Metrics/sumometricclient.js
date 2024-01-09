@@ -119,7 +119,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    this.context.log("Flush METRIC buffer for metaKey:"+metaKey);
+    this.context.debug("Flush METRIC buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
 
@@ -172,9 +172,10 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
 
             return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
+                    self.context.debug("gzip successful");
                     sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                         .then(()=> {
-                        //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
+                        self.context.debug("Successfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                 )
                 .catch((err) => {
@@ -216,7 +217,7 @@ function FlushFailureHandler (messageArray,ctx) {
 };
 
 /**
- * Default built-in callback function to handle successful sents. It simply logs a success message
+ * Default built-in callback function to handle successful sent. It simply logs a success message
  * @param ctx is a context variable that supports a log method
  * @constructor
  */
@@ -229,4 +230,3 @@ module.exports = {
     FlushFailureHandler:FlushFailureHandler,
     DefaultSuccessHandler:DefaultSuccessHandler
 }
-

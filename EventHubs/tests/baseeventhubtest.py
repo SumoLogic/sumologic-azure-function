@@ -1,33 +1,35 @@
 import os
 import sys
-sys.path.insert(0, '../../test_utils')
-from basetest import BaseTest
 import json
+import time
 from time import sleep
 from requests import Session
+from datetime import datetime
+from azure.servicebus import ServiceBusService
+from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.eventhub import EventHubManagementClient
-from azure.mgmt.storage import StorageManagementClient
-from azure.cosmosdb.table.tableservice import TableService
-from azure.servicebus import ServiceBusService
 
+sys.path.insert(0, '../../test_utils')
+from basetest import BaseTest
 
 class BaseEventHubTest(BaseTest):
 
     def setUp(self):
-        self.create_credentials()
-        self.resource_client = ResourceManagementClient(self.credentials,
-                                                        self.subscription_id)
+        self.azure_credential = DefaultAzureCredential()
+        self.subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
+        self.resource_client = ResourceManagementClient(self.azure_credential, self.subscription_id)
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
             raise Exception("SumoEndpointURL environment variables are not set")
-
+        
         self.repo_name, self.branch_name = self.get_git_info()
 
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
-            self.delete_resource_group()
+            print("RESOURCE_GROUP_NAME...:",self.RESOURCE_GROUP_NAME)
+            #self.delete_resource_group()
 
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
@@ -49,39 +51,48 @@ class BaseEventHubTest(BaseTest):
             sleep(15)
             max_retries -= 1
 
-    def get_table_service(self):
-        storage_client = StorageManagementClient(self.credentials,
-                                                 self.subscription_id)
-        STORAGE_ACCOUNT_NAME = self.get_resource_name(self.STORAGE_ACCOUNT_NAME, "Microsoft.Storage/storageAccounts")
-        storage_keys = storage_client.storage_accounts.list_keys(
-            self.RESOURCE_GROUP_NAME, STORAGE_ACCOUNT_NAME)
-        acckey = storage_keys.keys[0].value
-        table_service = TableService(account_name=STORAGE_ACCOUNT_NAME,
-                                     account_key=acckey)
-        return table_service
-
     def insert_mock_logs_in_EventHub(self, filename):
         print("Inserting fake logs in EventHub")
-        namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
-
+        
         defaultauthorule_name = "RootManageSharedAccessKey"
-
-        eventhub_client = EventHubManagementClient(self.credentials,
-                                                   self.subscription_id)
-
-        ehkeys = eventhub_client.namespaces.list_keys(
-            self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
-
+        namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
+        eventhub_client = EventHubManagementClient(self.azure_credential, self.subscription_id)
+        eventhub_keys = eventhub_client.namespaces.list_keys(self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
+        
         sbs = ServiceBusService(
             namespace_name,
             shared_access_key_name=defaultauthorule_name,
-            shared_access_key_value=ehkeys.primary_key,
+            shared_access_key_value=eventhub_keys.primary_key,
             request_session=Session()
         )
+        
         mock_logs = json.load(open(filename))
-        print("inserting %s" % (mock_logs))
+        # print("inserting %s" % (mock_logs))
         sbs.send_event(self.eventhub_name, json.dumps(mock_logs))
+        print("Event inserted")
 
+    def insert_mock_metrics_in_EventHub(self, filename):
+        print("Inserting fake logs in EventHub")
+        
+        defaultauthorule_name = "RootManageSharedAccessKey"
+        namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
+        eventhub_client = EventHubManagementClient(self.azure_credential, self.subscription_id)
+        eventhub_keys = eventhub_client.namespaces.list_keys(self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
+        
+        sbs = ServiceBusService(
+            namespace_name,
+            shared_access_key_name=defaultauthorule_name,
+            shared_access_key_value=eventhub_keys.primary_key,
+            request_session=Session()
+        )
+        
+        mock_logs = json.load(open(filename))
+        mock_logs = json.dumps(mock_logs)
+        mock_logs = mock_logs.replace("2018-03-07T14:23:51.991Z", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        mock_logs = mock_logs.replace("C088DC46", "%d-%s" % (1, str(int(time.time()))))
+
+        # print("inserting %s" % (mock_logs))
+        sbs.send_event(self.eventhub_name, mock_logs)
         print("Event inserted")
 
     def _parse_template(self):

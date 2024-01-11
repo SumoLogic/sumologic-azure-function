@@ -202,7 +202,7 @@
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~18"},
                         { "name": "Project", "value": "EventHubs/target/metrics_build/" },
                         { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]" },
-                        { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').ConnectionString]" },
+                        { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[concat('microsoft.insights/components/', parameters('appInsightsName'), '2015-05-01').ConnectionString]" },
                         { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]"},
                         { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_SumoMetricsFunctionApp_name'))]" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},

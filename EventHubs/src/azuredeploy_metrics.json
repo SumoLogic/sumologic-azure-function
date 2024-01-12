@@ -3,23 +3,23 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_SumoMetricsFunctionApp_name": {
-            "defaultValue": "SumoMetricsFuncApp",
+            "defaultValue": "[concat('SMFuncApp', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "namespaces_SumoMetricsNamespace_name": {
-            "defaultValue": "SumoMetricsNamespace",
+            "defaultValue": "[concat('SMNamespace', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "storageAccounts_SumoMetricsAppLogs_name": {
-            "defaultValue": "sumometricsapplogs",
+            "defaultValue": "[concat('smapplogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "storageAccounts_SumoMetricsFailedLogs_name": {
-            "defaultValue": "sumometricsfailedlogs",
+            "defaultValue": "[concat('smfaillogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_SumoMetricsAppServicePlan_name": {
-            "defaultValue": "SumoMetricsAppServicePlan",
+            "defaultValue": "[concat('SMAppServicePlan', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "eventhubs_InsightsMetrics_name": {
@@ -51,16 +51,16 @@
             "type": "String"
         },
         "appInsightsName": {
-            "defaultValue": "SumoMetricsAppInsights",
+            "defaultValue": "[concat('SMAppInsights', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "logAnalyticsWorkspaceName": {
-			"defaultValue": "SumoMetricsWorkspace",
+			"defaultValue": "[concat('SMWorkspace', uniqueString(resourceGroup().id))]",
 			"type": "String"
 		},
         "location": {
             "type": "string",
-            "defaultValue": "eastus",
+            "defaultValue": "[resourceGroup().location]",
             "metadata": {
               "description": "Location for the resources."
             }

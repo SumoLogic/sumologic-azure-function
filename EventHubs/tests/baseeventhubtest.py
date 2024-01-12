@@ -18,7 +18,7 @@ class BaseEventHubTest(BaseTest):
         self.create_credentials()
         self.resource_client = ResourceManagementClient(self.azure_credential, self.subscription_id)
         try:
-            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
+            self.sumo_endpoint_url = os.getenv("SumoEndpointURL")
         except KeyError:
             raise Exception("SumoEndpointURL environment variables are not set")
         
@@ -26,7 +26,6 @@ class BaseEventHubTest(BaseTest):
 
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
-            print("RESOURCE_GROUP_NAME...:",self.RESOURCE_GROUP_NAME)
             self.delete_resource_group()
 
     def get_resource_name(self, resprefix, restype):
@@ -70,7 +69,7 @@ class BaseEventHubTest(BaseTest):
         print("Event inserted")
 
     def insert_mock_metrics_in_EventHub(self, filename):
-        print("Inserting fake logs in EventHub")
+        print("Inserting fake metrics in EventHub")
         
         defaultauthorule_name = "RootManageSharedAccessKey"
         namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
@@ -104,5 +103,6 @@ class BaseEventHubTest(BaseTest):
         template_data["parameters"]["sumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
         template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
         template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
+        template_data["parameters"]["location"]["defaultValue"] = self.resourcegroup_location
 
         return template_data

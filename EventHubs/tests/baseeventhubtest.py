@@ -6,7 +6,6 @@ from time import sleep
 from requests import Session
 from datetime import datetime
 from azure.servicebus import ServiceBusService
-from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.eventhub import EventHubManagementClient
 
@@ -16,8 +15,7 @@ from basetest import BaseTest
 class BaseEventHubTest(BaseTest):
 
     def setUp(self):
-        self.azure_credential = DefaultAzureCredential()
-        self.subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
+        self.create_credentials()
         self.resource_client = ResourceManagementClient(self.azure_credential, self.subscription_id)
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
@@ -29,7 +27,7 @@ class BaseEventHubTest(BaseTest):
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
             print("RESOURCE_GROUP_NAME...:",self.RESOURCE_GROUP_NAME)
-            #self.delete_resource_group()
+            self.delete_resource_group()
 
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
@@ -103,7 +101,7 @@ class BaseEventHubTest(BaseTest):
         with open(template_path, 'r') as template_file_fd:
             template_data = json.load(template_file_fd)
 
-        template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
+        template_data["parameters"]["sumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
         template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
         template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
 

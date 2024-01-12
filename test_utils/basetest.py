@@ -3,9 +3,15 @@ import os
 import json
 import datetime
 import subprocess
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource.resources.models import DeploymentMode
 from azure.mgmt.resource.resources.models import Deployment
 
 class BaseTest(unittest.TestCase):
+    
+    def create_credentials(self):
+        self.azure_credential = DefaultAzureCredential()
+        self.subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
 
     def resource_group_exists(self, group_name):
         # grp: name,id,properties
@@ -20,43 +26,23 @@ class BaseTest(unittest.TestCase):
         return False
 
     def delete_resource_group(self):
-        try:
             resp = self.resource_client.resource_groups.begin_delete(self.RESOURCE_GROUP_NAME)
             resp.wait()
-            print('Deleting {}'.format(self.RESOURCE_GROUP_NAME), resp.status())
-        except Exception as e:
-            print("An unexpected error occurred during the delete_resource_group:")
-            print("Exception", e)
+            print('Deleted {}'.format(self.RESOURCE_GROUP_NAME), resp.status())
 
     def create_resource_group(self):
-        try:
-            resource_group_params = {'location': self.namespace_location}
+            resource_group_params = {'location': self.resourcegroup_location}
             resp = self.resource_client.resource_groups.create_or_update(self.RESOURCE_GROUP_NAME, resource_group_params)
             print('Creating {}'.format(self.RESOURCE_GROUP_NAME), resp.properties.provisioning_state)
-        except Exception as e:
-            print("An unexpected error occurred during the create_resource_group:")
-            print("Exception", e)
 
     def deploy_template(self):
-        try:
             deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
-            
-            template_file_path = os.path.join(os.path.abspath('..'), 'src', self.template_name)
-            parameters = {
-                'SumoEndpointURL': {'defaultValue': self.sumo_endpoint_url},
-                'sourceCodeBranch': {'defaultValue': self.branch_name},
-                'sourceCodeRepositoryURL': {'defaultValue': self.repo_name}
-            }
-
-            # Read the template file
-            with open(template_file_path, 'r') as template_file:
-                template_content = template_file.read()
+            template_data = self._parse_template()
 
             # Define the deployment properties
             deployment_properties = {
-                'mode': 'Incremental',
-                'template': template_content,
-                'parameters': parameters
+                'mode': DeploymentMode.INCREMENTAL,
+                'template': template_data
             }
 
             # Create a Deployment object
@@ -72,10 +58,6 @@ class BaseTest(unittest.TestCase):
             # Wait for the deployment to complete
             deployment_result = deployment_operation_poller.result()
             print(f"ARM Template deployment completed with result: {deployment_result}")
-
-        except Exception as e:
-            print("An unexpected error occurred during the deploy_template:")
-            print("Exception", e)
 
     def get_git_info(self):
         repo_slug = "SumoLogic/sumologic-azure-function"

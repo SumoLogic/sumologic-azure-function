@@ -18,7 +18,7 @@ class BaseEventHubTest(BaseTest):
         self.create_credentials()
         self.resource_client = ResourceManagementClient(self.azure_credential, self.subscription_id)
         try:
-            self.sumo_endpoint_url = os.getenv("SumoEndpointURL")
+            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
             raise Exception("SumoEndpointURL environment variables are not set")
         
@@ -50,24 +50,28 @@ class BaseEventHubTest(BaseTest):
 
     def insert_mock_logs_in_EventHub(self, filename):
         print("Inserting fake logs in EventHub")
-        
-        defaultauthorule_name = "RootManageSharedAccessKey"
         namespace_name = self.get_resource_name(self.event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
-        eventhub_client = EventHubManagementClient(self.azure_credential, self.subscription_id)
-        eventhub_keys = eventhub_client.namespaces.list_keys(self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
-        
+
+        defaultauthorule_name = "RootManageSharedAccessKey"
+
+        eventhub_client = EventHubManagementClient(self.credentials,
+                                                   self.subscription_id)
+
+        ehkeys = eventhub_client.namespaces.list_keys(
+            self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
+
         sbs = ServiceBusService(
             namespace_name,
             shared_access_key_name=defaultauthorule_name,
-            shared_access_key_value=eventhub_keys.primary_key,
+            shared_access_key_value=ehkeys.primary_key,
             request_session=Session()
         )
-        
         mock_logs = json.load(open(filename))
-        # print("inserting %s" % (mock_logs))
+        print("inserting %s" % (mock_logs))
         sbs.send_event(self.eventhub_name, json.dumps(mock_logs))
-        print("Event inserted")
 
+        print("Event inserted")
+        
     def insert_mock_metrics_in_EventHub(self, filename):
         print("Inserting fake metrics in EventHub")
         

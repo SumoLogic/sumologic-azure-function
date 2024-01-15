@@ -10,8 +10,8 @@ class BaseTest(unittest.TestCase):
     
     def create_credentials(self):
         self.azure_credential = DefaultAzureCredential()
-        self.subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
-        self.resourcegroup_location = os.getenv("AZURE_DEFAULT_REGION")
+        self.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
+        self.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
 
     def resource_group_exists(self, group_name):
         # grp: name,id,properties
@@ -36,26 +36,23 @@ class BaseTest(unittest.TestCase):
             print('Creating ResourceGroup: {}'.format(self.RESOURCE_GROUP_NAME), resp.properties.provisioning_state)
 
     def deploy_template(self):
+            print("Deploying template")
             deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
             template_data = self._parse_template()
 
-            # Define the deployment properties
             deployment_properties = {
                 'mode': DeploymentMode.INCREMENTAL,
                 'template': template_data
             }
 
-            # Create a Deployment object
             deployment = Deployment(properties=deployment_properties)
 
-            # Begin deployment
             deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
                 self.RESOURCE_GROUP_NAME,
                 deployment_name,
                 deployment
             )
             
-            # Wait for the deployment to complete
             deployment_result = deployment_operation_poller.result()
             print(f"ARM Template deployment completed with result: {deployment_result}")
 

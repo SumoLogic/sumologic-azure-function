@@ -8,7 +8,7 @@ class TestEventHubMetrics(BaseEventHubTest):
 
     def setUp(self):
         super(TestEventHubMetrics, self).setUp()
-        self.RESOURCE_GROUP_NAME = "EventHubMetrics-%s" % (str(int(datetime.now().timestamp())))
+        self.RESOURCE_GROUP_NAME = "TestEventHubMetrics-%s" % (datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.template_name = "azuredeploy_metrics.json"
         self.event_hub_namespace_prefix = "SMNamespace"
         self.eventhub_name = "insights-metrics-pt1m"
@@ -23,13 +23,12 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.check_warning_log()
     
     def fetchlogs(self, query):
-        # Save the original stdout for later comparison
         original_stdout = sys.stdout
         sys.stdout = StringIO()
 
         try:
             client = LogsQueryClient(self.azure_credential)
-            response = client.query_workspace('800e2f15-1fa6-4c5a-a3f5-db8f647ee8a1', query, timespan=timedelta(days=1))
+            response = client.query_workspace('800e2f15-1fa6-4c5a-a3f5-db8f647ee8a1', query, timespan=timedelta(minutes=15))
                 
             if response.status == LogsQueryStatus.PARTIAL:
                 error = response.partial_error
@@ -49,7 +48,6 @@ class TestEventHubMetrics(BaseEventHubTest):
 
         output = sys.stdout.getvalue()
 
-        # Reset redirect.
         sys.stdout = original_stdout
 
         return output
@@ -63,7 +61,6 @@ class TestEventHubMetrics(BaseEventHubTest):
     
         captured_output = self.fetchlogs(query)
 
-        # Assertions
         self.assertIn('Sent all metric data to Sumo. Exit now.', captured_output)
 
     def check_error_log(self):
@@ -74,7 +71,6 @@ class TestEventHubMetrics(BaseEventHubTest):
     
         captured_output = self.fetchlogs(query)
 
-        # Aassertions
         self.assertIn('"LogLevel":"Error"', captured_output)
 
     def check_warning_log(self):
@@ -85,7 +81,6 @@ class TestEventHubMetrics(BaseEventHubTest):
     
         captured_output = self.fetchlogs(query)
 
-        # Aassertions
         self.assertIn('"LogLevel":"Warning"', captured_output)
 
 if __name__ == '__main__':

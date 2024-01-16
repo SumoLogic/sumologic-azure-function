@@ -17,7 +17,7 @@ module.exports = function (context, eventHubMessages) {
     var options ={ 'urlString':process.env.APPSETTING_SumoLogsEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true};
 
 
-    var transformer = new dataTransformer.Transformer();
+    var transformer = new dataTransformer.Transformer(context);
     var messageArray = transformer.azureAudit(eventHubMessages);
     if (messageArray.length !== 0) {
         context.log("Sending: " + messageArray.length);

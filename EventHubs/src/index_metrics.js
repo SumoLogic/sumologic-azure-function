@@ -37,7 +37,7 @@ module.exports = function (context, eventHubMessages) {
     var options ={ 'urlString':process.env.APPSETTING_SumoLabsMetricEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true, 'metric_type':'carbon20'};
 
 
-    var transformer = new dataTransformer.Transformer();
+    var transformer = new dataTransformer.Transformer(context);
     var messageArray = transformer.azureAudit(eventHubMessages);
     var azureMetricArray = [];
     var logRawArray = [];
@@ -57,7 +57,6 @@ module.exports = function (context, eventHubMessages) {
         sumoMetricClient = new sumoMetricHttp.SumoMetricClient(options,context,failureHandler,successHandler);
         sumoMetricClient.addData(metricObjectArray);
         context.log("Sending: " + metricObjectArray.length);
-
 
         // handlers for success and failures
         function failureHandler(msgArray,ctx) {

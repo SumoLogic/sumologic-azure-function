@@ -7,7 +7,8 @@
  * Class containing default data transformer
  * @constructor
  */
-function Transformer() {
+function Transformer(context) {
+    this.context = context;
 }
 
 Transformer.prototype.azureAudit = function (data) {
@@ -40,29 +41,68 @@ Transformer.prototype.azureAudit = function (data) {
  */
 Transformer.prototype.generateRawMetricObjectsFromAzureRawMetricRecord = function(msg, selectStatsForMetricFn) {
     let finalMetricArray = [];
-    let stat_method;
-    // build core component
-    let core = Object.assign({},msg);
-    delete core.count;
-    delete core.total;
-    delete core.average;
-    delete core.maximum;
-    delete core.minimum;
-    delete core.metricName;
-    delete core.time;
-    core['timestamp'] = Math.ceil((new Date(msg.time)).getTime()/1000); //need to convert to epoch seconds
-    core['metric'] = msg['metricName'];
-
-    for (stat_method of selectStatsForMetricFn(msg)) {
-        if (msg && stat_method in msg) {
-            // in case some metrics don't have this statistic
-            let newDatapoint = Object.assign({},core);
-            newDatapoint['statistic']=stat_method;
-            newDatapoint['value']=msg[stat_method];
-            finalMetricArray.push(newDatapoint);
+    var self = this;
+    if (msg.SourceSystem && msg.SourceSystem === "Insights") {
+        let newDatapoint = Object.assign({}, msg);
+        // need to convert to epoch seconds
+        newDatapoint['timestamp'] = Math.ceil((new Date(msg.TimeGenerated)).getTime()/1000);
+        newDatapoint['metric'] = msg.Name;
+        newDatapoint['namespace'] = msg.Namespace;
+        newDatapoint['value'] = msg.Val;
+        if (process.env.APPSETTING_EnableTagsInLogAnalytics && process.env.APPSETTING_EnableTagsInLogAnalytics === "true") {
+            try {
+                tagObj = JSON.parse(msg.Tags);
+                newDatapoint = Object.assign(newDatapoint, tagObj);
+                // self.context.log(tagObj);
+                // self.context.log(newDatapoint);
+            } catch (e) {
+                self.context.log("Error in TagsParsing", e);
+            }
+        }
+        delete newDatapoint.Tags
+        delete newDatapoint.Val;
+        delete newDatapoint.Namespace;
+        delete newDatapoint.Name;
+        delete newDatapoint.TimeGenerated;
+        finalMetricArray.push(newDatapoint);
+    } else {
+        let stat_method;
+        // build core component
+        let core = Object.assign({},msg);
+        delete core.count;
+        delete core.total;
+        delete core.average;
+        delete core.maximum;
+        delete core.minimum;
+        delete core.metricName;
+        delete core.time;
+        // need to convert to epoch seconds
+        core['timestamp'] = Math.ceil((new Date(msg.time)).getTime()/1000);
+        core['metric'] = msg['metricName'];
+        for (stat_method of selectStatsForMetricFn(msg)) {
+            if (msg && stat_method in msg) {
+                // in case some metrics don't have this statistic
+                let newDatapoint = Object.assign({},core);
+                newDatapoint['statistic']=stat_method;
+                newDatapoint['value']=msg[stat_method];
+                finalMetricArray.push(newDatapoint);
+            }
         }
     }
+
+
     return finalMetricArray
+}
+
+Transformer.prototype.getMetricKeyValue = function(key, metricObject) {
+    let kv = ""
+    if (metricObject && metricObject[key] && (typeof metricObject[key] === "string") && (metricObject[key].indexOf(" ") > -1)) {
+        // replacing string values with spaces with quotes
+        kv = key + '=' + metricObject[key].replace(/\s/g, "_");
+    } else {
+        kv = key + '=' + metricObject[key];
+    }
+    return kv;
 }
 
 
@@ -92,9 +132,9 @@ Transformer.prototype.prepareMetricObject = function(metricObject,format) {
         if (Object.keys(metricObject).length > 0) {
             const msg_keys = Object.keys(metricObject);
             // now construct the Dimensions and put in _sumo_meta_data
-            let dimension_string = msg_keys[0] + '=' + metricObject[msg_keys[0]];
+            let dimension_string = this.getMetricKeyValue(msg_keys[0], metricObject);
             for (var i = 1; i < msg_keys.length; i++) {
-                dimension_string += ',' + msg_keys[i] + '=' + metricObject[msg_keys[i]];
+                dimension_string += ',' + this.getMetricKeyValue(msg_keys[i], metricObject);
             }
             if (meta_data['X-Sumo-Dimensions'] && meta_data['X-Sumo-Dimensions'] !== '') {
                 meta_data['X-Sumo-Dimensions'] += ',' + dimension_string;
@@ -119,8 +159,9 @@ Transformer.prototype.prepareMetricObject = function(metricObject,format) {
         delete metricObject['_sumo_meta_data'];
         // now convert all other key pair
         for (const key of Object.keys(metricObject)) {
-            metric_string += key + '=' + metricObject[key] + ' ';
+            metric_string +=  this.getMetricKeyValue(key, metricObject) + ' ';
         }
+        // this.context.log("MetricString: ", metric_string);
         // now put back other metric name, value and timestamp  the meta_data
         metric_string += 'metric=' + metric_name + '  ' + metric_value + ' ' + metric_timestamp;
         // put back meta_data if it's there
@@ -145,9 +186,9 @@ Transformer.prototype.prepareMetricObject = function(metricObject,format) {
 Transformer.prototype.generateMetricObjectsFromAzureRawData = function(azureMetricArray,selectStatsForMetricFn,format) {
     let finalMetricArray = [];
     for (const msg of azureMetricArray)   {
-        let metricArray  = Transformer.prototype.generateRawMetricObjectsFromAzureRawMetricRecord(msg,selectStatsForMetricFn);
+        let metricArray  = this.generateRawMetricObjectsFromAzureRawMetricRecord(msg,selectStatsForMetricFn);
         for (let metricObj of metricArray) {
-            finalMetricArray.push(Transformer.prototype.prepareMetricObject(metricObj,format));
+            finalMetricArray.push(this.prepareMetricObject(metricObj,format));
         }
     }
     return finalMetricArray;

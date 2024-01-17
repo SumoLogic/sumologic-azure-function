@@ -16,7 +16,8 @@ class BaseEventHubTest(BaseTest):
 
     def setUp(self):
         self.create_credentials()
-        self.resource_client = ResourceManagementClient(self.azure_credential, self.subscription_id)
+        self.resource_client = ResourceManagementClient(self.azure_credential, 
+                                                        self.subscription_id)
         try:
             self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
         except KeyError:
@@ -45,7 +46,7 @@ class BaseEventHubTest(BaseTest):
             self.log_table_name, filter="PartitionKey eq 'R2'", select='PartitionKey')
 
         return len(rows.items)
-
+    
     def wait_for_table_results(self, query):
         max_retries = 50
         while(max_retries > 0 and (not (self.table_service.exists(

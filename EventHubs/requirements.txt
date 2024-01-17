@@ -6,3 +6,4 @@ azure-mgmt-resource==23.0.1
 azure-mgmt-eventhub==11.0.0
 azure-servicebus==0.21.1
 azure-mgmt-storage==21.1.0
+zure-mgmt-loganalytics==12.0.0

@@ -1,14 +1,17 @@
 import sys
 import unittest
+import time
 from io import StringIO
 from datetime import timedelta, datetime
 from baseeventhubtest import BaseEventHubTest
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
+from azure.mgmt.loganalytics import LogAnalyticsManagementClient
+
 class TestEventHubMetrics(BaseEventHubTest):
 
     def setUp(self):
         super(TestEventHubMetrics, self).setUp()
-        self.RESOURCE_GROUP_NAME = "TestEventHubMetrics-%s" % (datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
+        self.RESOURCE_GROUP_NAME = "EventHubMetrics-%s" % (datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.template_name = "azuredeploy_metrics.json"
         self.event_hub_namespace_prefix = "SMNamespace"
         self.eventhub_name = "insights-metrics-pt1m"
@@ -18,6 +21,7 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME)) 
         self.insert_mock_metrics_in_EventHub('metrics_fixtures.json')
+        time.sleep(600)  # TODO - Logs are available after few mins. it takes time.
         self.check_success_log()
         self.check_error_log()
         self.check_warning_log()
@@ -28,7 +32,7 @@ class TestEventHubMetrics(BaseEventHubTest):
 
         try:
             client = LogsQueryClient(self.azure_credential)
-            response = client.query_workspace('800e2f15-1fa6-4c5a-a3f5-db8f647ee8a1', query, timespan=timedelta(minutes=15))
+            response = client.query_workspace(self.get_Workspace_Id(), query, timespan=timedelta(minutes=15))
                 
             if response.status == LogsQueryStatus.PARTIAL:
                 error = response.partial_error
@@ -53,35 +57,45 @@ class TestEventHubMetrics(BaseEventHubTest):
         return output
     
     def check_success_log(self):
-       
-        query = '''union
-                    *,
-                    app('sumometricsappinsights6dbfe7sr3obyi').traces
-                | where operation_Id == "69f9a532d7cb04dd3ba6254c3d682458"'''
-    
+        app_insights = self.get_resource('Microsoft.Insights/components')
+        query = f"union *, app('{app_insights.name}').traces | where message == 'Sent all metric data to Sumo. Exit now.' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
         captured_output = self.fetchlogs(query)
-
-        self.assertIn('Sent all metric data to Sumo. Exit now.', captured_output)
+        haslog = False
+        if ('Sent all metric data to Sumo. Exit now.' in captured_output):
+            haslog = True
+        self.assertTrue(haslog)
 
     def check_error_log(self):
-        query = '''union
-                    *,
-                    app('sumometricsappinsights6dbfe7sr3obyi').traces
-                | where operation_Id == "69f9a532d7cb04dd3ba6254c3d682458"'''
-    
+        app_insights = self.get_resource('Microsoft.Insights/components')
+        query = f"union *, app('{app_insights.name}').traces | where message == '""LogLevel"":""Error""' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
         captured_output = self.fetchlogs(query)
-
-        self.assertIn('"LogLevel":"Error"', captured_output)
+        haserr = False
+        if ('"LogLevel":"Error"' in captured_output):
+            haserr = True
+        self.assertTrue(not haserr)
 
     def check_warning_log(self):
-        query = '''union
-                    *,
-                    app('sumometricsappinsights6dbfe7sr3obyi').traces
-                | where operation_Id == "69f9a532d7cb04dd3ba6254c3d682458"'''
-    
+        app_insights = self.get_resource('Microsoft.Insights/components')
+        query = f"union *, app('{app_insights.name}').traces | where message == '""LogLevel"":""Warning""' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
         captured_output = self.fetchlogs(query)
+        haswarn = False
+        if ('"LogLevel":"Warning"' in captured_output):
+            haswarn = True
+        self.assertTrue(not haswarn)
 
-        self.assertIn('"LogLevel":"Warning"', captured_output)
+    def get_Workspace_Id(self):
+        workspace = self.get_resource('microsoft.operationalinsights/workspaces')
+        client = LogAnalyticsManagementClient(
+            credential=self.azure_credential,
+            subscription_id=self.subscription_id,
+        )
+
+        response = client.workspaces.get(
+            resource_group_name=self.RESOURCE_GROUP_NAME,
+            workspace_name=workspace.name,
+        )
+        return response.customer_id
+    
 
 if __name__ == '__main__':
     unittest.main()

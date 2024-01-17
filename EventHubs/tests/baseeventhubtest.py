@@ -33,6 +33,12 @@ class BaseEventHubTest(BaseTest):
             if (item.name.startswith(resprefix) and item.type == restype):
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
+    
+    def get_resource(self, restype):
+        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+            if (item.type == restype):
+                return item
+        raise Exception("%s Resource Not Found" % (restype))
 
     def get_row_count(self, query):
         rows = self.table_service.query_entities(

@@ -21,7 +21,7 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME)) 
         self.insert_mock_metrics_in_EventHub('metrics_fixtures.json')
-        time.sleep(600)  # TODO - Logs are available after few mins. it takes time.
+        time.sleep(300)  # Due to latency, Logs are available after few mins.
         self.check_success_log()
         self.check_error_log()
         self.check_warning_log()

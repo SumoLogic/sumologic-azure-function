@@ -94,10 +94,11 @@ class BaseEventHubTest(BaseTest):
             request_session=Session()
         )
         
-        mock_logs = json.load(open(filename))
-        mock_logs = json.dumps(mock_logs)
-        mock_logs = mock_logs.replace("2018-03-07T14:23:51.991Z", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
-        mock_logs = mock_logs.replace("C088DC46", "%d-%s" % (1, str(int(time.time()))))
+        with open(filename, 'r') as template_file_fd:
+            mock_logs = json.load(template_file_fd)
+            mock_logs = json.dumps(mock_logs)
+            mock_logs = mock_logs.replace("2018-03-07T14:23:51.991Z", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+            mock_logs = mock_logs.replace("C088DC46", "%d-%s" % (1, str(int(time.time()))))
 
         # print("inserting %s" % (mock_logs))
         sbs.send_event(self.eventhub_name, mock_logs)

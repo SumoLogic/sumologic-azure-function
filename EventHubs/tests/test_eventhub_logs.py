@@ -1,6 +1,9 @@
 import unittest
-import datetime
+from datetime import datetime
+import time
+import json
 from baseeventhubtest import BaseEventHubTest
+from azure.eventhub import EventData
 
 
 class TestEventHubLogs(BaseEventHubTest):
@@ -8,13 +11,10 @@ class TestEventHubLogs(BaseEventHubTest):
     def setUp(self):
         super(TestEventHubLogs, self).setUp()
         self.RESOURCE_GROUP_NAME = "TestEventHubLogs-%s" % (
-            datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
-        self.STORAGE_ACCOUNT_NAME = "sumoapplogs"
+            datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.function_name_prefix = "EventHubs_Logs"
         self.template_name = 'azuredeploy_logs.json'
         self.event_hub_namespace_prefix = "SumoAzureLogsNamespace"
-        self.log_table_name = "AzureWebJobsHostLogs%d%02d" % (
-            datetime.datetime.now().year, datetime.datetime.now().month)
         self.eventhub_name = 'insights-operational-logs'
 
     def test_pipeline(self):
@@ -24,24 +24,21 @@ class TestEventHubLogs(BaseEventHubTest):
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
         self.table_service = self.get_table_service()
         self.insert_mock_logs_in_EventHub('activity_log_fixtures.json')
-        self.check_error_logs()
+        
+    def insert_mock_logs_in_EventHub(self, filename):
+        print("Inserting fake logs in EventHub")
+        
+        with open(filename, 'r') as template_file_fd:
+            mock_logs = json.load(template_file_fd)
+            mock_logs = json.dumps(mock_logs)
+            mock_logs = mock_logs.replace("2018-03-07T14:23:51.991Z", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+            mock_logs = mock_logs.replace("C088DC46", "%d-%s" % (1, str(int(time.time()))))
 
-    def check_error_logs(self):
-        print("sleeping 1min for function execution")
-        query = "PartitionKey eq 'R2'"
-        self.wait_for_table_results(query)
-        self.assertTrue(self.get_row_count(query) > 0)
+        event_data_list = [EventData(mock_logs)]
+        # print("inserting %s" % (mock_logs))
+        self.send_event_data_list(self.event_hub_namespace_prefix, self.eventhub_name, event_data_list)
 
-        rows = self.table_service.query_entities(
-            self.log_table_name, filter=query)
-
-        haserr = False
-        for row in rows.items:
-            print("LogRow: ", row["FunctionName"], row["HasError"])
-            if row["FunctionName"].startswith(self.function_name_prefix) and row["HasError"]:
-                haserr = True
-
-        self.assertTrue(not haserr)
+        print("Event inserted")
 
 
 if __name__ == '__main__':

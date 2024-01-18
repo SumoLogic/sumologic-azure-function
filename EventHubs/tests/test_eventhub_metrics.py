@@ -22,9 +22,10 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME)) 
         self.insert_mock_metrics_in_EventHub('metrics_fixtures.json')
         time.sleep(300)  # Due to latency, logs are available after few mins.
-        self.check_success_log()
-        self.check_error_log()
-        self.check_warning_log()
+        app_insights = self.get_resource('Microsoft.Insights/components')
+        self.check_success_log(app_insights.name)
+        self.check_error_log(app_insights.name)
+        self.check_warning_log(app_insights.name)
     
     def fetchlogs(self, query):
         original_stdout = sys.stdout

@@ -57,27 +57,24 @@ class TestEventHubMetrics(BaseEventHubTest):
 
         return output
     
-    def check_success_log(self):
-        app_insights = self.get_resource('Microsoft.Insights/components')
-        query = f"union *, app('{app_insights.name}').traces | where message == 'Sent all metric data to Sumo. Exit now.' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
+    def check_success_log(self, app_insights):
+        query = f"union *, app('{app_insights}').traces | where message == 'Sent all metric data to Sumo. Exit now.' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
         captured_output = self.fetchlogs(query)
         haslog = False
         if ('Sent all metric data to Sumo. Exit now.' in captured_output):
             haslog = True
         self.assertTrue(haslog)
 
-    def check_error_log(self):
-        app_insights = self.get_resource('Microsoft.Insights/components')
-        query = f"union *, app('{app_insights.name}').traces | where message == '""LogLevel"":""Error""' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
+    def check_error_log(self, app_insights):
+        query = f"union *, app('{app_insights}').traces | where message == '""LogLevel"":""Error""' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
         captured_output = self.fetchlogs(query)
         haserr = False
         if ('"LogLevel":"Error"' in captured_output):
             haserr = True
         self.assertTrue(not haserr)
 
-    def check_warning_log(self):
-        app_insights = self.get_resource('Microsoft.Insights/components')
-        query = f"union *, app('{app_insights.name}').traces | where message == '""LogLevel"":""Warning""' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
+    def check_warning_log(self, app_insights):
+        query = f"union *, app('{app_insights}').traces | where message == '""LogLevel"":""Warning""' | where operation_Name == 'EventHubs_Metrics' | where customDimensions.Category == 'Function.EventHubs_Metrics.User'"
         captured_output = self.fetchlogs(query)
         haswarn = False
         if ('"LogLevel":"Warning"' in captured_output):

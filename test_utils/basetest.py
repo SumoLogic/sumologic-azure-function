@@ -3,35 +3,15 @@ import os
 import json
 import datetime
 import subprocess
-from azure.mgmt.resource.resources.models import DeploymentMode
-from azure.common.credentials import ServicePrincipalCredentials
-
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource.resources.models import Deployment,DeploymentMode
 
 class BaseTest(unittest.TestCase):
-
+    
     def create_credentials(self):
-        config_file = os.path.expanduser("~/.azure/azure_credentials.json")
-        if os.path.isfile(config_file):
-            self.config = json.load(open(config_file))
-        else:
-            self.config = {
-                'AZURE_SUBSCRIPTION_ID': os.environ['AZURE_SUBSCRIPTION_ID'],
-                'AZURE_CLIENT_ID': os.environ['AZURE_CLIENT_ID'],
-                'AZURE_CLIENT_SECRET': os.environ['AZURE_CLIENT_SECRET'],
-                'AZURE_TENANT_ID': os.environ['AZURE_TENANT_ID'],
-                'AZURE_DEFAULT_REGION': os.environ.get("AZURE_DEFAULT_REGION",
-                                                       "westus")
-            }
-        self.subscription_id = str(self.config['AZURE_SUBSCRIPTION_ID'])
-
-        self.credentials = ServicePrincipalCredentials(
-            client_id=self.config['AZURE_CLIENT_ID'],
-            secret=self.config['AZURE_CLIENT_SECRET'],
-            tenant=self.config['AZURE_TENANT_ID']
-        )
-        self.location = str(self.config['AZURE_DEFAULT_REGION'])
-
-        print("creating credentials", self.subscription_id)
+        self.azure_credential = DefaultAzureCredential()
+        self.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
+        self.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
 
     def resource_group_exists(self, group_name):
         # grp: name,id,properties
@@ -46,38 +26,35 @@ class BaseTest(unittest.TestCase):
         return False
 
     def delete_resource_group(self):
-        resource_group_params = {'location': self.location}
-        resp = self.resource_client.resource_groups.delete(
-            self.RESOURCE_GROUP_NAME, resource_group_params)
-        resp.wait()
-        print('Deleting {}'.format(self.RESOURCE_GROUP_NAME), resp.status())
+            resp = self.resource_client.resource_groups.begin_delete(self.RESOURCE_GROUP_NAME)
+            resp.wait()
+            print('Deleted ResourceGroup:{}'.format(self.RESOURCE_GROUP_NAME), resp.status())
 
     def create_resource_group(self):
-        resource_group_params = {'location': self.location}
-
-        resp = self.resource_client.resource_groups.create_or_update(
-            self.RESOURCE_GROUP_NAME, resource_group_params)
-        print('Creating {}'.format(
-            self.RESOURCE_GROUP_NAME),
-            resp.properties.provisioning_state)
+            resource_group_params = {'location': self.resourcegroup_location}
+            resp = self.resource_client.resource_groups.create_or_update(self.RESOURCE_GROUP_NAME, resource_group_params)
+            print('Creating ResourceGroup: {}'.format(self.RESOURCE_GROUP_NAME), resp.properties.provisioning_state)
 
     def deploy_template(self):
-        print("Deploying template")
-        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime(
-            "%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
-        template_data = self._parse_template()
-        deployment_properties = {
-            'mode': DeploymentMode.incremental,
-            'template': template_data
-        }
+            print("Deploying template")
+            deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
+            template_data = self._parse_template()
 
-        deployresp = self.resource_client.deployments.create_or_update(
-            self.RESOURCE_GROUP_NAME,
-            deployment_name,
-            deployment_properties
-        )
-        deployresp.wait()
-        print("ARM Template deployed", deployresp.status())
+            deployment_properties = {
+                'mode': DeploymentMode.INCREMENTAL,
+                'template': template_data
+            }
+
+            deployment = Deployment(properties=deployment_properties)
+
+            deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
+                self.RESOURCE_GROUP_NAME,
+                deployment_name,
+                deployment
+            )
+            
+            deployment_result = deployment_operation_poller.result()
+            print(f"ARM Template deployment completed with result: {deployment_result}")
 
     def get_git_info(self):
         repo_slug = "SumoLogic/sumologic-azure-function"

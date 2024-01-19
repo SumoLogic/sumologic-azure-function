@@ -125,7 +125,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    this.context.debug("Flush buffer for metaKey:"+metaKey);
+    this.context.log.verbose("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
@@ -175,10 +175,10 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
             return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
-                    self.context.debug("gzip successful");
+                    self.context.log.verbose("gzip successful");
                     return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                             .then(()=> {
-                        self.context.debug("Successfully sent to Sumo after "+self.MaxAttempts);
+                        self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                         )
                     .catch((err) => {

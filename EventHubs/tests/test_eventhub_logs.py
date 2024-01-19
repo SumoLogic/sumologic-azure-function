@@ -16,13 +16,14 @@ class TestEventHubLogs(BaseEventHubTest):
         self.template_name = 'azuredeploy_logs.json'
         self.event_hub_namespace_prefix = "SumoAzureLogsNamespace"
         self.eventhub_name = 'insights-operational-logs'
+        self.successful_sent_message = 'Sent all data to Sumo. Exit now.'
+        self.expected_resource_count = 7
 
     def test_pipeline(self):
         self.create_resource_group()
         self.deploy_template()
         print("Testing Stack Creation")
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
-        self.table_service = self.get_table_service()
         self.insert_mock_logs_in_EventHub('activity_log_fixtures.json')
         
     def insert_mock_logs_in_EventHub(self, filename):
@@ -37,8 +38,6 @@ class TestEventHubLogs(BaseEventHubTest):
         event_data_list = [EventData(mock_logs)]
         # print("inserting %s" % (mock_logs))
         self.send_event_data_list(self.event_hub_namespace_prefix, self.eventhub_name, event_data_list)
-
-        print("Event inserted")
 
 
 if __name__ == '__main__':

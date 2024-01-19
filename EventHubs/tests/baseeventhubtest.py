@@ -100,7 +100,6 @@ class BaseEventHubTest(BaseTest):
                     row_dict = {str(col): str(item) for col, item in zip(table.columns, row)}
                     result.append(row_dict)
         except Exception as e:
-            print("An unexpected error occurred during the test:")
             print("Exception", e)
 
         return result
@@ -129,10 +128,11 @@ class BaseEventHubTest(BaseTest):
         self.assertTrue(resource_count == self.expected_resource_count, f"resource count of resource group {self.RESOURCE_GROUP_NAME} differs from expected count : {resource_count}")
 
     def check_success_log(self, logs):
-        self.assertTrue(self.filter_logs(logs, 'message', self.successful_sent_message))
+        self.assertTrue(self.filter_logs(logs, 'message', self.successful_sent_message), "No success message found in azure function logs")
     
     def check_error_log(self, logs):
-        self.assertTrue(not self.filter_logs(logs, 'severityLevel', '3'))
+        self.assertFalse(self.filter_logs(logs, 'severityLevel', '3'), "Error messages found in azure function logs")
 
     def check_warning_log(self, logs):
-        self.assertTrue(not self.filter_logs(logs, 'severityLevel', '2'))
+        self.assertFalse(self.filter_logs(logs, 'severityLevel', '2'), "Warning messages found in azure function logs")
+

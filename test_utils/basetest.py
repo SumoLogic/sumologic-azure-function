@@ -3,6 +3,7 @@ import os
 import json
 import datetime
 import subprocess
+from sumologic import SumoLogic
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource.resources.models import Deployment,DeploymentMode
 
@@ -12,6 +13,9 @@ class BaseTest(unittest.TestCase):
         self.azure_credential = DefaultAzureCredential()
         self.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
         self.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
+        self.sumo_access_id = os.environ["SUMO_ACCESS_ID"]
+        self.sumo_access_key = os.environ["SUMO_ACCESS_KEY"]
+        self.sumo_deployment = os.environ["SUMO_DEPLOYMENT"]
 
     def resource_group_exists(self, group_name):
         # grp: name,id,properties
@@ -77,3 +81,64 @@ class BaseTest(unittest.TestCase):
             branch_name = branch_name.decode()
 
         return repo_name, branch_name
+
+    def api_endpoint(self):
+        if self.sumo_deployment == "us1":
+            return "https://api.sumologic.com/api"
+        elif self.sumo_deployment in ["ca", "au", "de", "eu", "jp", "us2", "fed", "in"]:
+            return "https://api.%s.sumologic.com/api" % self.sumo_deployment
+        else:
+            return 'https://%s-api.sumologic.net/api' % self.sumo_deployment
+        
+    def create_collector(self, collector_name):
+        print("create_collector start")
+        collector_id = None
+        self.sumologic_cli = SumoLogic(self.sumo_access_id, self.sumo_access_key, self.api_endpoint())
+        
+        collector = {
+                    'collector': {
+                        'collectorType': 'Hosted',
+                        'name': collector_name,
+                        'description': "",
+                        'category': None
+                    }
+                }
+        try:
+            resp = self.sumologic_cli.create_collector(collector, headers=None)
+            collector_id = json.loads(resp.text)['collector']['id']
+            print("created collector %s" % collector_id)
+        except Exception as e:
+            raise Exception(e)
+
+        return collector_id
+    
+    def delete_collector(self, collector_id):
+        sources = self.sumologic_cli.sources(collector_id, limit=10)
+        if len(sources) == 0:
+            response = self.sumologic_cli.delete_collector({"collector": {"id": collector_id}})
+            print("deleted collector %s : %s" % (collector_id, response.text))
+    
+    def create_source(self, collector_id, source_name):
+        print("create_source start")
+        endpoint = source_id = None
+        params = {
+            "sourceType": "HTTP",
+            "name": source_name,
+            "messagePerRequest": False,
+            "multilineProcessingEnabled": True,
+            "category": "AZURE/UnitTest/logs"
+        }
+
+        try:
+            resp = self.sumologic_cli.create_source(collector_id, {"source": params})
+            data = resp.json()['source']
+            source_id = data["id"]
+            endpoint = data["url"]
+            print(f"created source '{source_id}' endpoint '{endpoint}'")
+        except Exception as e:
+            raise Exception(e)
+        return source_id, endpoint
+    
+    def delete_source(self, collector_id, source_id):
+        response = self.sumologic_cli.delete_source(collector_id, {"source": {"id": source_id}})
+        print("deleted source %s : %s" % (source_id, response.text))

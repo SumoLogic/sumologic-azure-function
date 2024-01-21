@@ -10,7 +10,10 @@ class TestEventHubMetrics(BaseEventHubTest):
 
     def setUp(self):
         super(TestEventHubMetrics, self).setUp()
-        self.RESOURCE_GROUP_NAME = "EventHubMetrics-%s" % (datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
+        datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
+        self.collector_name = "azure_metric_unittest-%s" % (datetime_value)
+        self.source_name = "metric_data-%s" % (datetime_value)
+        self.RESOURCE_GROUP_NAME = "EventHubMetrics-%s" % (datetime_value)
         self.template_name = "azuredeploy_metrics.json"
         self.event_hub_namespace_prefix = "SMNamespace"
         self.eventhub_name = "insights-metrics-pt1m"
@@ -19,6 +22,8 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.expected_resource_count = 7
         
     def test_pipeline(self):
+        collector_id = self.create_collector(self.collector_name)
+        self.sumo_source_id, self.sumo_endpoint_url = self.create_source(collector_id, self.source_name)
         self.create_resource_group()
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME)) 
@@ -30,6 +35,8 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.check_success_log(captured_output)
         self.check_error_log(captured_output)
         self.check_warning_log(captured_output)
+        self.delete_source(collector_id,self.sumo_source_id)
+        self.delete_collector(collector_id)
     
     def insert_mock_metrics_in_EventHub(self, filename):
         print("Inserting fake metrics in EventHub")

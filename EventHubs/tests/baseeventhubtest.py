@@ -19,11 +19,6 @@ class BaseEventHubTest(BaseTest):
         self.create_credentials()
         self.resource_client = ResourceManagementClient(self.azure_credential, 
                                                         self.subscription_id)
-        try:
-            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
-        except KeyError:
-            raise Exception("SumoEndpointURL environment variables are not set")
-        
         self.repo_name, self.branch_name = self.get_git_info()
 
     def tearDown(self):

@@ -9,10 +9,10 @@ from azure.eventhub import EventData
 class TestEventHubMetrics(BaseEventHubTest):
 
     def setUp(self):
-        super(TestEventHubMetrics, self).setUp()
         datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
         self.collector_name = "azure_metric_unittest-%s" % (datetime_value)
         self.source_name = "metric_data-%s" % (datetime_value)
+        super(TestEventHubMetrics, self).setUp()
         self.RESOURCE_GROUP_NAME = "EventHubMetrics-%s" % (datetime_value)
         self.template_name = "azuredeploy_metrics.json"
         self.event_hub_namespace_prefix = "SMNamespace"

@@ -80,13 +80,13 @@ class BaseTest(unittest.TestCase):
 
         return repo_name, branch_name
 
-    def api_endpoint(self):
-        if self.sumo_deployment == "us1":
+    def api_endpoint(self, sumo_deployment):
+        if sumo_deployment == "us1":
             return "https://api.sumologic.com/api"
-        elif self.sumo_deployment in ["ca", "au", "de", "eu", "jp", "us2", "fed", "in"]:
-            return "https://api.%s.sumologic.com/api" % self.sumo_deployment
+        elif sumo_deployment in ["ca", "au", "de", "eu", "jp", "us2", "fed", "in"]:
+            return "https://api.%s.sumologic.com/api" % sumo_deployment
         else:
-            return 'https://%s-api.sumologic.net/api' % self.sumo_deployment
+            return 'https://%s-api.sumologic.net/api' % sumo_deployment
         
     def create_collector(self, collector_name):
         print("create_collector start")

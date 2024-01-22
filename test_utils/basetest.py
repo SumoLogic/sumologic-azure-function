@@ -5,7 +5,8 @@ import datetime
 import subprocess
 from sumologic import SumoLogic
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource.resources.models import Deployment,DeploymentMode
+from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
+
 
 class BaseTest(unittest.TestCase):
     
@@ -13,9 +14,6 @@ class BaseTest(unittest.TestCase):
         self.azure_credential = DefaultAzureCredential()
         self.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
         self.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
-        self.sumo_access_id = os.environ["SUMO_ACCESS_ID"]
-        self.sumo_access_key = os.environ["SUMO_ACCESS_KEY"]
-        self.sumo_deployment = os.environ["SUMO_DEPLOYMENT"]
 
     def resource_group_exists(self, group_name):
         # grp: name,id,properties
@@ -93,8 +91,7 @@ class BaseTest(unittest.TestCase):
     def create_collector(self, collector_name):
         print("create_collector start")
         collector_id = None
-        self.sumologic_cli = SumoLogic(self.sumo_access_id, self.sumo_access_key, self.api_endpoint())
-        
+        self.sumologic_cli = SumoLogic(os.environ["SUMO_ACCESS_ID"], os.environ["SUMO_ACCESS_KEY"], self.api_endpoint(os.environ["SUMO_DEPLOYMENT"]))
         collector = {
                     'collector': {
                         'collectorType': 'Hosted',
@@ -115,7 +112,7 @@ class BaseTest(unittest.TestCase):
     def delete_collector(self, collector_id):
         sources = self.sumologic_cli.sources(collector_id, limit=10)
         if len(sources) == 0:
-            response = self.sumologic_cli.delete_collector({"collector": {"id": collector_id}})
+            self.sumologic_cli.delete_collector({"collector": {"id": collector_id}})
             print(f"deleted collector {collector_id}")
     
     def create_source(self, collector_id, source_name):
@@ -140,5 +137,5 @@ class BaseTest(unittest.TestCase):
         return source_id, endpoint
     
     def delete_source(self, collector_id, source_id):
-        response = self.sumologic_cli.delete_source(collector_id, {"source": {"id": source_id}})
+        self.sumologic_cli.delete_source(collector_id, {"source": {"id": source_id}})
         print(f"deleted source {source_id}")

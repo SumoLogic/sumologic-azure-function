@@ -20,10 +20,14 @@ class BaseEventHubTest(BaseTest):
         self.resource_client = ResourceManagementClient(self.azure_credential, 
                                                         self.subscription_id)
         self.repo_name, self.branch_name = self.get_git_info()
-
+        self.collector_id = self.create_collector(self.collector_name)
+        self.sumo_source_id, self.sumo_endpoint_url = self.create_source(self.collector_id, self.source_name)
+        
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
             self.delete_resource_group()
+        self.delete_source(self.collector_id, self.sumo_source_id)
+        self.delete_collector(self.collector_id)
 
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):

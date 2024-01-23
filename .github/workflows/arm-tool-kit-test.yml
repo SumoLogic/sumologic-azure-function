@@ -15,7 +15,7 @@ jobs:
         id: filestest
         uses: aliencube/arm-ttk-actions@v0.3
         with:
-          path: ./EventHubs/src
+          path: EventHubs/src
           files: azuredeploy_metrics.json
 
       - name: Test result - files

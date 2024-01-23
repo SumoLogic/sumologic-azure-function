@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Test ARM Templates - files
         id: filestest
+        run: | 
+          echo"${{$TARGET_BRANCH}}"
         uses: aliencube/arm-ttk-actions@v0.3
         with:
           path: $SUMO_REPO_PATH/$SOURCE_BRANCH/EventHubs/src

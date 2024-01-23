@@ -2,6 +2,7 @@ import os
 import sys
 import json
 from datetime import timedelta
+from sumologic import SumoLogic
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.eventhub import EventHubManagementClient
 from azure.eventhub import EventHubProducerClient
@@ -19,16 +20,17 @@ class BaseEventHubTest(BaseTest):
         self.create_credentials()
         self.resource_client = ResourceManagementClient(self.azure_credential, 
                                                         self.subscription_id)
-        try:
-            self.sumo_endpoint_url = os.environ["SumoEndpointURL"]
-        except KeyError:
-            raise Exception("SumoEndpointURL environment variables are not set")
-        
         self.repo_name, self.branch_name = self.get_git_info()
-
+        self.sumologic_cli = SumoLogic(os.environ["SUMO_ACCESS_ID"], os.environ["SUMO_ACCESS_KEY"], self.api_endpoint(os.environ["SUMO_DEPLOYMENT"]))
+        self.collector_id = self.create_collector(self.collector_name)
+        self.sumo_source_id, self.sumo_endpoint_url = self.create_source(self.collector_id, self.source_name)
+        
     def tearDown(self):
         if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
             self.delete_resource_group()
+        self.delete_source(self.collector_id, self.sumo_source_id)
+        self.delete_collector(self.collector_id)
+        self.sumologic_cli.session.close()
 
     def get_resource_name(self, resprefix, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):

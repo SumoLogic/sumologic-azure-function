@@ -15,15 +15,13 @@ jobs:
         run: |
           pwd
 
-      - name: Debug - git
-        run: |
-          git branch
-
       - name: Test ARM Templates - files
         id: filestest
         uses: aliencube/arm-ttk-actions@v0.3
+        run: |
+          pwd
         with:
-          path: $SUMO_REPO_PATH/EventHubs/src
+          path: EventHubs/src
           files: azuredeploy_metrics.json
 
       - name: Test result - files

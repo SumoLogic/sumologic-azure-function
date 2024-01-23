@@ -11,16 +11,20 @@ jobs:
       TARGET_BRANCH: "origin/${{ github.event.pull_request.base.ref }}"
       SOURCE_BRANCH: "origin/${{ github.event.pull_request.head.ref }}"
     steps:
+      - name: Debug - Path
+        run: |
+          pwd
+
+      - name: Debug - git
+        run: |
+          git branch
+
       - name: Test ARM Templates - files
         id: filestest
         uses: aliencube/arm-ttk-actions@v0.3
         with:
-          path: EventHubs/src
+          path: $SUMO_REPO_PATH/EventHubs/src
           files: azuredeploy_metrics.json
-
-      - name: Debug - List Files in Path
-        run: |
-          ls -R EventHubs/src
 
       - name: Test result - files
         shell: bash

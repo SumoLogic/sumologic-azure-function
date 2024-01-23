@@ -12,6 +12,9 @@ jobs:
       SOURCE_BRANCH: "origin/${{ github.event.pull_request.head.ref }}"
     steps:
       steps:
+      - name: Checkout repo
+        uses: actions/checkout@master
+
       - name: Run Checkov action
         id: checkov
         uses: bridgecrewio/checkov-action@master

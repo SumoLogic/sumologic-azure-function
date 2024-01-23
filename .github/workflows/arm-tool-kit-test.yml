@@ -7,7 +7,7 @@ jobs:
     name: "ARM template toolkit test"
     runs-on: "ubuntu-latest"
     env:
-      SUMO_APPS_V2_REPO_PATH: ${{ github.workspace }}
+      SUMO_REPO_PATH: ${{ github.workspace }}
       TARGET_BRANCH: "origin/${{ github.event.pull_request.base.ref }}"
       SOURCE_BRANCH: "origin/${{ github.event.pull_request.head.ref }}"
     steps:

@@ -3,7 +3,6 @@ import os
 import json
 import datetime
 import subprocess
-from sumologic import SumoLogic
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
@@ -60,23 +59,23 @@ class BaseTest(unittest.TestCase):
 
     def get_git_info(self):
         repo_slug = "SumoLogic/sumologic-azure-function"
-        if os.environ.get("TRAVIS_EVENT_TYPE") == "pull_request":
-            branch_name = os.environ["TRAVIS_PULL_REQUEST_BRANCH"]
-            repo_slug = os.environ["TRAVIS_PULL_REQUEST_SLUG"]
-        elif os.environ.get("TRAVIS_EVENT_TYPE") == "push":
-            branch_name = os.environ["TRAVIS_BRANCH"]
-            repo_slug = os.environ["TRAVIS_REPO_SLUG"]
-        else:
-            git_cmd = "git rev-parse --abbrev-ref HEAD" # will not work in detached state
-            branch_name = subprocess.Popen(git_cmd, shell=True, stdout=subprocess.PIPE).stdout.read().strip()
+        try:
+            branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
+            if not branch_name:
+                # in detached head state
+                branch_name = os.environ["SOURCE_BRANCH"]
+            else:
+                branch_name = self.branch_name.decode("utf-8").strip()
+        
+        except Exception as e:
+            raise Exception(f"Error getting branch name: {e}")
 
-        repo_name = "https://github.com/%s" % (repo_slug)
-        if not branch_name or branch_name == "undefined" or not repo_name:
-            raise Exception("No branch Found")
-        print("Testing for repo %s in branch %s" % (repo_name, branch_name))
+        if not branch_name or branch_name == "undefined" or not repo_slug:
+            raise Exception("No branch found")
 
-        if isinstance(branch_name, bytes):
-            branch_name = branch_name.decode()
+        repo_name = f"https://github.com/{repo_slug}"
+        
+        print(f"Testing for repo {repo_name} in branch {branch_name}")
 
         return repo_name, branch_name
 
@@ -91,7 +90,6 @@ class BaseTest(unittest.TestCase):
     def create_collector(self, collector_name):
         print("create_collector start")
         collector_id = None
-        self.sumologic_cli = SumoLogic(os.environ["SUMO_ACCESS_ID"], os.environ["SUMO_ACCESS_KEY"], self.api_endpoint(os.environ["SUMO_DEPLOYMENT"]))
         collector = {
                     'collector': {
                         'collectorType': 'Hosted',

@@ -6,5 +6,5 @@ azure-mgmt-resource==23.0.1
 azure-mgmt-eventhub==11.0.0
 azure-eventhub==5.11.5
 azure-mgmt-storage==21.1.0
-zure-mgmt-loganalytics==12.0.0
+azure-mgmt-loganalytics==12.0.0
 sumologic-sdk==0.1.15

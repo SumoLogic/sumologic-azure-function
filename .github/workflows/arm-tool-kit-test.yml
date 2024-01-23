@@ -11,15 +11,13 @@ jobs:
       TARGET_BRANCH: "origin/${{ github.event.pull_request.base.ref }}"
       SOURCE_BRANCH: "origin/${{ github.event.pull_request.head.ref }}"
     steps:
-      - name: Debug - Path
-        run: |
-          pwd
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Test ARM Templates - files
         id: filestest
         uses: aliencube/arm-ttk-actions@v0.3
-        run: |
-          pwd
         with:
           path: EventHubs/src
           files: azuredeploy_metrics.json

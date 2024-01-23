@@ -28,17 +28,17 @@ jobs:
         continue-on-error: true
         uses: bridgecrewio/checkov-action@master
         with:
-          #directory: EventHubs/src/
+          directory: EventHubs/src/
           file: EventHubs/src/azuredeploy_metrics.json # optional: provide the path for resource to be scanned. This will override the directory if both are provided.
-          check: CKV_AWS_1 # optional: run only a specific check_id. can be comma separated list
+          #check: CKV_AWS_1 # optional: run only a specific check_id. can be comma separated list
           #skip_check: CKV_AWS_2 # optional: skip a specific check_id. can be comma separated list
           quiet: false # optional: display only failed checks
           soft_fail: true # optional: do not return an error code if there are failed checks
-          framework: json # optional: run only on a specific infrastructure {cloudformation,terraform,kubernetes,all}
+          framework: arm # optional: run only on a specific infrastructure {cloudformation,terraform,kubernetes,all}
           #skip_framework: terraform # optional: skip a specific infrastructure {cloudformation,terraform,kubernetes,all}
           #skip_cve_package: CVE_2019_8331 # optional: skip a specific CVE package in SCA scans, can be comma separated list
-          output_format: cli, sarif # optional: the output format, one of: cli, json, junitxml, github_failed_only, or sarif. Default: sarif
-          output_file_path: reports/results.sarif # folder and name of results file
+          output_format: cli # optional: the output format, one of: cli, json, junitxml, github_failed_only, or sarif. Default: sarif
+          #output_file_path: reports/results.sarif # folder and name of results file
           output_bc_ids: true # optional: output Bridgecrew platform IDs instead of checkov IDs
           #download_external_modules: true # optional: download external terraform modules from public git repositories and terraform registry
           #repo_root_for_plan_enrichment: example/ #optional: Directory containing the hcl code used to generate a given terraform plan file. Use together with `file`

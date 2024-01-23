@@ -1,0 +1,25 @@
+name: "ARM template toolkit test"
+
+on: [pull_request]
+
+jobs:
+  arm-toolkit:
+    name: "ARM template toolkit test"
+    runs-on: "ubuntu-latest"
+    env:
+      SUMO_APPS_V2_REPO_PATH: ${{ github.workspace }}
+      TARGET_BRANCH: "origin/${{ github.event.pull_request.base.ref }}"
+      SOURCE_BRANCH: "origin/${{ github.event.pull_request.head.ref }}"
+    steps:
+      - name: Test ARM Templates - files
+        id: filestest
+        uses: aliencube/arm-ttk-actions@v0.3
+        with:
+          path: ./EventHubs/src
+          files: azuredeploy_metrics.json
+
+      - name: Test result - files
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "${{ toJSON(fromJSON(steps.filestest.outputs.results)) }}"

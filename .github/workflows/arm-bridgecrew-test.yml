@@ -3,7 +3,7 @@ name: "ARM template bridgecrew test"
 on: [pull_request]
 
 jobs:
-  arm-toolkit:
+  arm-bridgecrew:
     name: "ARM template bridgecrew test"
     runs-on: "ubuntu-latest"
     env:

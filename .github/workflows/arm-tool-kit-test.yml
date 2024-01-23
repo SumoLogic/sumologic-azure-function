@@ -15,8 +15,7 @@ jobs:
         continue-on-error: true
         uses: aliencube/arm-ttk-actions@v0.3
         with:
-          path: ./EventHubs/src
-          files: azuredeploy_metrics.json
+          path: EventHubs/src/azuredeploy_metrics.json
 
       - name: Test result - files
         shell: bash

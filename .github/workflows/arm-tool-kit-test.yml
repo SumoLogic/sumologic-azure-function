@@ -23,5 +23,3 @@ jobs:
         continue-on-error: true
         run: |
           echo "${{ toJSON(fromJSON(steps.filestest.outputs.results)) }}"
-          echo "${{ SUMO_REPO_PATH }}"
-          echo "${{ SOURCE_BRANCH }}"

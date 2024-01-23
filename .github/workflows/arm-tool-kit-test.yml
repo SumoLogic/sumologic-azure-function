@@ -6,14 +6,9 @@ jobs:
   arm-toolkit:
     name: "ARM template toolkit test"
     runs-on: "ubuntu-latest"
-    env:
-      SUMO_REPO_PATH: ${{ github.workspace }}
-      TARGET_BRANCH: "origin/${{ github.event.pull_request.base.ref }}"
-      SOURCE_BRANCH: "origin/${{ github.event.pull_request.head.ref }}"
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Test ARM Templates - files
         id: filestest

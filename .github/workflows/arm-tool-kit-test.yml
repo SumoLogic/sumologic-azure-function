@@ -18,6 +18,10 @@ jobs:
           path: EventHubs/src
           files: azuredeploy_metrics.json
 
+      - name: Debug - List Files in Path
+        run: |
+          ls -R EventHubs/src
+
       - name: Test result - files
         shell: bash
         continue-on-error: true

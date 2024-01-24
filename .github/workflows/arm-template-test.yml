@@ -1,0 +1,35 @@
+name: "ARM template tests"
+
+on: [pull_request]
+
+jobs:
+  best-practices-test:
+    name: "ARM template tests using arm-ttk"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Test ARM Templates using arm-ttk
+        id: filestest
+        uses: aliencube/arm-ttk-actions@v0.3
+        with:
+          path: EventHubs/src/azuredeploy_metrics.json
+
+  security-test:
+    name: "ARM template tests using checkov"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Test ARM Templates using checkov
+        id: checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          file: EventHubs/src/azuredeploy_metrics.json
+          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
+          quiet: false
+          framework: arm
+          output_format: cli
+          output_bc_ids: true

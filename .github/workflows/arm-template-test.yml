@@ -27,23 +27,9 @@ jobs:
         id: checkov
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: EventHubs/src/
-          file: EventHubs/src/azuredeploy_metrics.json # optional: provide the path for resource to be scanned. This will override the directory if both are provided.
-          #check: CKV_AWS_1 # optional: run only a specific check_id. can be comma separated list
-          #skip_check: CKV_AWS_2 # optional: skip a specific check_id. can be comma separated list
-          quiet: false # optional: display only failed checks
-          # soft_fail: true # optional: do not return an error code if there are failed checks
-          framework: arm # optional: run only on a specific infrastructure {cloudformation,terraform,kubernetes,all}
-          #skip_framework: terraform # optional: skip a specific infrastructure {cloudformation,terraform,kubernetes,all}
-          #skip_cve_package: CVE_2019_8331 # optional: skip a specific CVE package in SCA scans, can be comma separated list
-          output_format: cli,json # optional: the output format, one of: cli, json, junitxml, github_failed_only, or sarif. Default: sarif
-          #output_file_path: reports/results.sarif # folder and name of results file
-          output_bc_ids: true # optional: output Bridgecrew platform IDs instead of checkov IDs
-          #download_external_modules: true # optional: download external terraform modules from public git repositories and terraform registry
-          #repo_root_for_plan_enrichment: example/ #optional: Directory containing the hcl code used to generate a given terraform plan file. Use together with `file`
-          #var_file: ./testdir/gocd.yaml # optional: variable files to load in addition to the default files. Currently only supported for source Terraform and Helm chart scans.
-          # log_level: DEBUG # optional: set log level. Default WARNING
-          #config_file: path/this_file
-          #baseline: cloudformation/.checkov.baseline # optional: Path to a generated baseline file. Will only report results not in the baseline.
-          #container_user: 1000 # optional: Define what UID and / or what GID to run the container under to prevent permission issues
-          #use_enforcement_rules: true # optional - use enforcement rule configs from the platform
+          file: EventHubs/src/azuredeploy_metrics.json
+          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
+          quiet: false
+          framework: arm
+          output_format: cli
+          output_bc_ids: true

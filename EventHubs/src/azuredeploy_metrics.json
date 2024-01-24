@@ -55,9 +55,9 @@
             "type": "String"
         },
         "logAnalyticsWorkspaceName": {
-			"defaultValue": "[concat('SMWorkspace', uniqueString(resourceGroup().id))]",
-			"type": "String"
-		},
+            "defaultValue": "[concat('SMWorkspace', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
         "location": {
             "type": "string",
             "defaultValue": "[resourceGroup().location]",
@@ -281,25 +281,25 @@
             ]
         },
         {
-	      "type": "microsoft.operationalinsights/workspaces",
-	      "apiVersion": "2022-10-01",
-	      "name": "[parameters('logAnalyticsWorkspaceName')]",
-	      "location": "[parameters('location')]",
-	      "properties": {
-	        "sku": {
-	          "name": "pergb2018"
-	        },
-	        "retentionInDays": 30,
-	        "features": {
+          "type": "microsoft.operationalinsights/workspaces",
+          "apiVersion": "2022-10-01",
+          "name": "[parameters('logAnalyticsWorkspaceName')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "sku": {
+              "name": "pergb2018"
+            },
+            "retentionInDays": 30,
+            "features": {
               "enableLogAccessUsingOnlyResourcePermissions": true
-	        },
-	        "workspaceCapping": {
-	          "dailyQuotaGb": -1
-	        },
-	        "publicNetworkAccessForIngestion": "Enabled",
-	        "publicNetworkAccessForQuery": "Enabled"
-	      }
-	    },
+            },
+            "workspaceCapping": {
+              "dailyQuotaGb": -1
+            },
+            "publicNetworkAccessForIngestion": "Enabled",
+            "publicNetworkAccessForQuery": "Enabled"
+          }
+        },
         {
           "name": "[parameters('appInsightsName')]",
           "type": "Microsoft.Insights/components",

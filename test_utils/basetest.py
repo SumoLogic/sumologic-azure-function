@@ -61,17 +61,13 @@ class BaseTest(unittest.TestCase):
         repo_slug = "SumoLogic/sumologic-azure-function"
         try:
             branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
-            if not branch_name:
-                # in detached head state
-                branch_name = os.environ["SOURCE_BRANCH"]
-            else:
-                branch_name = self.branch_name.decode("utf-8").strip()
+            branch_name = self.branch_name.decode("utf-8").strip()
         
-        except Exception as e:
-            raise Exception(f"Error getting branch name: {e}")
-
-        if not branch_name or branch_name == "undefined" or not repo_slug:
-            raise Exception("No branch found")
+        except Exception:
+            branch_name = os.environ["SOURCE_BRANCH"]
+            
+        if not branch_name or branch_name == "undefined":
+            raise Exception("Error getting branch name")
 
         repo_name = f"https://github.com/{repo_slug}"
         
@@ -101,7 +97,7 @@ class BaseTest(unittest.TestCase):
         try:
             resp = self.sumologic_cli.create_collector(collector, headers=None)
             collector_id = json.loads(resp.text)['collector']['id']
-            print(f"created collector {collector_id}")
+            print("created collector")
         except Exception as e:
             raise Exception(e)
 
@@ -111,7 +107,7 @@ class BaseTest(unittest.TestCase):
         sources = self.sumologic_cli.sources(collector_id, limit=10)
         if len(sources) == 0:
             self.sumologic_cli.delete_collector({"collector": {"id": collector_id}})
-            print(f"deleted collector {collector_id}")
+            print("deleted collector")
     
     def create_source(self, collector_id, source_name):
         print("create_source start")
@@ -129,11 +125,11 @@ class BaseTest(unittest.TestCase):
             data = resp.json()['source']
             source_id = data["id"]
             endpoint = data["url"]
-            print(f"created source '{source_id}' endpoint '{endpoint}'")
+            print("created source")
         except Exception as e:
             raise Exception(e)
         return source_id, endpoint
     
     def delete_source(self, collector_id, source_id):
         self.sumologic_cli.delete_source(collector_id, {"source": {"id": source_id}})
-        print(f"deleted source {source_id}")
+        print("deleted source")

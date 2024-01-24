@@ -66,11 +66,8 @@ class BaseTest(unittest.TestCase):
         except Exception:
             branch_name = os.environ["SOURCE_BRANCH"]
             
-        if not branch_name:
+        if not branch_name or branch_name == "undefined":
             raise Exception("Error getting branch name")
-
-        if not branch_name or branch_name == "undefined" or not repo_slug:
-            raise Exception("No branch found")
 
         repo_name = f"https://github.com/{repo_slug}"
         

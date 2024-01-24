@@ -97,7 +97,7 @@ class BaseTest(unittest.TestCase):
         try:
             resp = self.sumologic_cli.create_collector(collector, headers=None)
             collector_id = json.loads(resp.text)['collector']['id']
-            print(f"created collector {collector_id}")
+            print(f"created collector")
         except Exception as e:
             raise Exception(e)
 
@@ -107,7 +107,7 @@ class BaseTest(unittest.TestCase):
         sources = self.sumologic_cli.sources(collector_id, limit=10)
         if len(sources) == 0:
             self.sumologic_cli.delete_collector({"collector": {"id": collector_id}})
-            print(f"deleted collector {collector_id}")
+            print(f"deleted collector")
     
     def create_source(self, collector_id, source_name):
         print("create_source start")
@@ -125,11 +125,11 @@ class BaseTest(unittest.TestCase):
             data = resp.json()['source']
             source_id = data["id"]
             endpoint = data["url"]
-            print(f"created source '{source_id}' endpoint '{endpoint}'")
+            print(f"created source")
         except Exception as e:
             raise Exception(e)
         return source_id, endpoint
     
     def delete_source(self, collector_id, source_id):
         self.sumologic_cli.delete_source(collector_id, {"source": {"id": source_id}})
-        print(f"deleted source {source_id}")
+        print(f"deleted source")

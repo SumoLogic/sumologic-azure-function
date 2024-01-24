@@ -61,14 +61,13 @@ class BaseTest(unittest.TestCase):
         repo_slug = "SumoLogic/sumologic-azure-function"
         try:
             branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
-            if not branch_name:
-                # in detached head state
-                branch_name = os.environ["SOURCE_BRANCH"]
-            else:
-                branch_name = self.branch_name.decode("utf-8").strip()
+            branch_name = self.branch_name.decode("utf-8").strip()
         
-        except Exception as e:
-            raise Exception(f"Error getting branch name: {e}")
+        except Exception:
+            branch_name = os.environ["SOURCE_BRANCH"]
+            
+        if not branch_name:
+            raise Exception("Error getting branch name")
 
         if not branch_name or branch_name == "undefined" or not repo_slug:
             raise Exception("No branch found")

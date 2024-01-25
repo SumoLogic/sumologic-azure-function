@@ -61,7 +61,7 @@ module.exports = function (context, eventHubMessages) {
 
         // handlers for success and failures
         function failureHandler(msgArray,ctx) {
-            ctx.log("Failed to send metrics to Sumo");
+            ctx.log.error("Failed to send metrics to Sumo");
             if (this.messagesAttempted === this.messagesReceived) {
                 context.bindings.outputBlob = messageArray.map(function(x) { return JSON.stringify(x);}).join("\n");
                 context.done();

@@ -1,32 +1,32 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "sites_SumoMetricsFunctionApp_name": {
-            "defaultValue": "[concat('SumoMetricsFunctionApp', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SMFuncApp', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "namespaces_SumoMetNamespace_name": {
-            "defaultValue": "[concat('SumoMetricsNamespace', uniqueString(resourceGroup().id))]",
+        "namespaces_SumoMetricsNamespace_name": {
+            "defaultValue": "[concat('SMNamespace', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "storageAccounts_sumometapplogs_name": {
-            "defaultValue": "[concat('sumometlogs', uniqueString(resourceGroup().id))]",
+        "storageAccounts_SumoMetricsAppLogs_name": {
+            "defaultValue": "[concat('smapplogs', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "storageAccounts_SumoMetricsFailedLogs_name": {
+            "defaultValue": "[concat('smfaillogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "serverfarms_SumoMetricsAppServicePlan_name": {
-            "defaultValue": "[concat('SumoMetricsAppServicePlan', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('SMAppServicePlan', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "storageAccounts_sumometricsfailedmsg": {
-            "defaultValue": "[concat('sumometfail', uniqueString(resourceGroup().id))]",
-            "type": "String"
-        },
-        "eventhubs_insights_metrics_pt1m_name": {
+        "eventhubs_InsightsMetrics_name": {
             "defaultValue": "insights-metrics-pt1m",
             "type": "String"
         },
-        "AuthorizationRules_RootManageSharedAccessKey_name": {
+        "authorizationRules_RootManageSharedAccessKey_name": {
             "defaultValue": "RootManageSharedAccessKey",
             "type": "String"
         },
@@ -46,11 +46,36 @@
             "defaultValue": "true",
             "type": "String"
         },
-        "SumoEndpointURL": {
+        "sumoEndpointURL": {
+            "defaultValue": "Enter HTTP Source URL",
             "type": "String"
+        },
+        "appInsightsName": {
+            "defaultValue": "[concat('SMAppInsights', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "logAnalyticsWorkspaceName": {
+            "defaultValue": "[concat('SMWorkspace', uniqueString(resourceGroup().id))]",
+            "type": "String"
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+              "description": "Location for the resources."
+            }
+        },
+        "storageEndpointSuffix": {
+            "type": "string",
+            "defaultValue": "core.windows.net",
+            "metadata": {
+                "description": "The Azure Storage endpoint suffix. Update for different Azure environments."
+            }
         }
     },
-    "variables": {},
+    "variables": {
+        "appInsightsResourceType": "[concat('microsoft.insights/components/', parameters('appInsightsName'))]"
+    },
     "resources": [
         {
             "type": "Microsoft.EventHub/namespaces",
@@ -59,9 +84,9 @@
                 "tier": "Standard",
                 "capacity": 1
             },
-            "name": "[parameters('namespaces_SumoMetNamespace_name')]",
-            "apiVersion": "2017-04-01",
-            "location": "[resourceGroup().location]",
+            "name": "[parameters('namespaces_SumoMetricsNamespace_name')]",
+            "apiVersion": "2022-10-01-preview",
+            "location": "[parameters('location')]",
             "tags": {},
             "scale": null,
             "properties": {
@@ -77,19 +102,17 @@
                 "tier": "Standard"
             },
             "kind": "Storage",
-            "name": "[parameters('storageAccounts_sumometapplogs_name')]",
-            "apiVersion": "2017-10-01",
-            "location": "[resourceGroup().location]",
+            "name": "[parameters('storageAccounts_SumoMetricsAppLogs_name')]",
+            "apiVersion": "2022-09-01",
+            "location": "[parameters('location')]",
             "tags": {},
             "scale": null,
             "properties": {
                 "networkAcls": {
                     "bypass": "AzureServices",
-                    "virtualNetworkRules": [],
-                    "ipRules": [],
                     "defaultAction": "Allow"
                 },
-                "supportsHttpsTrafficOnly": false,
+                "supportsHttpsTrafficOnly": true,
                 "encryption": {
                     "services": {
                         "file": {
@@ -111,19 +134,17 @@
                 "tier": "Standard"
             },
             "kind": "Storage",
-            "name": "[parameters('storageAccounts_sumometricsfailedmsg')]",
-            "apiVersion": "2017-10-01",
-            "location": "[resourceGroup().location]",
+            "name": "[parameters('storageAccounts_SumoMetricsFailedLogs_name')]",
+            "apiVersion": "2022-09-01",
+            "location": "[parameters('location')]",
             "tags": {},
             "scale": null,
             "properties": {
                 "networkAcls": {
                     "bypass": "AzureServices",
-                    "virtualNetworkRules": [],
-                    "ipRules": [],
                     "defaultAction": "Allow"
                 },
-                "supportsHttpsTrafficOnly": false,
+                "supportsHttpsTrafficOnly": true,
                 "encryption": {
                     "services": {
                         "file": {
@@ -149,14 +170,11 @@
             },
             "kind": "functionapp",
             "name": "[parameters('serverfarms_SumoMetricsAppServicePlan_name')]",
-            "apiVersion": "2016-09-01",
-            "location": "[resourceGroup().location]",
+            "apiVersion": "2022-09-01",
+            "location": "[parameters('location')]",
             "scale": null,
             "properties": {
                 "name": "[parameters('serverfarms_SumoMetricsAppServicePlan_name')]",
-                "workerTierName": null,
-                "adminSiteName": null,
-                "hostingEnvironmentProfile": null,
                 "perSiteScaling": false,
                 "reserved": false,
                 "targetWorkerCount": 0,
@@ -168,28 +186,37 @@
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_SumoMetricsFunctionApp_name')]",
-            "apiVersion": "2016-08-01",
-            "location": "[resourceGroup().location]",
+            "apiVersion": "2022-09-01",
+            "location": "[parameters('location')]",
             "scale": null,
             "properties": {
+                "httpsOnly": true,
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
+                    "http20Enabled": true,
+                    "minTlsVersion": "1.2",
+                    "scmMinTlsVersion": "1.2",
                     "appSettings": [
-                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~1" },
+                        { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~4" },
+                        { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node"},
+                        { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~18"},
                         { "name": "Project", "value": "EventHubs/target/metrics_build/" },
-                        { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2015-05-01-preview').key1)]" },
-                        { "name": "AzureWebJobsDashboard", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometapplogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name')),'2015-05-01-preview').key1)]" },
-                        { "name": "SumoLabsMetricEndpoint", "value": "[parameters('SumoEndpointURL')]" },
-                        { "name": "AzureEventHubConnectionString", "value": "[concat(listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoMetNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_name')), '2017-04-01').primaryConnectionString,';EntityPath=',parameters('eventhubs_insights_metrics_pt1m_name'))]" },
-                        { "name": "StorageConnectionString", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_sumometricsfailedmsg'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometricsfailedmsg')),'2015-05-01-preview').key1,';EndpointSuffix=core.windows.net')]" }
+                        { "name": "AzureWebJobsStorage", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoMetricsAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoMetricsAppLogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]" },
+                        { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[reference(variables('appInsightsResourceType'), '2015-05-01').ConnectionString]" },
+                        { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value" : "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoMetricsAppLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoMetricsAppLogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]"},
+                        { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_SumoMetricsFunctionApp_name'))]" },
+                        { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite"},
+                        { "name": "SumoLabsMetricEndpoint", "value": "[parameters('sumoEndpointURL')]" },
+                        { "name": "AzureEventHubConnectionString", "value": "[concat(listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_SumoMetricsNamespace_name'),parameters('authorizationRules_RootManageSharedAccessKey_name')), '2022-10-01-preview').primaryConnectionString,';EntityPath=',parameters('eventhubs_InsightsMetrics_name'))]" },
+                        { "name": "StorageConnectionString", "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccounts_SumoMetricsFailedLogs_name'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoMetricsFailedLogs_name')),'2022-09-01').keys[0].value,';EndpointSuffix=', parameters('storageEndpointSuffix'))]" }
                     ]
                 }
             },
             "resources": [
              {
-                  "apiVersion": "2015-08-01",
+                  "apiVersion": "2022-09-01",
                   "name": "web",
                   "type": "sourcecontrols",
                   "dependsOn": [
@@ -204,15 +231,16 @@
             ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_sumometapplogs_name'))]",
-                "[concat('Microsoft.EventHub/namespaces/', parameters('namespaces_SumoMetNamespace_name'))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_SumoMetricsAppLogs_name'))]",
+                "[resourceId('Microsoft.EventHub/namespaces/', parameters('namespaces_SumoMetricsNamespace_name'))]",
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
             ]
         },
         {
             "type": "Microsoft.EventHub/namespaces/AuthorizationRules",
-            "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_name'))]",
-            "apiVersion": "2017-04-01",
-            "location": "[resourceGroup().location]",
+            "name": "[concat(parameters('namespaces_SumoMetricsNamespace_name'), '/', parameters('authorizationRules_RootManageSharedAccessKey_name'))]",
+            "apiVersion": "2022-10-01-preview",
+            "location": "[parameters('location')]",
             "scale": null,
             "properties": {
                 "rights": [
@@ -222,14 +250,14 @@
                 ]
             },
             "dependsOn": [
-                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetNamespace_name'))]"
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetricsNamespace_name'))]"
             ]
         },
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs",
-            "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('eventhubs_insights_metrics_pt1m_name'))]",
-            "apiVersion": "2017-04-01",
-            "location": "[resourceGroup().location]",
+            "name": "[concat(parameters('namespaces_SumoMetricsNamespace_name'), '/', parameters('eventhubs_InsightsMetrics_name'))]",
+            "apiVersion": "2022-10-01-preview",
+            "location": "[parameters('location')]",
             "scale": null,
             "properties": {
                 "messageRetentionInDays": 7,
@@ -237,20 +265,52 @@
                 "status": "Active"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetNamespace_name'))]"
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetricsNamespace_name'))]"
             ]
         },
         {
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
-            "name": "[concat(parameters('namespaces_SumoMetNamespace_name'), '/', parameters('eventhubs_insights_metrics_pt1m_name'), '/', parameters('consumerGroupName'))]",
-            "apiVersion": "2017-04-01",
-            "location": "[resourceGroup().location]",
+            "name": "[concat(parameters('namespaces_SumoMetricsNamespace_name'), '/', parameters('eventhubs_InsightsMetrics_name'), '/', parameters('consumerGroupName'))]",
+            "apiVersion": "2022-10-01-preview",
+            "location": "[parameters('location')]",
             "scale": null,
             "properties": {},
             "dependsOn": [
-                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetNamespace_name'))]",
-                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_SumoMetNamespace_name'), parameters('eventhubs_insights_metrics_pt1m_name'))]"
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('namespaces_SumoMetricsNamespace_name'))]",
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_SumoMetricsNamespace_name'), parameters('eventhubs_InsightsMetrics_name'))]"
             ]
+        },
+        {
+          "type": "microsoft.operationalinsights/workspaces",
+          "apiVersion": "2022-10-01",
+          "name": "[parameters('logAnalyticsWorkspaceName')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "sku": {
+              "name": "pergb2018"
+            },
+            "retentionInDays": 30,
+            "features": {
+              "enableLogAccessUsingOnlyResourcePermissions": true
+            },
+            "workspaceCapping": {
+              "dailyQuotaGb": -1
+            },
+            "publicNetworkAccessForIngestion": "Enabled",
+            "publicNetworkAccessForQuery": "Enabled"
+          }
+        },
+        {
+          "name": "[parameters('appInsightsName')]",
+          "type": "Microsoft.Insights/components",
+          "apiVersion": "2020-02-02",
+          "location": "[parameters('location')]",
+          "kind": "web",
+          "properties": {
+                "Application_Type": "web",
+                "applicationId": "[parameters('appInsightsName')]",
+                "WorkspaceResourceId": "[resourceId('microsoft.operationalinsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            }
         }
     ]
 }

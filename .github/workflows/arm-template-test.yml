@@ -10,14 +10,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # - name: Test Metric ARM Templates using arm-ttk
-      #   id: filestest
-      #   uses: aliencube/arm-ttk-actions@v0.3
-      #   with:
-      #     path: EventHubs/src/azuredeploy_metrics.json
+      - name: Test Metric ARM Templates using arm-ttk
+        id: metricfilestest
+        uses: aliencube/arm-ttk-actions@v0.3
+        with:
+          path: EventHubs/src/azuredeploy_metrics.json
 
       - name: Test BlockBlob ARM Templates using arm-ttk
-        id: filestest
+        id: blockblobfilestest
         uses: aliencube/arm-ttk-actions@v0.3
         with:
           path: BlockBlobReader/src/blobreaderdeploy.json

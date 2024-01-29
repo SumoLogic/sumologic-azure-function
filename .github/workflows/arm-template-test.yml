@@ -44,7 +44,7 @@ jobs:
         id: checkov
         uses: bridgecrewio/checkov-action@v12
         with:
-          file: EventHubs/src/azuredeploy_metrics.json
+          file: BlockBlobReader/src/blobreaderdeploy.json
           skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
           quiet: false
           framework: arm

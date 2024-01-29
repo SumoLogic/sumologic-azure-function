@@ -10,11 +10,17 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Test ARM Templates using arm-ttk
+      - name: Test Metric ARM Templates using arm-ttk
         id: filestest
         uses: aliencube/arm-ttk-actions@v0.3
         with:
           path: EventHubs/src/azuredeploy_metrics.json
+
+      - name: Test BlockBlob ARM Templates using arm-ttk
+        id: filestest
+        uses: aliencube/arm-ttk-actions@v0.3
+        with:
+          path: BlockBlobReader/src/blobreaderdeploy.json
 
   security-test:
     name: "ARM template tests using checkov"
@@ -23,7 +29,18 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Test ARM Templates using checkov
+      - name: Test Metric ARM Templates using checkov
+        id: checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          file: EventHubs/src/azuredeploy_metrics.json
+          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
+          quiet: false
+          framework: arm
+          output_format: cli
+          output_bc_ids: true
+
+      - name: Test BlockBlob ARM Templates using checkov
         id: checkov
         uses: bridgecrewio/checkov-action@v12
         with:

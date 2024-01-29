@@ -50,4 +50,4 @@ jobs:
           framework: arm
           output_format: cli
           output_bc_ids: true
-          #log_level: DEBUG
+          log_level: DEBUG

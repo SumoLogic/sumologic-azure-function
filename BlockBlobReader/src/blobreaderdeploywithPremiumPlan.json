@@ -98,7 +98,7 @@
 		},
 		"StorageAccountRegion": {
 			"type": "String",
-			"allowedValues": ["South Africa North", "East Asia", "Southeast Asia", "Australia Central", "Australia East", "Australia Southeast", "Brazil South", "Canada Central", "Canada East", "China East", "China East 2", "China North", "China North 2", "China North 3", "North Europe", "West Europe", "France Central", "Germany West Central", "Central India", "South India", "Japan East", "Japan West", "Korea Central", "Norway East", "Qatar Central", "Sweden Central", "Switzerland North", "UAE North", "UK South", "UK West", "Central US", "East US", "East US 2", "North Central US", "South Central US", "West Central US", "West US", "West US 2", "West US 3"],
+			"allowedValues":["South Africa North", "East Asia", "Southeast Asia", "Australia Central", "Australia East", "Australia Southeast", "Brazil South", "Canada Central", "Canada East", "China East", "China East 2", "China North", "China North 2", "China North 3", "North Europe", "West Europe", "France Central", "Germany West Central", "Central India", "South India", "Japan East", "Japan West", "Korea Central", "Norway East", "Qatar Central", "Sweden Central", "Switzerland North", "UAE North", "UK South", "UK West", "Central US", "East US", "East US 2", "North Central US", "South Central US", "West Central US", "West US", "West US 2", "West US 3"],
 			"metadata": {
 				"description": "Enter the azure region which contains the storage account from where you want to ingest logs to SUMO"
 			}
@@ -128,7 +128,7 @@
 	"resources": [
 		{
 			"type": "Microsoft.Resources/deployments",
-			"apiVersion": "2021-04-01",
+			"apiVersion": "2022-09-01",
 			"name": "[concat('nestedTemplate', resourceGroup().name)]",
 			"resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
 			"dependsOn": [
@@ -212,7 +212,7 @@
 				"capacity": 1
 			},
 			"name": "[parameters('namespaces_BlobReaderNamespace_name')]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"tags": {},
 			"properties": {
@@ -228,7 +228,7 @@
 				"tier": "Standard"
 			},
 			"name": "[parameters('namespaces_blobreadertaskqueue_name')]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"tags": {},
 			"properties": {
@@ -283,7 +283,7 @@
 			},
 			"kind": "app",
 			"name": "[parameters('serverfarms_BlobReaderPlan_name')]",
-			"apiVersion": "2022-03-01",
+			"apiVersion": "2022-09-01",
 			"location": "[parameters('location')]",
 			"properties": {
 				"name": "[parameters('serverfarms_BlobReaderPlan_name')]",
@@ -303,7 +303,7 @@
             },
 			"kind": "elastic",
 			"name": "[parameters('serverfarms_ConsumerPlan_name')]",
-			"apiVersion": "2022-03-01",
+			"apiVersion": "2022-09-01",
 			"location": "[parameters('location')]",
 			"properties": {
 				"name": "[parameters('serverfarms_ConsumerPlan_name')]",
@@ -315,7 +315,7 @@
 			"type": "Microsoft.Web/sites",
 			"kind": "functionapp",
 			"name": "[parameters('sites_BlobReader_name')]",
-			"apiVersion": "2022-03-01",
+			"apiVersion": "2022-09-01",
 			"location": "[parameters('location')]",
 			"tags": {
 				"hidden-related:/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourcegroups/BlobReaderGroup/providers/Microsoft.Web/serverfarms/BlobReaderPlan": "empty"
@@ -356,11 +356,11 @@
 						},
 						{
 							"name": "AzureEventHubConnectionString",
-							"value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_BlobReaderNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name')), '2022-01-01-preview').primaryConnectionString]"
+							"value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', parameters('namespaces_BlobReaderNamespace_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name')), '2022-10-01-preview').primaryConnectionString]"
 						},
 						{
 							"name": "TaskQueueConnectionString",
-							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-01-01-preview').primaryConnectionString]"
+							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-10-01-preview').primaryConnectionString]"
 						},
 						{
 							"name": "FUNCTIONS_WORKER_RUNTIME",
@@ -378,7 +378,7 @@
 				}
 			},
 			"resources": [{
-				"apiVersion": "2022-03-01",
+				"apiVersion": "2022-09-01",
 				"name": "web",
 				"type": "sourcecontrols",
 				"location": "[parameters('location')]",
@@ -401,7 +401,7 @@
 			"type": "Microsoft.Web/sites",
 			"kind": "functionapp",
 			"name": "[parameters('sites_blobreaderconsumer_name')]",
-			"apiVersion": "2022-03-01",
+			"apiVersion": "2022-09-01",
 			"location": "[parameters('location')]",
 			"identity": {
 				"type": "SystemAssigned"
@@ -441,7 +441,7 @@
 						},
 						{
 							"name": "TaskQueueConnectionString",
-							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-01-01-preview').primaryConnectionString]"
+							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-10-01-preview').primaryConnectionString]"
 						},
 						{
 							"name": "FUNCTIONS_WORKER_RUNTIME",
@@ -459,7 +459,7 @@
 				}
 			},
 			"resources": [{
-				"apiVersion": "2022-03-01",
+				"apiVersion": "2022-09-01",
 				"name": "web",
 				"type": "sourcecontrols",
 				"location": "[parameters('location')]",
@@ -482,7 +482,7 @@
 			"type": "Microsoft.Web/sites",
 			"kind": "functionapp",
 			"name": "[parameters('sites_DLQProcessor_name')]",
-			"apiVersion": "2022-03-01",
+			"apiVersion": "2022-09-01",
 			"location": "[parameters('location')]",
 			"identity": {
 				"type": "SystemAssigned"
@@ -514,7 +514,7 @@
 						},
 						{
 							"name": "TaskQueueConnectionString",
-							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-01-01-preview').primaryConnectionString]"
+							"value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-10-01-preview').primaryConnectionString]"
 						},
 						{
 							"name": "TASKQUEUE_NAME",
@@ -544,7 +544,7 @@
 				}
 			},
 			"resources": [{
-				"apiVersion": "2022-03-01",
+				"apiVersion": "2022-09-01",
 				"name": "web",
 				"type": "sourcecontrols",
 				"location": "[parameters('location')]",
@@ -567,7 +567,7 @@
 			"comments": "Generalized from resource: '/Microsoft.EventHub/namespaces/BlobReaderNamespace/AuthorizationRules/RootManageSharedAccessKey'.",
 			"type": "Microsoft.EventHub/namespaces/AuthorizationRules",
 			"name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_EventHub_name'))]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"properties": {
 				"rights": [
@@ -584,7 +584,7 @@
 			"comments": "Generalized from resource: 'Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub'.",
 			"type": "Microsoft.EventHub/namespaces/eventhubs",
 			"name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'))]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"properties": {
 				"messageRetentionInDays": 7,
@@ -599,7 +599,7 @@
 			"comments": "Generalized from resource: 'Microsoft.EventHub/namespaces/BlobReaderNamespace/eventhubs/blobreadereventhub/consumergroups/$Default'.",
 			"type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
 			"name": "[concat(parameters('namespaces_BlobReaderNamespace_name'), '/', parameters('eventhubs_blobreadereventhub_name'), '/', parameters('consumergroupName'))]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"properties": {},
 			"dependsOn": [
@@ -611,7 +611,7 @@
 			"comments": "Generalized from resource: 'Microsoft.ServiceBus/namespaces/blobreadertaskqueue/AuthorizationRules/RootManageSharedAccessKey'.",
 			"type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
 			"name": "[concat(parameters('namespaces_blobreadertaskqueue_name'), '/', parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name'))]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"properties": {
 				"rights": [
@@ -628,7 +628,7 @@
 			"comments": "Microsoft.ServiceBus/namespaces/blobreadertaskqueue/queues/rangetaskqueue'.",
 			"type": "Microsoft.ServiceBus/namespaces/queues",
 			"name": "[concat(parameters('namespaces_blobreadertaskqueue_name'), '/', parameters('queues_rangetaskqueue_name'))]",
-			"apiVersion": "2022-01-01-preview",
+			"apiVersion": "2022-10-01-preview",
 			"location": "[parameters('location')]",
 			"properties": {
 				"lockDuration": "PT5M",

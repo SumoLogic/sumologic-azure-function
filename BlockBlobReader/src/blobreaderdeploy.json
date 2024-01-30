@@ -98,7 +98,7 @@
 		},
 		"StorageAccountRegion": {
 			"type": "String",
-			"allowedValues": ["South Africa North", "East Asia", "Southeast Asia", "Australia Central", "Australia East", "Australia Southeast", "Brazil South", "Canada Central", "Canada East", "China East", "China East 2", "China North", "China North 2", "China North 3", "North Europe", "West Europe", "France Central", "Germany West Central", "Central India", "South India", "Japan East", "Japan West", "Korea Central", "Norway East", "Qatar Central", "Sweden Central", "Switzerland North", "UAE North", "UK South", "UK West", "Central US", "East US", "East US 2", "North Central US", "South Central US", "West Central US", "West US", "West US 2", "West US 3"],
+			"allowedValues":["South Africa North", "East Asia", "Southeast Asia", "Australia Central", "Australia East", "Australia Southeast", "Brazil South", "Canada Central", "Canada East", "China East", "China East 2", "China North", "China North 2", "China North 3", "North Europe", "West Europe", "France Central", "Germany West Central", "Central India", "South India", "Japan East", "Japan West", "Korea Central", "Norway East", "Qatar Central", "Sweden Central", "Switzerland North", "UAE North", "UK South", "UK West", "Central US", "East US", "East US 2", "North Central US", "South Central US", "West Central US", "West US", "West US 2", "West US 3"],
 			"metadata": {
 				"description": "Enter the azure region which contains the storage account from where you want to ingest logs to SUMO"
 			}

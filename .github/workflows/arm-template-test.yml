@@ -14,7 +14,7 @@ jobs:
         uses: microsoft/action-armttk@main
         with:
           armttkVersion: aka.ms/arm-ttk-latest
-          workingPath: EventHubs/src/azuredeploy_metrics.json
+          workdir: EventHubs/src/azuredeploy_metrics.json
           fail_on_error: true
           level: "info"
 

@@ -11,9 +11,12 @@ jobs:
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
-        uses: aliencube/arm-ttk-actions@main
+        uses: microsoft/action-armttk@0.05
         with:
-          path: EventHubs/src/azuredeploy_metrics.json
+          armttkVersion: aka.ms/arm-ttk-latest
+          workingPath: EventHubs/src/azuredeploy_metrics.json
+          fail_on_error: true
+          level: "info"
 
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest
@@ -55,6 +58,7 @@ jobs:
           framework: arm
           output_format: cli
           output_bc_ids: true
+          log_level: DEBUG
 
       - name: Test BlockBlob Premium Plan Templates using checkov
         id: blockblobpremiumplancheckov

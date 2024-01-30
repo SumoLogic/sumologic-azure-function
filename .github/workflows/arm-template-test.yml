@@ -11,7 +11,7 @@ jobs:
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
-        uses: microsoft/action-armttk@0.05
+        uses: microsoft/action-armttk@main
         with:
           armttkVersion: aka.ms/arm-ttk-latest
           workingPath: EventHubs/src/azuredeploy_metrics.json

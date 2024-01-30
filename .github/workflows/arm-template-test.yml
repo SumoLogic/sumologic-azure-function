@@ -11,19 +11,19 @@ jobs:
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
-        uses: aliencube/arm-ttk-actions@main
+        uses: microsoft/action-armttk@main
         with:
           path: EventHubs/src/azuredeploy_metrics.json
 
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest
-        uses: aliencube/arm-ttk-actions@main
+        uses: microsoft/action-armttk@main
         with:
           path: BlockBlobReader/src/blobreaderdeploy.json
 
       - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
         id: blockblobpremiumplanfilestest
-        uses: aliencube/arm-ttk-actions@main
+        uses: microsoft/action-armttk@main
         with:
           path: BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json
 

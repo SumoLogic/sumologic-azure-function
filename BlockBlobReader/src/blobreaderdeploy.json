@@ -360,7 +360,7 @@
                         },
                         {
                             "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
-                            "value": "[reference(variables('appInsightsResourceType'), '2015-05-01').ConnectionString]"
+                            "value": "[reference(variables('appInsightsResourceType'), '2020-02-02').ConnectionString]"
                         },
                         {
                             "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
@@ -445,7 +445,7 @@
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
 
-                            "value": "[reference(variables('appInsightsResourceType'), '2015-05-01').InstrumentationKey]"
+                            "value": "[reference(variables('appInsightsResourceType'), '2020-02-02').InstrumentationKey]"
                         },
                         {
                             "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
@@ -533,7 +533,7 @@
                         },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-                            "value": "[reference(variables('appInsightsResourceType'), '2015-05-01').InstrumentationKey]"
+                            "value": "[reference(variables('appInsightsResourceType'), '2020-02-02').InstrumentationKey]"
                         },
                         {
                             "name": "SumoLogEndpoint",

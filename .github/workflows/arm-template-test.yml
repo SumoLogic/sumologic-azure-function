@@ -1,6 +1,5 @@
 name: "ARM template tests"
-
-on: [pull_request]
+on: [workflow_dispatch, pull_request]
 
 jobs:
   best-practices-test:
@@ -12,13 +11,13 @@ jobs:
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
-        uses: aliencube/arm-ttk-actions@v0.3
+        uses: aliencube/arm-ttk-actions@master
         with:
           path: EventHubs/src/azuredeploy_metrics.json
 
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest
-        uses: aliencube/arm-ttk-actions@v0.3
+        uses: aliencube/arm-ttk-actions@master
         with:
           path: BlockBlobReader/src/blobreaderdeploy.json
 
@@ -31,7 +30,7 @@ jobs:
 
       - name: Test Metric ARM Templates using checkov
         id: metriccheckov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@master
         with:
           file: EventHubs/src/azuredeploy_metrics.json
           skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
@@ -42,7 +41,7 @@ jobs:
 
       - name: Test BlockBlob ARM Templates using checkov
         id: blockblobcheckov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@master
         with:
           file: BlockBlobReader/src/blobreaderdeploy.json
           #skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35

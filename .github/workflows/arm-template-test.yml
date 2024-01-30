@@ -21,6 +21,12 @@ jobs:
         with:
           path: BlockBlobReader/src/blobreaderdeploy.json
 
+      - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
+        id: blockblobpremiumplanfilestest
+        uses: aliencube/arm-ttk-actions@main
+        with:
+          path: BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json
+
   security-test:
     name: "ARM template tests using checkov"
     runs-on: "ubuntu-latest"
@@ -44,6 +50,18 @@ jobs:
         uses: bridgecrewio/checkov-action@master
         with:
           file: BlockBlobReader/src/blobreaderdeploy.json
+          #skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
+          quiet: false
+          framework: arm
+          output_format: cli
+          output_bc_ids: true
+          log_level: DEBUG
+
+      - name: Test BlockBlob Premium Plan Templates using checkov
+        id: blockblobpremiumplancheckov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          file: BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json
           #skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
           quiet: false
           framework: arm

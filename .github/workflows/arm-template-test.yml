@@ -1,33 +1,54 @@
 name: "ARM template tests"
-
-on: [pull_request]
+on: [workflow_dispatch, pull_request]
 
 jobs:
   best-practices-test:
     name: "ARM template tests using arm-ttk"
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix: 
+        include: # Includes one more job
+          - file: 'azuredeploy_metrics.json'
+            dir: 'EventHubs/src'
+          - file: 'blobreaderdeploy.json'
+            dir: 'BlockBlobReader/src'
+          - file: 'blobreaderdeploywithPremiumPlan.json'
+            dir: 'BlockBlobReader/src'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Test ARM Templates using arm-ttk
-        id: filestest
-        uses: aliencube/arm-ttk-actions@v0.3
+      - name: Rename file 
+        run: |
+          cp ${{ matrix.dir }}/${{ matrix.file }} ${{ matrix.dir }}/mainTemplate.json 
+          cd ${{ matrix.dir }}
+          find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
+
+      - uses: microsoft/action-armttk@main
         with:
-          path: EventHubs/src/azuredeploy_metrics.json
+          workdir: ${{ matrix.dir }}
+          fail_on_error: true
+          level: "info"
 
   security-test:
     name: "ARM template tests using checkov"
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix: 
+        include: # Includes one more job
+          - file: 'azuredeploy_metrics.json'
+            dir: 'EventHubs/src'
+          - file: 'blobreaderdeploy.json'
+            dir: 'BlockBlobReader/src'
+          - file: 'blobreaderdeploywithPremiumPlan.json'
+            dir: 'BlockBlobReader/src'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Test ARM Templates using checkov
-        id: checkov
-        uses: bridgecrewio/checkov-action@v12
+      - uses: bridgecrewio/checkov-action@master
         with:
-          file: EventHubs/src/azuredeploy_metrics.json
+          file: ${{ matrix.dir }}/${{ matrix.file }}
           skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
           quiet: false
           framework: arm

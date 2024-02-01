@@ -7,9 +7,16 @@ jobs:
     runs-on: "ubuntu-latest"
     strategy:
       matrix: 
-        name: ['Metric', 'BlockBlob', 'BlockBlob Premium Plan']
-        file: ['azuredeploy_metrics.json', 'blobreaderdeploy.json', 'blobreaderdeploywithPremiumPlan.json']
-        dir: ['EventHubs/src', 'BlockBlobReader/src', 'BlockBlobReader/src/PremiumPlan']
+        # name: ['Metric', 'BlockBlob', 'BlockBlob Premium Plan']
+        # file: ['azuredeploy_metrics.json', 'blobreaderdeploy.json', 'blobreaderdeploywithPremiumPlan.json']
+        # dir: ['EventHubs/src', 'BlockBlobReader/src', 'BlockBlobReader/src/PremiumPlan']
+        include: # Includes one more job
+          - name: 'Metric'
+            file: 'azuredeploy_metrics.json'
+            dir: 'EventHubs/src'
+          - name: 'BlockBlob'
+            file: 'blobreaderdeploy.json'
+            dir: 'BlockBlobReader/src'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4

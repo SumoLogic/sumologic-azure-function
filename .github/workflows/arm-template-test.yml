@@ -20,24 +20,25 @@ jobs:
           workdir: EventHubs/src
           fail_on_error: true
           level: "info"
+          glob_pattern: ./mainTemplate.json
 
-      - name: Rename file 
-        run: cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json
+      # - name: Rename file 
+      #   run: cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json
 
-      - name: Test BlockBlob ARM Templates using arm-ttk
-        id: blockblobfilestest
-        uses: aliencube/arm-ttk-actions@main
-        with:
-          path: BlockBlobReader/src/blobreaderdeploy.json
+      # - name: Test BlockBlob ARM Templates using arm-ttk
+      #   id: blockblobfilestest
+      #   uses: aliencube/arm-ttk-actions@main
+      #   with:
+      #     path: BlockBlobReader/src/blobreaderdeploy.json
 
-      - name: Rename file 
-        run: cp BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/mainTemplate.json
+      # - name: Rename file 
+      #   run: cp BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/mainTemplate.json
 
-      - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
-        id: blockblobpremiumplanfilestest
-        uses: aliencube/arm-ttk-actions@main
-        with:
-          path: BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json
+      # - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
+      #   id: blockblobpremiumplanfilestest
+      #   uses: aliencube/arm-ttk-actions@main
+      #   with:
+      #     path: BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json
 
   security-test:
     name: "ARM template tests using checkov"

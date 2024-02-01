@@ -13,11 +13,11 @@ jobs:
         id: metricfilestest
         uses: microsoft/action-armttk@main
         with:
-          armttkVersion: aka.ms/arm-ttk-latest
-          workdir: EventHubs/src/
+          armttkVersion: aka.ms/arm-ttk-marketplace
+          workdir: EventHubs/src
           fail_on_error: true
           level: "info"
-          glob_pattern: azuredeploy_metrics.json
+          glob_pattern: ./azuredeploy_metrics.json
 
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest

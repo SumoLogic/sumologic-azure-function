@@ -43,16 +43,16 @@ jobs:
       - name: Rename file 
         run: |
           rm -rf arm-ttk
-          cp BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/mainTemplate.json 
+          cp BlockBlobReader/src/PremiumPlan/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/PremiumPlan/mainTemplate.json 
           shopt -s extglob
-          cd BlockBlobReader/src
+          cd BlockBlobReader/src/PremiumPlan
           rm -- !(mainTemplate.json)
         
       - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
         id: blockblobpremiumplanfilestest
         uses: microsoft/action-armttk@main
         with:
-          workdir: BlockBlobReader/src
+          workdir: BlockBlobReader/src/PremiumPlan
           fail_on_error: true
           level: "info"
 

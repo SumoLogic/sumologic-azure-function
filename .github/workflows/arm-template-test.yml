@@ -7,16 +7,13 @@ jobs:
     runs-on: "ubuntu-latest"
     strategy:
       matrix: 
-        # name: ['Metric', 'BlockBlob', 'BlockBlob Premium Plan']
-        # file: ['azuredeploy_metrics.json', 'blobreaderdeploy.json', 'blobreaderdeploywithPremiumPlan.json']
-        # dir: ['EventHubs/src', 'BlockBlobReader/src', 'BlockBlobReader/src/PremiumPlan']
         include: # Includes one more job
-          - name: 'Metric'
-            file: 'azuredeploy_metrics.json'
+          - file: 'azuredeploy_metrics.json'
             dir: 'EventHubs/src'
-          - name: 'BlockBlob'
-            file: 'blobreaderdeploy.json'
+          - file: 'blobreaderdeploy.json'
             dir: 'BlockBlobReader/src'
+          - file: 'blobreaderdeploywithPremiumPlan.json'
+            dir: 'BlockBlobReader/src/PremiumPlan'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -27,43 +24,11 @@ jobs:
           cd ${{ matrix.dir }}
           find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
 
-      - name: Test ${{ matrix.name }} ARM Templates using arm-ttk
-        uses: microsoft/action-armttk@main
+      - uses: microsoft/action-armttk@main
         with:
           workdir: ${{ matrix.dir }}
           fail_on_error: true
           level: "info"
-
-      # - name: Rename file 
-      #   run: |
-      #     rm -rf arm-ttk
-      #     cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json 
-      #     cd BlockBlobReader/src
-      #     find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
-        
-      # - name: Test BlockBlob ARM Templates using arm-ttk
-      #   id: blockblobfilestest
-      #   uses: microsoft/action-armttk@main
-      #   with:
-      #     workdir: BlockBlobReader/src
-      #     fail_on_error: true
-      #     level: "info"
-
-      # - name: Rename file 
-      #   run: |
-      #     rm -rf arm-ttk
-      #     cp BlockBlobReader/src/PremiumPlan/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/PremiumPlan/mainTemplate.json 
-      #     cd BlockBlobReader/src/PremiumPlan
-      #     find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
-        
-      # - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
-      #   id: blockblobpremiumplanfilestest
-      #   uses: microsoft/action-armttk@main
-      #   with:
-      #     workdir: BlockBlobReader/src/PremiumPlan
-
-      #     fail_on_error: true
-      #     level: "info"
 
   security-test:
     name: "ARM template tests using checkov"

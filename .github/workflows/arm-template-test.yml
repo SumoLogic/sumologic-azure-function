@@ -10,7 +10,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Rename file 
-        run: cp EventHubs/src/azuredeploy_metrics.json EventHubs/src/mainTemplate.json && shopt -s extglob && rm -- !(EventHubs/src/mainTemplate.json)
+        run: |
+          cp EventHubs/src/azuredeploy_metrics.json EventHubs/src/mainTemplate.json 
+          shopt -s extglob
+          cd EventHubs/src
+          rm -- !(mainTemplate.json)
+        
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest

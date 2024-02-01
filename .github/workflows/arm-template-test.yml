@@ -25,6 +25,7 @@ jobs:
 
       - name: Rename file 
         run: |
+          rm -rf arm-ttk
           cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json 
           cd BlockBlobReader/src
           find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +

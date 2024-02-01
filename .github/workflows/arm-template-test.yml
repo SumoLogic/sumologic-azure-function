@@ -21,11 +21,9 @@ jobs:
         id: metricfilestest
         uses: microsoft/action-armttk@main
         with:
-          armttkVersion: aka.ms/arm-ttk-latest
           workdir: EventHubs/src
           fail_on_error: true
           level: "info"
-          glob_pattern: ./mainTemplate.json
 
       # - name: Rename file 
       #   run: cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json

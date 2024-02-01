@@ -33,38 +33,22 @@ jobs:
   security-test:
     name: "ARM template tests using checkov"
     runs-on: "ubuntu-latest"
+    strategy:
+      matrix: 
+        include: # Includes one more job
+          - file: 'azuredeploy_metrics.json'
+            dir: 'EventHubs/src'
+          - file: 'blobreaderdeploy.json'
+            dir: 'BlockBlobReader/src'
+          - file: 'blobreaderdeploywithPremiumPlan.json'
+            dir: 'BlockBlobReader/src/PremiumPlan'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Test Metric ARM Templates using checkov
-        id: metriccheckov
-        uses: bridgecrewio/checkov-action@master
+      - uses: bridgecrewio/checkov-action@master
         with:
-          file: EventHubs/src/azuredeploy_metrics.json
-          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
-          quiet: false
-          framework: arm
-          output_format: cli
-          output_bc_ids: true
-
-      - name: Test BlockBlob ARM Templates using checkov
-        id: blockblobcheckov
-        uses: bridgecrewio/checkov-action@master
-        with:
-          file: BlockBlobReader/src/blobreaderdeploy.json
-          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
-          quiet: false
-          framework: arm
-          output_format: cli
-          output_bc_ids: true
-          log_level: DEBUG
-
-      - name: Test BlockBlob Premium Plan Templates using checkov
-        id: blockblobpremiumplancheckov
-        uses: bridgecrewio/checkov-action@master
-        with:
-          file: BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json
+          file: ${{ matrix.dir }}/${{ matrix.file }}
           skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
           quiet: false
           framework: arm

@@ -9,21 +9,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Rename file 
+        run: cp EventHubs/src/azuredeploy_metrics.json EventHubs/src/mainTemplate.json
+
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
         uses: microsoft/action-armttk@main
         with:
-          armttkVersion: aka.ms/arm-ttk-marketplace
+          armttkVersion: aka.ms/arm-ttk-latest
           workdir: EventHubs/src
           fail_on_error: true
           level: "info"
-          glob_pattern: ./azuredeploy_metrics.json
+
+      - name: Rename file 
+        run: cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json
 
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest
         uses: aliencube/arm-ttk-actions@main
         with:
           path: BlockBlobReader/src/blobreaderdeploy.json
+
+      - name: Rename file 
+        run: cp BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/mainTemplate.json
 
       - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
         id: blockblobpremiumplanfilestest

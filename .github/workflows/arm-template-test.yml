@@ -14,7 +14,7 @@ jobs:
           cp EventHubs/src/azuredeploy_metrics.json EventHubs/src/mainTemplate.json 
           shopt -s extglob
           cd EventHubs/src
-          rm -- !(mainTemplate.json)
+          find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
@@ -30,7 +30,7 @@ jobs:
           cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json 
           shopt -s extglob
           cd BlockBlobReader/src
-          rm -- !(mainTemplate.json)
+          find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
         
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest
@@ -46,13 +46,14 @@ jobs:
           cp BlockBlobReader/src/PremiumPlan/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/PremiumPlan/mainTemplate.json 
           shopt -s extglob
           cd BlockBlobReader/src/PremiumPlan
-          rm -- !(mainTemplate.json)
+          find . -maxdepth 1 -type f -name '*.json' ! -name 'mainTemplate.json' -exec rm -f {} +
         
       - name: Test BlockBlob Premium Plan ARM Templates using arm-ttk
         id: blockblobpremiumplanfilestest
         uses: microsoft/action-armttk@main
         with:
           workdir: BlockBlobReader/src/PremiumPlan
+
           fail_on_error: true
           level: "info"
 

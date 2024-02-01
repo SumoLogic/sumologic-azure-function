@@ -15,7 +15,6 @@ jobs:
           shopt -s extglob
           cd EventHubs/src
           rm -- !(mainTemplate.json)
-        
 
       - name: Test Metric ARM Templates using arm-ttk
         id: metricfilestest
@@ -25,14 +24,20 @@ jobs:
           fail_on_error: true
           level: "info"
 
-      # - name: Rename file 
-      #   run: cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json
-
-      # - name: Test BlockBlob ARM Templates using arm-ttk
-      #   id: blockblobfilestest
-      #   uses: aliencube/arm-ttk-actions@main
-      #   with:
-      #     path: BlockBlobReader/src/blobreaderdeploy.json
+     - name: Rename file 
+        run: |
+          cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json 
+          shopt -s extglob
+          cd BlockBlobReader/src
+          rm -- !(mainTemplate.json)
+        
+      - name: Test BlockBlob ARM Templates using arm-ttk
+        id: blockblobfilestest
+        uses: microsoft/action-armttk@main
+        with:
+          workdir: BlockBlobReader/src
+          fail_on_error: true
+          level: "info"
 
       # - name: Rename file 
       #   run: cp BlockBlobReader/src/blobreaderdeploywithPremiumPlan.json BlockBlobReader/src/mainTemplate.json

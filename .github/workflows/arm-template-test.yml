@@ -24,12 +24,12 @@ jobs:
           fail_on_error: true
           level: "info"
 
-     - name: Rename file 
-        run: |
-          cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json 
-          shopt -s extglob
-          cd BlockBlobReader/src
-          rm -- !(mainTemplate.json)
+      - name: Rename file 
+          run: |
+            cp BlockBlobReader/src/blobreaderdeploy.json BlockBlobReader/src/mainTemplate.json 
+            shopt -s extglob
+            cd BlockBlobReader/src
+            rm -- !(mainTemplate.json)
         
       - name: Test BlockBlob ARM Templates using arm-ttk
         id: blockblobfilestest

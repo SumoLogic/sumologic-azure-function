@@ -13,7 +13,7 @@ jobs:
           - file: 'blobreaderdeploy.json'
             dir: 'BlockBlobReader/src'
           - file: 'blobreaderdeploywithPremiumPlan.json'
-            dir: 'BlockBlobReader/src/PremiumPlan'
+            dir: 'BlockBlobReader/src'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
           - file: 'blobreaderdeploy.json'
             dir: 'BlockBlobReader/src'
           - file: 'blobreaderdeploywithPremiumPlan.json'
-            dir: 'BlockBlobReader/src/PremiumPlan'
+            dir: 'BlockBlobReader/src'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4

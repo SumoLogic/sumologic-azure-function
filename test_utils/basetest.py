@@ -5,14 +5,28 @@ import datetime
 import subprocess
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
-
+from sumologic import SumoLogic
+from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.loganalytics import LogAnalyticsManagementClient
 
 class BaseTest(unittest.TestCase):
     
-    def create_credentials(self):
+    def setUp(self):
+        # azure credentials
         self.azure_credential = DefaultAzureCredential()
         self.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
         self.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
+
+        self.resource_client = ResourceManagementClient(
+            self.azure_credential, self.subscription_id)
+        self.repo_name, self.branch_name = self.get_git_info()
+
+        # sumologic: collector and source
+        self.sumologic_cli = SumoLogic(
+            os.environ["SUMO_ACCESS_ID"], os.environ["SUMO_ACCESS_KEY"], self.api_endpoint(os.environ["SUMO_DEPLOYMENT"]))
+        self.collector_id = self.create_collector(self.collector_name)
+        self.sumo_source_id, self.sumo_endpoint_url = self.create_source(
+            self.collector_id, self.source_name)
 
     def resource_group_exists(self, group_name):
         # grp: name,id,properties
@@ -26,15 +40,47 @@ class BaseTest(unittest.TestCase):
 
         return False
 
+    def create_resource_group(self):
+        resource_group_params = {'location': self.resourcegroup_location}
+        resp = self.resource_client.resource_groups.create_or_update(
+            self.RESOURCE_GROUP_NAME, resource_group_params)
+        print('Creating ResourceGroup: {}'.format(
+            self.RESOURCE_GROUP_NAME), resp.properties.provisioning_state)
+        
+    def get_resource(self, restype):
+        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+            if (item.type == restype):
+                return item
+        raise Exception("%s Resource Not Found" % (restype))
+
+    def get_resource_name(self, resprefix, restype):
+        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+            if (item.name.startswith(resprefix) and item.type == restype):
+                return item.name
+        raise Exception("%s Resource Not Found" % (resprefix))
+    
+    def get_resources(self, resource_group_name):
+        return self.resource_client.resources.list_by_resource_group(resource_group_name)
+
+    def get_Workspace_Id(self):
+        workspace = self.get_resource(
+            'microsoft.operationalinsights/workspaces')
+        client = LogAnalyticsManagementClient(
+            credential=self.azure_credential,
+            subscription_id=self.subscription_id,
+        )
+
+        response = client.workspaces.get(
+            resource_group_name=self.RESOURCE_GROUP_NAME,
+            workspace_name=workspace.name,
+        )
+        return response.customer_id
+
+
     def delete_resource_group(self):
             resp = self.resource_client.resource_groups.begin_delete(self.RESOURCE_GROUP_NAME)
             resp.wait()
             print('Deleted ResourceGroup:{}'.format(self.RESOURCE_GROUP_NAME), resp.status())
-
-    def create_resource_group(self):
-            resource_group_params = {'location': self.resourcegroup_location}
-            resp = self.resource_client.resource_groups.create_or_update(self.RESOURCE_GROUP_NAME, resource_group_params)
-            print('Creating ResourceGroup: {}'.format(self.RESOURCE_GROUP_NAME), resp.properties.provisioning_state)
 
     def deploy_template(self):
             print("Deploying template")

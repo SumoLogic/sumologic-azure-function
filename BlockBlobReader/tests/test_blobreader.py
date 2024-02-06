@@ -9,17 +9,6 @@ from azure.storage.blob import BlockBlobService
 from azure.storage.blob.models import BlobBlock
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
-from azure.mgmt.eventgrid import EventGridManagementClient
-from azure.mgmt.eventhub import EventHubManagementClient
-from azure.mgmt.authorization import AuthorizationManagementClient
-from azure.mgmt.authorization.models import RoleAssignmentProperties
-from azure.graphrbac import GraphRbacManagementClient
-from azure.common.credentials import ServicePrincipalCredentials
-from azure.mgmt.eventgrid.models import (
-    EventHubEventSubscriptionDestination,
-    EventSubscriptionFilter,
-    EventSubscription
-)
 
 class TestBlobReaderFlow(BaseBlockBlobTest):
 
@@ -64,12 +53,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         # self.print_invocation_logs()
         # self.check_error_logs()
 
-    def subscribe_to_another_storage_account():
-        # refactor insert mock logs/json
-        # crrerate/delete eeveent subscript
-        # assign/delete role
-        pass
-
     def check_both_storage_accounts_present():
         pass
 
@@ -84,13 +67,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
     def check_one_to_one_task_mapping():
         pass
-
-    def get_resource_name(self, resprefix, restype):
-        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
-            if (item.name.startswith(resprefix) and item.type == restype):
-                self.res_suffix = item.name.replace(resprefix, "").strip()
-                return item.name
-        raise Exception("%s Resource Not Found" % (resprefix))
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())
@@ -118,73 +94,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         # table = table_service.list_tables().items[0]  # flaky
         return table_service
 
-    def get_event_hub_resource_id(self):
-        namespace_name = self.get_resource_name(
-            "SUMOBREventHubNamespace", "Microsoft.EventHub/namespaces")
-        eventhub_client = EventHubManagementClient(self.azure_credential,
-                                                   self.subscription_id)
-        ehitr = eventhub_client.event_hubs.list_by_namespace(
-            self.RESOURCE_GROUP_NAME, namespace_name)
-        return next(ehitr).id  # assming single eventhub
-
-    def get_object_id(self, resource_name_prefix, resource_type="Microsoft.Web/sites"):
-        full_app_name = None
-        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
-            if (item.name.startswith(resource_name_prefix) and item.type == resource_type):
-                full_app_name = item.name
-                break
-
-        # without above it will throw Access Token missing or malformed and Invalid domain name in the request url.
-        credentials = ServicePrincipalCredentials(
-            client_id=self.config['AZURE_CLIENT_ID'],
-            secret=self.config['AZURE_CLIENT_SECRET'],
-            tenant=self.config['AZURE_TENANT_ID'],
-            resource="https://graph.windows.net"
-        )
-
-        gcli = GraphRbacManagementClient(
-            credentials, self.config['AZURE_TENANT_ID'])
-        sp = gcli.service_principals.list(
-            filter="displayName eq '%s'" % full_app_name)
-        sp = next(sp, False)
-        if sp:
-            print("Found Service Principal %s" % sp.display_name)
-            return sp.object_id
-        else:
-            raise Exception("Service Principal not found")
-
-    def delete_keylistrole_appservice(self, resource_group_name, storage_name, role_assignment_name):
-        resource_provider = "Microsoft.Storage"
-        resource_type = "storageAccounts"
-        scope = '/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s' % (
-            self.subscription_id, resource_group_name, resource_provider, resource_type, storage_name)
-        auth_cli = AuthorizationManagementClient(
-            self.azure_credential, self.subscription_id, api_version="2015-07-01")
-        resp = auth_cli.role_assignments.delete(scope, role_assignment_name)
-        print("%s App Service access revoked %s Storage account" %
-              (role_assignment_name, storage_name))
-
-    def assign_keylistrole_appservice(self, resource_group_name, storage_name, app_service_name):
-        resource_provider = "Microsoft.Storage"
-        resource_type = "storageAccounts"
-        scope = '/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s' % (
-            self.subscription_id, resource_group_name, resource_provider, resource_type, storage_name)
-        role_assignment_name = str(uuid.uuid4())
-        # id for "Storage Account Key Operator Service Role" https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#storage-account-key-operator-service-role
-        role_id = "/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s" % (
-            self.subscription_id, "81a9662b-bebf-436f-a333-f67b29880f12")
-        principal_id = self.get_object_id(app_service_name)
-        props = RoleAssignmentProperties(
-            role_definition_id=role_id, principal_id=principal_id)
-
-        auth_cli = AuthorizationManagementClient(
-            self.azure_credential, self.subscription_id, api_version="2015-07-01")
-        resp = auth_cli.role_assignments.create(
-            scope, role_assignment_name, properties=props)
-        print("%s App Service authorized to access %s Storage account" %
-              (app_service_name, storage_name))
-        return role_assignment_name
-
     def create_offset_table(self):
         print("creating FileOffsetMap table")
         self.table_service.create_table(self.offsetmap_table_name)
@@ -202,36 +111,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         if self.block_blob_service.exists(self.test_container_name):
             self.block_blob_service.delete_container(self.test_container_name)
             print("Deleting container %s" % self.test_container_name)
-
-    def create_event_subscription(self):
-        print("creating event subscription")
-        event_client = EventGridManagementClient(
-            self.azure_credential, self.subscription_id)
-
-        scope = '/subscriptions/'+self.subscription_id+'/resourceGroups/'+self.test_storage_res_group + \
-            '/providers/microsoft.storage/storageaccounts/%s' % self.test_storageaccount_name
-        destination = EventHubEventSubscriptionDestination(
-            resource_id=self.get_event_hub_resource_id())
-        esfilter = EventSubscriptionFilter(**{
-            "subject_begins_with": "/blobServices/default/containers/%s/" % self.test_container_name,
-            "subject_ends_with": "",
-            "is_subject_case_sensitive": False,
-            "included_event_types": ["Microsoft.Storage.BlobCreated"]
-        })
-        event_subscription_info = EventSubscription(
-            destination=destination, filter=esfilter)
-        create_resp = event_client.event_subscriptions.create_or_update(
-            scope, self.event_subscription_name, event_subscription_info)
-        create_resp.wait()
-
-    def delete_event_subscription(self):
-        print("deleting event subscription")
-        event_client = EventGridManagementClient(
-            self.azure_credential, self.subscription_id)
-        scope = '/subscriptions/'+self.subscription_id+'/resourceGroups/'+self.test_storage_res_group + \
-            '/providers/microsoft.storage/storageaccounts/%s' % self.test_storageaccount_name
-        event_client.event_subscriptions.delete(
-            scope, self.event_subscription_name+self.res_suffix)
 
     def create_or_update_blockblob(self, container_name, file_name, datalist, blocks):
         block_id = self.get_random_name()
@@ -321,57 +200,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                                                      data_block, blocks)
 
         print("inserted %s" % (blocks))
-
-    def is_task_consumer_invoked(self):
-        if (not self.table_service.exists(self.log_table_name)):
-            return False
-
-        rows = self.table_service.query_entities(
-            self.log_table_name, filter="PartitionKey eq 'I'",
-            select='FunctionName')
-        is_task_consumer_func_invoked = False
-        for row in rows.items:
-            if row.get("FunctionName") == "BlobTaskConsumer":
-                is_task_consumer_func_invoked = True
-                break
-        return is_task_consumer_func_invoked
-
-    def print_invocation_logs(self):
-        max_retries = 50
-        while (max_retries > 0 and (not self.is_task_consumer_invoked())):
-            print("waiting for invocation logs...",
-                  max_retries, self.is_task_consumer_invoked())
-            sleep(15)
-            max_retries -= 1
-
-        rows = self.table_service.query_entities(
-            self.log_table_name, filter="PartitionKey eq 'I'")
-
-        for row in sorted(rows.items, key=lambda k: k['FunctionName']):
-            print(row.get("FunctionName"), str(
-                row.get('StartTime')), str(row.get('EndTime')))
-            print(row.get("ErrorDetails"))
-            print(row.get('LogOutput', '').encode('utf-8'))
-
-    def get_error_details(self, row_key):
-        rows = self.table_service.query_entities(self.log_table_name,
-                                                 filter="PartitionKey eq 'I' and RowKey eq '%s' and ErrorDetails ne ''" % (function_id), select="ErrorDetails")
-        errors = [r["ErrorDetails"] for r in rows if r.get("ErrorDetails")]
-        return errors[0] if len(errors) > 0 and errors[0] else ""
-
-    def check_error_logs(self):
-        expected_err_msg = "StorageError: The specified entity already exists."
-        rows = self.table_service.query_entities(
-            self.log_table_name, filter="PartitionKey eq 'R2' and HasError eq 'True'")
-
-        haserr = False
-        for row in rows.items:
-            print("LogRow: ", row["FunctionName"], row["HasError"])
-            if row["FunctionName"].startswith(("BlobTaskProducer", "BlobTaskConsumer", "DLQTaskConsumer")) and row["HasError"] and not self.get_error_details(row["FunctionInstanceId"]).startswith(expected_err_msg):
-                haserr = True
-
-        self.assertFalse(haserr)
-
 
 if __name__ == '__main__':
     unittest.main()

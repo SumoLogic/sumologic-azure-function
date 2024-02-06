@@ -108,6 +108,7 @@
             "tags": {},
             "scale": null,
             "properties": {
+                "minimumTlsVersion": "TLS1_2",
                 "networkAcls": {
                     "bypass": "AzureServices",
                     "defaultAction": "Allow"
@@ -140,6 +141,7 @@
             "tags": {},
             "scale": null,
             "properties": {
+                "minimumTlsVersion": "TLS1_2",
                 "networkAcls": {
                     "bypass": "AzureServices",
                     "defaultAction": "Allow"

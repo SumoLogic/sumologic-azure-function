@@ -114,8 +114,8 @@
     },
     "variables": {
 
-        "consumer_roleGuid": "[guid(parameters('sites_blobreaderconsumer_name'), uniqueString(deployment().name, resourceGroup().id))]",
-        "dlq_roleGuid": "[guid(parameters('sites_DLQProcessor_name'), uniqueString(deployment().name, resourceGroup().id))]",
+        "consumer_roleGuid": "[guid(parameters('sites_blobreaderconsumer_name'), uniqueString(resourceGroup().id))]",
+        "dlq_roleGuid": "[guid(parameters('sites_DLQProcessor_name'), uniqueString(resourceGroup().id))]",
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]",
         "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
         "DLQProcessor_resourceId": "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",

@@ -19,12 +19,12 @@ class BaseBlockBlobTest(BaseTest):
         self.sumo_source_id, self.sumo_endpoint_url = self.create_source(self.collector_id, self.source_name)
         
     def tearDown(self):
-        # if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
-        #     self.delete_resource_group()
-        #     self.delete_event_subscription()
-        # self.delete_container()
-        # self.delete_source(self.collector_id, self.sumo_source_id)
-        # self.delete_collector(self.collector_id)
+        if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
+            self.delete_resource_group()
+            self.delete_event_subscription()
+        self.delete_container()
+        self.delete_source(self.collector_id, self.sumo_source_id)
+        self.delete_collector(self.collector_id)
         self.sumologic_cli.session.close()
     
     def _parse_template(self):

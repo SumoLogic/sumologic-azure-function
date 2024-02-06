@@ -10,7 +10,7 @@ class TestEventHubLogs(BaseEventHubTest):
 
     def setUp(self):
         super(TestEventHubLogs, self).setUp()
-        self.RESOURCE_GROUP_NAME = "TestEventHubLogs-%s" % (
+        self.resource_group_name = "TestEventHubLogs-%s" % (
             datetime.now().strftime("%d-%m-%y-%H-%M-%S"))
         self.function_name_prefix = "EventHubs_Logs"
         self.template_name = 'azuredeploy_logs.json'
@@ -20,10 +20,11 @@ class TestEventHubLogs(BaseEventHubTest):
         self.expected_resource_count = 7
 
     def test_pipeline(self):
-        self.create_resource_group()
+        self.create_resource_group(
+            self.resourcegroup_location, self.resource_group_name)
         self.deploy_template()
         print("Testing Stack Creation")
-        self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
+        self.assertTrue(self.resource_group_exists(self.resource_group_name))
         self.insert_mock_logs_in_EventHub('activity_log_fixtures.json')
         
     def insert_mock_logs_in_EventHub(self, filename):

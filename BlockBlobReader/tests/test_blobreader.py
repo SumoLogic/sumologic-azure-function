@@ -17,25 +17,33 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.collector_name = "azure_blob_unittest-%s" % (datetime_value)
         self.source_name = "blob_data-%s" % (datetime_value)
         super(TestBlobReaderFlow, self).setUp()
-        self.RESOURCE_GROUP_NAME = "TBL-%s" % (datetime_value)
+
+        # resource group
+        self.resource_group_name = "TBL-%s" % (datetime_value)
         self.template_name = 'blobreaderdeploy.json'
         self.log_table_name = "AzureWebJobsHostLogs%d%02d" % (
             datetime.now().year, datetime.now().month)
         self.offsetmap_table_name = "FileOffsetMap"
 
-        # self.test_storage_res_group = "ag-sumo"
-        # self.test_storageaccount_name = "allbloblogs"
-        self.test_storage_res_group = "SumoAuditCollection"
-        self.test_storageaccount_name = "allbloblogseastus"
-        self.test_storageAccountRegion = "East US"
+        # storage account
+        test_datetime_value = datetime.now().strftime("%d%m%y%H%M%S")
+        self.test_storage_res_group = "sumosa%s" % (test_datetime_value)
+        self.test_storageaccount_name = "sa%s" % (test_datetime_value)
+        self.test_storageAccountRegion = "Central US"
         self.test_container_name = "testcontainer-%s" % (datetime_value)
         self.test_filename = "testblob"
         self.event_subscription_name = "SUMOBRSubscription"
 
     def test_pipeline(self):
-        self.create_resource_group()
+        self.create_resource_group(
+            self.resourcegroup_location, self.resource_group_name)
+        
+        # create new resource group and storage account
+        self.create_storage_account(self.test_storageAccountRegion,
+                            self.test_storage_res_group, self.test_storageaccount_name)
+        
         self.deploy_template()
-        self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME))
+        self.assertTrue(self.resource_group_exists(self.resource_group_name))
 
         self.table_service = self.get_table_service()
         self.block_blob_service = self.get_blockblob_service(
@@ -87,7 +95,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         STORAGE_ACCOUNT_NAME = self.get_resource_name(
             "sumobrlogs", "Microsoft.Storage/storageAccounts")
         storage_keys = storage_client.storage_accounts.list_keys(
-            self.RESOURCE_GROUP_NAME, STORAGE_ACCOUNT_NAME)
+            self.resource_group_name, STORAGE_ACCOUNT_NAME)
         acckey = storage_keys.keys[0].value
         table_service = TableService(account_name=STORAGE_ACCOUNT_NAME,
                                      account_key=acckey)

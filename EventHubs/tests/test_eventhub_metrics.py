@@ -13,7 +13,7 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.collector_name = "azure_metric_unittest-%s" % (datetime_value)
         self.source_name = "metric_data-%s" % (datetime_value)
         super(TestEventHubMetrics, self).setUp()
-        self.RESOURCE_GROUP_NAME = "EventHubMetrics-%s" % (datetime_value)
+        self.resource_group_name = "EventHubMetrics-%s" % (datetime_value)
         self.template_name = "azuredeploy_metrics.json"
         self.event_hub_namespace_prefix = "SMNamespace"
         self.eventhub_name = "insights-metrics-pt1m"
@@ -22,9 +22,10 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.expected_resource_count = 7
         
     def test_pipeline(self):
-        self.create_resource_group()
+        self.create_resource_group(
+            self.resourcegroup_location, self.resource_group_name)
         self.deploy_template()
-        self.assertTrue(self.resource_group_exists(self.RESOURCE_GROUP_NAME)) 
+        self.assertTrue(self.resource_group_exists(self.resource_group_name)) 
         self.insert_mock_metrics_in_EventHub('metrics_fixtures.json')
         time.sleep(300)  # Due to latency, logs are available after few mins.
         self.check_resource_count()

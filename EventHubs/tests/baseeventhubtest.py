@@ -15,8 +15,8 @@ from basetest import BaseTest
 class BaseEventHubTest(BaseTest):
 
     def tearDown(self):
-        if self.resource_group_exists(self.RESOURCE_GROUP_NAME):
-            self.delete_resource_group()
+        if self.resource_group_exists(self.resource_group_name):
+            self.delete_resource_group(self.resource_group_name)
         self.delete_source(self.collector_id, self.sumo_source_id)
         self.delete_collector(self.collector_id)
         self.sumologic_cli.session.close()
@@ -41,7 +41,7 @@ class BaseEventHubTest(BaseTest):
         defaultauthorule_name = "RootManageSharedAccessKey"
         namespace_name = self.get_resource_name(event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
         eventhub_client = EventHubManagementClient(self.azure_credential, self.subscription_id)
-        eventhub_keys = eventhub_client.namespaces.list_keys(self.RESOURCE_GROUP_NAME, namespace_name, defaultauthorule_name)
+        eventhub_keys = eventhub_client.namespaces.list_keys(self.resource_group_name, namespace_name, defaultauthorule_name)
        
         producer = EventHubProducerClient.from_connection_string(
             conn_str=eventhub_keys.primary_connection_string,
@@ -87,8 +87,8 @@ class BaseEventHubTest(BaseTest):
         return value in [d.get(key) for d in logs]
     
     def check_resource_count(self):
-        resource_count = len(list(self.get_resources(self.RESOURCE_GROUP_NAME)))
-        self.assertTrue(resource_count == self.expected_resource_count, f"resource count of resource group {self.RESOURCE_GROUP_NAME} differs from expected count : {resource_count}")
+        resource_count = len(list(self.get_resources(self.resource_group_name)))
+        self.assertTrue(resource_count == self.expected_resource_count, f"resource count of resource group {self.resource_group_name} differs from expected count : {resource_count}")
 
     def check_success_log(self, logs):
         self.assertTrue(self.filter_logs(logs, 'message', self.successful_sent_message), "No success message found in azure function logs")

@@ -12,11 +12,14 @@ from azure.mgmt.loganalytics import LogAnalyticsManagementClient
 class BaseTest(unittest.TestCase):
     
     def setUp(self):
-        # azure credentials
+        # Acquire a credential object.
         self.azure_credential = DefaultAzureCredential()
+
+        # Retrieve subscription ID from environment variable.
         self.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
         self.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
 
+        # Obtain the management object for resources.
         self.resource_client = ResourceManagementClient(
             self.azure_credential, self.subscription_id)
         self.repo_name, self.branch_name = self.get_git_info()
@@ -40,21 +43,20 @@ class BaseTest(unittest.TestCase):
 
         return False
 
-    def create_resource_group(self):
-        resource_group_params = {'location': self.resourcegroup_location}
+    def create_resource_group(self, location, resource_group_name):
         resp = self.resource_client.resource_groups.create_or_update(
-            self.RESOURCE_GROUP_NAME, resource_group_params)
+            resource_group_name, {'location': location})
         print('Creating ResourceGroup: {}'.format(
-            self.RESOURCE_GROUP_NAME), resp.properties.provisioning_state)
+            resp.name), resp.properties.provisioning_state)
         
     def get_resource(self, restype):
-        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+        for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
             if (item.type == restype):
                 return item
         raise Exception("%s Resource Not Found" % (restype))
 
     def get_resource_name(self, resprefix, restype):
-        for item in self.resource_client.resources.list_by_resource_group(self.RESOURCE_GROUP_NAME):
+        for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
             if (item.name.startswith(resprefix) and item.type == restype):
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
@@ -71,20 +73,21 @@ class BaseTest(unittest.TestCase):
         )
 
         response = client.workspaces.get(
-            resource_group_name=self.RESOURCE_GROUP_NAME,
+            resource_group_name=self.resource_group_name,
             workspace_name=workspace.name,
         )
         return response.customer_id
 
-
-    def delete_resource_group(self):
-            resp = self.resource_client.resource_groups.begin_delete(self.RESOURCE_GROUP_NAME)
-            resp.wait()
-            print('Deleted ResourceGroup:{}'.format(self.RESOURCE_GROUP_NAME), resp.status())
+    def delete_resource_group(self, resource_group_name):
+        resp = self.resource_client.resource_groups.begin_delete(
+            resource_group_name)
+        resp.wait()
+        print('Deleted ResourceGroup:{}'.format(
+            resource_group_name), resp.status())
 
     def deploy_template(self):
             print("Deploying template")
-            deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
+            deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.resource_group_name)
             template_data = self._parse_template()
 
             deployment_properties = {
@@ -95,7 +98,7 @@ class BaseTest(unittest.TestCase):
             deployment = Deployment(properties=deployment_properties)
 
             deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
-                self.RESOURCE_GROUP_NAME,
+                self.resource_group_name,
                 deployment_name,
                 deployment
             )

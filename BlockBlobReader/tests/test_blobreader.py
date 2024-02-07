@@ -12,11 +12,12 @@ from azure.cosmosdb.table.tableservice import TableService
 
 class TestBlobReaderFlow(BaseBlockBlobTest):
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
         self.collector_name = "azure_blob_unittest-%s" % (datetime_value)
         self.source_name = "blob_data-%s" % (datetime_value)
-        super(TestBlobReaderFlow, self).setUp()
+        super(TestBlobReaderFlow, self).setUpClass()
 
         # resource group
         self.resource_group_name = "TBL-%s" % (datetime_value)
@@ -34,26 +35,30 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.test_filename = "testblob"
         self.event_subscription_name = "SUMOBRSubscription"
 
-    def test_pipeline(self):
+    def test_01_pipeline(self):
         self.create_resource_group(
             self.resourcegroup_location, self.resource_group_name)
-        
+
         # create new resource group and storage account
         self.create_storage_account(self.test_storageAccountRegion,
-                            self.test_storage_res_group, self.test_storageaccount_name)
-        
+                                    self.test_storage_res_group, self.test_storageaccount_name)
+
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.resource_group_name))
 
+    def test_02_resource_count(self):
+        expected_resource_count = 10
+        self.check_resource_count(expected_resource_count)
+
+    def test_03_func_logs(self):
         self.table_service = self.get_table_service()
         self.block_blob_service = self.get_blockblob_service(
             self.test_storage_res_group, self.test_storageaccount_name)
         self.create_offset_table()
         self.create_container()
         sleep(10)
-
         log_type = os.environ.get("LOG_TYPE", "log")
-        print("Inserting mock %s data in BlobStorage" % log_type)
+        self.logger.info("inserting mock %s data in BlobStorage" % log_type)
         if log_type in ("csv", "log",  "blob"):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
@@ -61,20 +66,20 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         # self.print_invocation_logs()
         # self.check_error_logs()
 
-    def check_both_storage_accounts_present():
-        pass
+    # def check_both_storage_accounts_present():
+    #     pass
 
-    def check_sorted_task_range():
-        pass
+    # def check_sorted_task_range():
+    #     pass
 
-    def check_offset_in_range():
-        pass
+    # def check_offset_in_range():
+    #     pass
 
-    def extract_tasks_from_logs():
-        pass
+    # def extract_tasks_from_logs():
+    #     pass
 
-    def check_one_to_one_task_mapping():
-        pass
+    # def check_one_to_one_task_mapping():
+    #     pass
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())
@@ -103,7 +108,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         return table_service
 
     def create_offset_table(self):
-        print("creating FileOffsetMap table")
+        self.logger.info("creating FileOffsetMap table")
         self.table_service.create_table(self.offsetmap_table_name)
 
     def create_test_storage_account():
@@ -113,12 +118,12 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
     def create_container(self):
         if not self.block_blob_service.exists(self.test_container_name):
             self.block_blob_service.create_container(self.test_container_name)
-            print("Creating container %s" % self.test_container_name)
+            self.logger.info("creating container %s" % self.test_container_name)
 
     def delete_container(self):
         if self.block_blob_service.exists(self.test_container_name):
             self.block_blob_service.delete_container(self.test_container_name)
-            print("Deleting container %s" % self.test_container_name)
+            self.logger.info("deleting container %s" % self.test_container_name)
 
     def create_or_update_blockblob(self, container_name, file_name, datalist, blocks):
         block_id = self.get_random_name()
@@ -172,7 +177,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             blocks.insert(len(blocks)-1, BlobBlock(id=block_id))
             self.block_blob_service.put_block_list(
                 self.test_container_name, test_filename, blocks)
-        print("inserted %s" % (blocks))
+        self.logger.info("inserted %s" % (blocks))
 
     def get_csv_data(self):
         all_lines = []
@@ -207,7 +212,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                                                      test_filename,
                                                      data_block, blocks)
 
-        print("inserted %s" % (blocks))
+        self.logger.info("inserted %s" % (blocks))
 
 if __name__ == '__main__':
     unittest.main()

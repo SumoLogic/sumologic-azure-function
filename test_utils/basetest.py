@@ -6,12 +6,12 @@ import subprocess
 import logging
 import sys
 from datetime import timedelta
-from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 from sumologic import SumoLogic
+from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.loganalytics import LogAnalyticsManagementClient
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
+from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
 class BaseTest(unittest.TestCase):
     

@@ -54,3 +54,14 @@ jobs:
           framework: arm
           output_format: cli
           output_bc_ids: true
+
+    npm-outdated:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+        
+        - name: Run npm outdated
+          run: |
+            cd BlockBlobReader/target/consumer_build
+            npm outdated

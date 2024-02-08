@@ -15,4 +15,7 @@ jobs:
         uses: actions/checkout@v4
       
       - working-directory: ${{ matrix.dir }}
-        run: npm outdated | tee /dev/tty  | grep -v "Package" |  awk '$3!=$4' | wc -l |  awk  '{if ($1!=0) {print $1 " Deprecated packages found"; exit 1;} else {print "No Deprecated packages found"; exit 0;} }'
+        run: |
+          npm outdated >> output.txt
+          cat output.txt
+          cat output.txt | grep -v "Package" |  awk '$3!=$4' | wc -l |  awk  '{if ($1!=0) {print $1 " Deprecated packages found"; exit 1;} else {print "No Deprecated packages found"; exit 0;} }'

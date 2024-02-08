@@ -39,8 +39,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         # resource group
         self.resource_group_name = "TBL-%s" % (datetime_value)
         self.template_name = 'blobreaderdeploy.json'
-        self.log_table_name = "AzureWebJobsHostLogs%d%02d" % (
-            datetime.now().year, datetime.now().month)
         self.offsetmap_table_name = "FileOffsetMap"
         self.function_name = "BlobTaskConsumer"
 
@@ -48,21 +46,16 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             self.resourcegroup_location, self.resource_group_name)
 
     def test_01_pipeline(self):
-        self.logger.info("started: test_01_pipeline")
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.resource_group_name))
         self.table_service = self.get_table_service()
         self.create_offset_table(self.offsetmap_table_name)
-        self.logger.info("ended: test_01_pipeline")
 
     def test_02_resource_count(self):
-        self.logger.info("started: test_02_resource_count")
         expected_resource_count = 10
         self.check_resource_count(expected_resource_count)
-        self.logger.info("ended: test_02_resource_count")
 
     def test_03_func_logs(self):
-        self.logger.info("started: test_03_func_logs")
         log_type = os.environ.get("LOG_TYPE", "log")
         self.logger.info("inserting mock %s data in BlobStorage" % log_type)
         if log_type in ("csv", "log",  "blob"):
@@ -83,8 +76,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                          "Warning messages found in azure function logs")
-        self.logger.info("ended: test_03_func_logs")
-
 
     # def check_both_storage_accounts_present():
     #     pass
@@ -132,20 +123,11 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.logger.info("creating FileOffsetMap table")
         self.table_service.create_table(offsetmap_table_name)
 
-    def create_test_storage_account():
-        # Todo: remove storage account allbloblogs dependency
-        pass
-    
     @classmethod
     def create_container(cls, test_container_name):
         if not cls.block_blob_service.exists(test_container_name):
             cls.block_blob_service.create_container(test_container_name)
             cls.logger.info("creating container %s" % test_container_name)
-
-    # def delete_container(self):
-    #     if self.block_blob_service.exists(self.test_container_name):
-    #         self.block_blob_service.delete_container(self.test_container_name)
-    #         self.logger.info("deleting container %s" % self.test_container_name)
 
     def create_or_update_blockblob(self, container_name, file_name, datalist, blocks):
         block_id = self.get_random_name()

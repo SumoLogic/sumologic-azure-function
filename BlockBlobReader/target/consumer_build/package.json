@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@azure/abort-controller": "^1.1.0",
+    "@azure/abort-controller": "^2.0.0",
     "@azure/arm-storage": "^18.2.0",
     "@azure/identity": "^4.0.1",
     "@azure/service-bus": "^7.9.4",

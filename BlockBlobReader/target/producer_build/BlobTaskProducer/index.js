@@ -190,6 +190,6 @@ module.exports = async function (context, eventHubMessages) {
         }
     } catch (error) {
         context.log.error(error)
-        context.done();
+        context.done(error);
     }
 };

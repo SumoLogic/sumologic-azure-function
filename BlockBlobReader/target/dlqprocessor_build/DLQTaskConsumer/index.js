@@ -266,7 +266,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     });
                     sumoClient.flushAll();
                 }).catch(function (err) {
-                    context.log.error("Error in creating json from csv " + err);
+                    context.log.error("Error in creating json from csv.");
                     context.done(err);
                 });
             } else {
@@ -279,10 +279,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         });
     }).catch(function (err) {
         if(err.statusCode === 404) {
-            context.log.error("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
             context.done()
         } else {
-            context.log.error("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
             context.done(err);
         }
 
@@ -342,8 +342,8 @@ async function timetriggerhandler(context, timetrigger) {
         var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
         var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME,{ subQueueType: "deadLetter", receiveMode: "peekLock" });
     }catch(err){
-        context.log.error("Failed to create service bus client and receiver", err);
-        context.done();
+        context.log.error("Failed to create service bus client and receiver");
+        context.done(err);
     }
     try {
         var messages = await queueReceiver.receiveMessages(1, {
@@ -395,8 +395,8 @@ async function timetriggerhandler(context, timetrigger) {
                             ctx.log("sent and deleted");
                             ctx.done();
                         } else {
-                            ctx.log.verbose("Messages Sent but failed delete from DeadLetterQueue", err)
-                            ctx.done();
+                            ctx.log.verbose("Messages Sent but failed delete from DeadLetterQueue");
+                            ctx.done(err);
                         }
                     }
                 }
@@ -411,7 +411,7 @@ async function timetriggerhandler(context, timetrigger) {
             context.log.error(error);
             context.done();
         } else {
-            context.log.error("Error in reading messages from DLQ: ", error, typeof(error));
+            context.log.error("Error in reading messages from DLQ");
             context.done(error);
         }
       }

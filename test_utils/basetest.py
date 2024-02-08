@@ -64,10 +64,11 @@ class BaseTest(unittest.TestCase):
 
         return False
 
-    def create_resource_group(self, location, resource_group_name):
-        resp = self.resource_client.resource_groups.create_or_update(
+    @classmethod
+    def create_resource_group(cls, location, resource_group_name):
+        resp = cls.resource_client.resource_groups.create_or_update(
             resource_group_name, {'location': location})
-        self.logger.info('created ResourceGroup: {}, state: {}'.format(
+        cls.logger.info('created ResourceGroup: {}, state: {}'.format(
             resp.name, resp.properties.provisioning_state))
         
     def get_resource(self, restype):

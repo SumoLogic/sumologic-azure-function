@@ -4,10 +4,15 @@ on: [workflow_dispatch, pull_request]
 jobs:
   package-version-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix: 
+        include: # Includes one more job
+          - dir: 'BlockBlobReader/target/consumer_build'
+          - dir: 'BlockBlobReader/target/dlqprocessor_build'
+          - dir: 'BlockBlobReader/target/producer_build'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Run npm outdated
-        working-directory: BlockBlobReader/target/consumer_build
+      - working-directory: ${{ matrix.dir }}
         run: npm outdated

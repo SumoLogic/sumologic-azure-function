@@ -15,13 +15,14 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
     @classmethod
     def setUpClass(self):
-        datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
+        current_time = datetime.now()
+        datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
         self.collector_name = "azure_blob_unittest-%s" % (datetime_value)
         self.source_name = "blob_data-%s" % (datetime_value)
         super(TestBlobReaderFlow, self).setUpClass()
 
         # create new test resource group and test storage account
-        test_datetime_value = datetime.now().strftime("%d%m%y%H%M%S")
+        test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
         self.test_storage_res_group = "sumosa%s" % (test_datetime_value)
         self.test_storageaccount_name = "sa%s" % (test_datetime_value)
         self.test_storageAccountRegion = "Central US"

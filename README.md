@@ -1,4 +1,4 @@
-Sumo Logic Azure Functions [![Build Status](https://travis-ci.org/SumoLogic/sumologic-azure-function.svg?branch=master)](https://travis-ci.org/SumoLogic/sumologic-azure-function)
+Sumo Logic Azure Functions ![Build Status](https://github.com/SumoLogic/sumologic-azure-function/actions/workflows/arm-template-test.yml/badge.svg)
 ==============================
 
 # Introduction

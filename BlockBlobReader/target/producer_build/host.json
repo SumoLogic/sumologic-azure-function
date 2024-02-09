@@ -11,6 +11,19 @@
             "prefetchCount": 800
         }
     },
+    "logging": {
+        "applicationInsights": {
+            "samplingSettings": {
+                "isEnabled": false
+            }
+        },
+        "logLevel": {
+            "default": "Warning",
+            "Host.Aggregator": "Trace",
+            "Host.Results": "Information",
+            "Function": "Information"
+        }
+    },
     "functionTimeout": "00:10:00",
     "functions": ["BlobTaskProducer"]
 }

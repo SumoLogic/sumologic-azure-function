@@ -234,8 +234,8 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     }
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
     if (!(file_ext in msghandler)) {
-        context.log("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName)
-        context.done();
+        context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
+        context.done(); 
         return;
     }
     if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {
@@ -266,7 +266,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     });
                     sumoClient.flushAll();
                 }).catch(function (err) {
-                    context.log("Error in creating json from csv " + err);
+                    context.log.error("Error in creating json from csv.");
                     context.done(err);
                 });
             } else {
@@ -279,10 +279,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         });
     }).catch(function (err) {
         if(err.statusCode === 404) {
-            context.log("Error in messageHandler: blob file doesn't exist  %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
             context.done()
         } else {
-            context.log("Error in messageHandler: Failed to send blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
+            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
             context.done(err);
         }
 
@@ -308,18 +308,20 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        ctx.log("Failed to send to Sumo");
+        ctx.log("ServiceBus Task: ", serviceBusTask)
+        ctx.log.error("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
         }
     }
     function successHandler(ctx) {
-        ctx.log('Successfully sent to Sumo', serviceBusTask);
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+            ctx.log("ServiceBus Task: ", serviceBusTask)
             if (sumoClient.messagesFailed > 0) {
+                ctx.log.error('Failed to send few messages to Sumo')
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
-                ctx.log('Exiting now.');
+                ctx.log('Successfully sent to Sumo, Exiting now.');
                 ctx.done();
             }
         }
@@ -340,8 +342,8 @@ async function timetriggerhandler(context, timetrigger) {
         var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
         var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME,{ subQueueType: "deadLetter", receiveMode: "peekLock" });
     }catch(err){
-        context.log(err);
-        context.done("Failed to create service bus client and receiver");
+        context.log.error("Failed to create service bus client and receiver");
+        context.done(err);
     }
     try {
         var messages = await queueReceiver.receiveMessages(1, {
@@ -367,7 +369,7 @@ async function timetriggerhandler(context, timetrigger) {
         setSourceCategory(serviceBusTask, options);
         var sumoClient;
         async function failureHandler(msgArray, ctx) {
-            ctx.log("Failed to send to Sumo");
+            ctx.log.error("Failed to send to Sumo");
             if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
                 await queueReceiver.close();
                 await sbClient.close();
@@ -375,26 +377,26 @@ async function timetriggerhandler(context, timetrigger) {
             }
         }
         async function successHandler(ctx) {
-            ctx.log('Successfully sent to Sumo');
             if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
                 //TODO: Test Scenario for combination of successful and failed requests
                 if (sumoClient.messagesFailed > 0) {
                     await queueReceiver.close();
                     await sbClient.close();
+                    ctx.log.error('Failed to send few messages to Sumo')
                     ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
                 } else {
-                    ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
+                    ctx.log('Successfully sent to Sumo, Exiting now.');
                     try{
                         await queueReceiver.completeMessage(messages[0]);
                     }catch(err){
                         await queueReceiver.close();
                         await sbClient.close();
                         if (!err) {
-                            context.log("sent and deleted");
+                            ctx.log("sent and deleted");
                             ctx.done();
                         } else {
-                            context.log(err)
-                            ctx.done("Messages Sent but failed delete from DeadLetterQueue");
+                            ctx.log.verbose("Messages Sent but failed delete from DeadLetterQueue");
+                            ctx.done(err);
                         }
                     }
                 }
@@ -406,10 +408,10 @@ async function timetriggerhandler(context, timetrigger) {
         await queueReceiver.close();
         await sbClient.close();
         if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-            context.log(error);
+            context.log.error(error);
             context.done();
         } else {
-            context.log("Error in reading messages from DLQ: ", error, typeof(error));
+            context.log.error("Error in reading messages from DLQ");
             context.done(error);
         }
       }

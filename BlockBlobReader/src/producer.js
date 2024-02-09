@@ -140,7 +140,7 @@ async function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, co
             return Promise.resolve({status: "success",rowKey: rowKey, message: tasks.length + " Tasks added for rowKey: " + rowKey});
         }catch(err){
             if (err && err.details && err.details.odataError && err.details.odataError.code === "UpdateConditionNotSatisfied" && err.statusCode === 412) {
-                context.log("Need to Retry: " + rowKey);
+                context.log.verbose("Need to Retry: " + rowKey);
             }
             return Promise.reject({status: "failed",rowKey: rowKey, message: "Unable to Update offset for rowKey: " + rowKey + " Error: " + err, lastoffset : lastoffset, currentoffset: currentoffset});
         }
@@ -171,7 +171,7 @@ module.exports = async function (context, eventHubMessages) {
                 for (let response of responseValues){
                     processed += 1;
                     if(response.status === "failed"){
-                        context.log("creating duplicate task since retry failed for rowkey: " + response.rowKey);
+                        context.log.verbose("creating duplicate task since retry failed for rowkey: " + response.rowKey);
                         var duplicateTask = Object.assign({
                             startByte: response.currentoffset + 1,
                             endByte: response.lastoffset
@@ -184,11 +184,12 @@ module.exports = async function (context, eventHubMessages) {
         if (totalRows === processed) {
             context.log("Tasks Created: " + JSON.stringify(context.bindings.tasks) + " Blobpaths: " + JSON.stringify(allcontentlengths));
             if (errArr.length > 0) {
-                context.log(errArr.join('\n'));
+                context.log.error(errArr.join('\n'));
             }
             context.done();
         }
     } catch (error) {
+        context.log.error(error)
         context.done(error);
     }
 };

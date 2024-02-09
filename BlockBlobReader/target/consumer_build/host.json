@@ -9,6 +9,19 @@
       "prefetchCount": 400,
       "autoRenewTimeout": "00:10:00"
     },
+    "logging": {
+      "applicationInsights": {
+        "samplingSettings": {
+          "isEnabled": false
+        }
+      },
+      "logLevel": {
+        "default": "Warning",
+        "Host.Aggregator": "Trace",
+        "Host.Results": "Information",
+        "Function": "Information"
+      }
+    },
   "functionTimeout": "00:10:00",
   "functions": ["BlobTaskConsumer"]
 }

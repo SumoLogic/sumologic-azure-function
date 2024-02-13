@@ -234,11 +234,12 @@
             "tags": {},
             "scale": null,
             "properties": {
+                "minimumTlsVersion": "TLS1_2",
                 "networkAcls": {
                     "bypass": "AzureServices",
                     "defaultAction": "Allow"
                 },
-                "supportsHttpsTrafficOnly": false,
+                "supportsHttpsTrafficOnly": true,
                 "encryption": {
                     "services": {
                         "file": {
@@ -446,10 +447,14 @@
             },
             "scale": null,
             "properties": {
-                "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
+                "httpsOnly": true,
+                "enabled": true,
                 "reserved": false,
                 "siteConfig": {
+                    "http20Enabled": true,
+                    "minTlsVersion": "1.2",
+                    "scmMinTlsVersion": "1.2",
                     "alwaysOn": true,
                     "appSettings": [{
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -529,12 +534,16 @@
             },
             "scale": null,
             "properties": {
-                "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
+                "httpsOnly": true,
+                "enabled": true,
                 "reserved": false,
                 "siteConfig": {
-                    "alwaysOn": true,
-                    "appSettings": [{
+                    "http20Enabled": true,
+                    "minTlsVersion": "1.2",
+                    "scmMinTlsVersion": "1.2",
+                    "appSettings": [
+                        {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
                             "value": "~1"
                         },
@@ -617,12 +626,16 @@
                 "type": "SystemAssigned"
             },
             "properties": {
-                "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
+                "httpsOnly": true,
+                "enabled": true,
                 "reserved": false,
                 "siteConfig": {
-                    "alwaysOn": true,
-                    "appSettings": [{
+                    "http20Enabled": true,
+                    "minTlsVersion": "1.2",
+                    "scmMinTlsVersion": "1.2",
+                    "appSettings": [
+                        {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
                             "value": "~1"
                         },

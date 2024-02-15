@@ -494,7 +494,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "20.11.1"
+                            "value": "18.19.1"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",
@@ -578,7 +578,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "20.11.1"
+                            "value": "18.19.1"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",
@@ -673,7 +673,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "20.11.1"
+                            "value": "18.19.1"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",

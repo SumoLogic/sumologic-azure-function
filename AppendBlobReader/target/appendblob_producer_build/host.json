@@ -1,4 +1,17 @@
 {
     "functionTimeout": "00:10:00",
-    "functions": ["AppendBlobTaskProducer"]
+    "functions": ["AppendBlobTaskProducer"],
+    "logging": {
+      "applicationInsights": {
+        "samplingSettings": {
+          "isEnabled": false
+        }
+      },
+      "logLevel": {
+        "default": "Warning",
+        "Host.Aggregator": "Trace",
+        "Host.Results": "Information",
+        "Function": "Information"
+      }
+    }
 }

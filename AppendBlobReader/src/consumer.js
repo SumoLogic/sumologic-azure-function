@@ -3,7 +3,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
-var dataTransformer = require('./datatransformer');
 var storage = require('azure-storage');
 var storageManagementClient = require('azure-arm-storage');
 var MsRest = require('ms-rest-azure');
@@ -12,7 +11,6 @@ var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
-var https = require('https');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
 var DLQMessage = null;
 var contentDownloaded = 0;

@@ -12,5 +12,18 @@
           "isEnabled": false,
           "maxTelemetryItemsPerSecond" : 20000
         }
+    },
+    "logging": {
+      "applicationInsights": {
+        "samplingSettings": {
+          "isEnabled": false
+        }
+      },
+      "logLevel": {
+        "default": "Warning",
+        "Host.Aggregator": "Trace",
+        "Host.Results": "Information",
+        "Function": "Information"
+      }
     }
 }

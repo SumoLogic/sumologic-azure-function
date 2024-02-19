@@ -213,8 +213,7 @@ function blobHandler(context, msg, serviceBusTask) {
     try {
         jsonArray = JSON.parse("[" + msg.replace(/}\r?\n{/g,  "},{") + "]");
     } catch(e) {
-        context.log("JSON ParseException in blobHandler");
-        context.log(e, msg);
+        context.log.error(`JSON ParseException in blobHandler, error: ${JSON.stringify(e)}, msg: ${msg} `);
         // removing unparsed prefix and suffix
         let start_idx = msg.indexOf('{');
         let last_idx = msg.lastIndexOf('}');
@@ -224,7 +223,7 @@ function blobHandler(context, msg, serviceBusTask) {
             let suffixlen = msg.length - (li+1);
             contentDownloaded -= suffixlen;
         } catch(e) {
-            context.log("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0,start_idx), msg.substr(last_idx+1));
+            context.log.error("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0,start_idx), msg.substr(last_idx+1));
             // will try to ingest the whole block
             jsonArray = [msg];
         }
@@ -271,7 +270,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
     return new Promise(function (resolve, reject) {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
-        // context.log("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
+        context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
         entity = getUpdatedEntity(serviceBusTask, newOffset);
         //using merge to preserve eventdate
         tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
@@ -284,7 +283,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
 
                 resolve(response);
             } else if (error.code === "ResourceNotFound" && error.statusCode === 404) {
-                context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
+                context.log.verbose("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
                 resolve(response)
             } else {
                 reject(error);
@@ -314,7 +313,7 @@ function getData(task, blobService, context) {
     return new Promise(function (resolve, reject) {
         blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blobResult) {
             if (err) {
-                context.log("Error in fetching!")
+                context.log.error(`Error in fetching: ${JSON.stringify(err)}`)
                 reject(err);
             } else {
                 resolve([blobContent, blobResult]);
@@ -353,7 +352,7 @@ function getCachedToken(context, task) {
     } else {
         return new Promise(function (resolve, reject) {
             var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
-            // context.log("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
+            context.log.verbose("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
             resolve(cachedTokenResponse);
         });
     }
@@ -364,7 +363,7 @@ function getToken(context, task) {
     return new Promise(function (resolve, reject) {
         MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
             if (err) {
-                context.log("MSI_REST_TOKEN", err, task);
+                context.log.error(`MSI_REST_TOKEN, error: ${JSON.stringify(err)}, task: ${JSON.stringify(task)}`);
                 reject(err);
             } else {
                 resolve(tokenResponse);
@@ -397,7 +396,7 @@ function getStorageAccountCacheKey(task) {
  */
 function getCachedAccountKey(context, task) {
     if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
-        // context.log("Regenerating accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
+        context.log.verbose("Regenerating accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
         return getStorageAccountAccessKey(context, task).then(function(accountKey) {
             lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
             cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
@@ -442,7 +441,7 @@ function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     if (serviceBusTask.blobType === "AppendBlob") {
         return setAppendBlobOffset(context, serviceBusTask, curdataLenSent).catch(function (error) {
             // not failing with error because log will automatically released by appendblob
-            context.log("Error - Failed to update OffsetMap table: ", error, serviceBusTask, curdataLenSent)
+            context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
         });
     } else {
         return new Promise(function (resolve, reject) {resolve();});
@@ -457,7 +456,7 @@ function releaseMessagefromDLQ(context, serviceBusTask) {
                 if (!deleteError) {
                     context.log("Deleted DeadLetterQueue Message");
                 } else {
-                    context.log("Failed to delete from DeadLetterQueue", deleteError);
+                    context.log.error(`Failed to delete from DeadLetterQueue: deleteError: ${JSON.stringify(deleteError)}`);
                 }
                 resolve();
             });
@@ -475,7 +474,7 @@ function sendToSumoBlocking(chunk, sendOptions, context, isText) {
             reject();
         }
         function successHandler(ctx) {
-            // ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo.');
+            ctx.log.verbose('Sent ' + sumoClient.messagesAttempted + ' data to Sumo.');
             resolve();
         }
         let sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
@@ -599,7 +598,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
             lastIndex = data.length;
         }
     } catch(e) {
-        context.log("last chunk not json parseable so ignoring", suffix, lastIndex,  e);
+        context.log.verbose("last chunk not json parseable so ignoring", suffix, lastIndex,  e);
     }
     // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
     // for new files offset will always start from date
@@ -613,7 +612,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
 
         if (match.index - startpos >= maxChunkSize) {
             dataChunks.push(data.substring(startpos, match.index));
-            // context.log("new chunk %d %d", startpos, match.index);
+            context.log.verbose("new chunk %d %d", startpos, match.index);
             startpos = match.index;
         }
     }
@@ -654,7 +653,7 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
             promiseChain = promiseChain.then(makeNextPromise(dataChunks[i]));
         }
         return promiseChain.catch(function(err) {
-            context.log(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`)
+            context.log.error(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`)
             resolve(dataLenSent+ignoredprefixLen);
         }).then(function() {
             if (dataChunks.length === 0) {
@@ -677,25 +676,25 @@ function errorHandler(err, serviceBusTask, context) {
     let discardError = false;
     let errMsg = (err !== undefined ? err.toString(): "");
     if (typeof errMsg === 'string' && (errMsg.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") >= 0 || errMsg.indexOf("SyntaxError: Unexpected end of JSON input") >= 0)) {
-        context.log("Error in appendBlobStreamMessageHandlerv2 MSI Toke Error ignored: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 MSI Toke Error ignored: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
     } else if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
         // here in case of appendblob data may not exists after startByte
-        context.log("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
+        context.log.verbose("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
         discardError = true;
     } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
-        context.log("Error in appendBlobStreamMessageHandlerv2 Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
     } else if (err !== undefined && (err.code === "ContainerNotFound" || err.code === "BlobNotFound" || err.statusCode == 404)) {
         // sometimes it may happen that the file/container gets deleted
-        context.log("Error in appendBlobStreamMessageHandlerv2 File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
     } else if (err !== undefined && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET" || err.code === "ETIMEDOUT")) {
-        context.log("Error in appendBlobStreamMessageHandlerv2 Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
 
     } else {
-        context.log("Error in appendBlobStreamMessageHandlerv2 Unknown error blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.error(`Error in appendBlobStreamMessageHandlerv2 Unknown error blob rowKey: ${serviceBusTask.rowKey}, startByte: ${serviceBusTask.startByte}, endByte: ${serviceBusTask.endByte}, statusCode: ${err.statusCode}, code: ${err.code} Exit now!`);
     }
     return discardError;
 }
@@ -708,7 +707,7 @@ function archiveIngestedFile(serviceBusTask, context) {
         if (!err) {
             context.log("Archived non existing file", serviceBusTask.rowKey);
         } else {
-            context.log("Error in appendBlobStreamMessageHandlerv2: not able to delete table row", serviceBusTask.rowKey, err);
+            context.log.error(`Error in appendBlobStreamMessageHandlerv2: not able to delete table row, rowKey: ${serviceBusTask.rowKey}, err: ${JSON.stringify(err)}`);
         }
         context.done()
     });
@@ -718,7 +717,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     if ((file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) || file_ext === "json") {
-        // context.log("file extension: %s", file_ext);
+        context.log.verbose("file extension: %s", file_ext);
     } else {
         context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
     }
@@ -749,7 +748,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         };
         let readStream = blobService.createReadStream(serviceBusTask.containerName, serviceBusTask.blobName, options, (err, res) => {
             if(err) {
-                context.log('Error in appendBlobStreamMessageHandlerv2 Failed to create readStream', res, err, err.statusCode);
+                context.log.error(`Error in appendBlobStreamMessageHandlerv2 Failed to create readStream,  res: ${res}, err: ${err}, statuscode: ${err.statusCode}`);
             }
         });
 
@@ -773,7 +772,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                         context.done();
                     });
             }).catch(function(err) {
-                context.log(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`)
+                context.log.error(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`)
                 context.done();
             });
         });
@@ -798,7 +797,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                 }
 
             }).catch(function(err) {
-                context.log(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`)
+                context.log.error(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`)
                 return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
                         context.done();
                 });
@@ -877,7 +876,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     });
                     sumoClient.flushAll();
                 }).catch(function (err) {
-                    context.log("Error in creating json from csv " + err);
+                    context.log.error("Error in creating json from csv " + err);
                     return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
                         return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
                             context.done(err);
@@ -903,20 +902,20 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         let discardError = false;
         if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
             // here in case of appendblob data may not exists after startByte
-            context.log("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
+            context.verbose("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
             discardError = true;
         } else if(err.statusCode == 404){
             discardError = true;
         } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
-            context.log("Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            context.log.verbose("Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         } else if (err !== undefined && (err.code === "ContainerNotFound" || err.code === "BlobNotFound")) {
             // sometimes it may happen that the file/container gets deleted
-            context.log("File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            context.log.verbose("File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
             discardError = true;
         } else if (err !== undefined && (err.code === "ECONNREFUSED")) {
-            context.log("Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+            context.log.verbose("Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         } else {
-            context.log("Error in messageHandler:  blob %s %d %d %d %s %s", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code, err);
+            context.log.error(`Error in messageHandler:  blob ${serviceBusTask.rowKey} ${serviceBusTask.startByte} ${serviceBusTask.endByte} ${err.statusCode} ${err.code} ${err}`);
         }
         return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
             return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
@@ -976,18 +975,20 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options, context);
     function failureHandler(msgArray, ctx) {
-        // ctx.log("Failed to send to Sumo");
+        ctx.log("ServiceBus Task: ", serviceBusTask)
+        ctx.log.error("Failed to send to Sumo");
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
         }
     }
     function successHandler(ctx) {
-        // ctx.log('Successfully sent to Sumo', serviceBusTask);
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+            ctx.log("ServiceBus Task: ", serviceBusTask)
             if (sumoClient.messagesFailed > 0) {
+                ctx.log.error('Failed to send few messages to Sumo')
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
-                ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
+                ctx.log('Successfully sent to Sumo, Exiting now.');
                 return releaseLockfromOffsetTable(ctx, serviceBusTask).then(function() {
                     return releaseMessagefromDLQ(ctx, serviceBusTask).then(function() {
                         ctx.done();
@@ -1033,18 +1034,20 @@ function timetriggerhandler(context, timetrigger) {
             setSourceCategory(serviceBusTask, options, context);
             var sumoClient;
             function failureHandler(msgArray, ctx) {
-                ctx.log("Failed to send to Sumo");
+                ctx.log("ServiceBus Task: ", serviceBusTask)
+                ctx.log.error("Failed to send to Sumo");
                 if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                    ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
                 }
             }
             function successHandler(ctx) {
-                ctx.log('Successfully sent to Sumo');
+                ctx.log("ServiceBus Task: ", serviceBusTask)
                 if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
                     if (sumoClient.messagesFailed > 0) {
-                        ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                        ctx.log.error('Failed to send few messages to Sumo')
+                        ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
                     } else {
-                        ctx.log('Sent ' + sumoClient.messagesAttempted + ' data to Sumo. Exit now.');
+                        ctx.log('Successfully sent to Sumo, Exiting now.');
                         return releaseLockfromOffsetTable(ctx, serviceBusTask).then(function() {
                             return releaseMessagefromDLQ(ctx, serviceBusTask).then(function() {
                                 ctx.done();
@@ -1061,7 +1064,7 @@ function timetriggerhandler(context, timetrigger) {
                 context.log(error);
                 context.done();
             } else {
-                context.log("Error in reading messages from DLQ: ", error, typeof (error));
+                context.log.error("Error in reading messages from DLQ: ");
                 context.done(error);
             }
         }

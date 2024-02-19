@@ -2,9 +2,9 @@
 /**
  * Created by duc on 6/30/17. This is a client for metric
  */
-var https = require('node:https');
-var zlib = require('node:zlib');
-var url = require('node:url');
+var https = require('https');
+var zlib= require('zlib');
+var url = require('url');
 
 var sumoclient = require('./sumoclient');
 var bucket = require('./messagebucket');

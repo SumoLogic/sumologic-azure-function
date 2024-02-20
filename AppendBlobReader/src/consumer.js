@@ -336,14 +336,6 @@ function setAppendBlobBatchSize(serviceBusTask) {
     return batchSize;
 }
 
-function getSumoEndpoint(serviceBusTask) {
-    var file_ext = String(serviceBusTask.blobName).split(".").pop();
-    var endpoint = process.env.APPSETTING_SumoLogEndpoint;
-    // You can also change change sumo logic endpoint if you have multiple sources
-
-    return endpoint;
-}
-
 /*
     return index of first time when pattern matches the string
  */
@@ -547,20 +539,25 @@ function archiveIngestedFile(serviceBusTask, context) {
 
 function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
-    var file_ext = String(serviceBusTask.blobName).split(".").pop();
-    if ((file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) || file_ext === "json") {
-        context.log.verbose("file extension: %s", file_ext);
-    } else {
-        context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
+    var file_ext = serviceBusTask.blobName.split(".").pop();
+    if (file_ext == serviceBusTask.blobName) {
+        file_ext = "log";
     }
-    var sendOptions = {
-        urlString: getSumoEndpoint(serviceBusTask),
+    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
+    if (!(file_ext in msghandler)) {
+        context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
+        context.done(); 
+        return;
+    }
+    
+    var options = {
+        urlString: process.env.APPSETTING_SumoLogEndpoint,
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,
         clientHeader: "blobreader-azure-function"
     };
-    setSourceCategory(serviceBusTask, sendOptions, context);
+    setSourceCategory(serviceBusTask, options);
 
     return getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);

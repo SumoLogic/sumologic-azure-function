@@ -667,78 +667,50 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     });
 }
 
-
-
 function messageHandler(serviceBusTask, context, sumoClient) {
-
-    var file_ext = String(serviceBusTask.blobName).split(".").pop();
-    var msghandler;
-
-    if (file_ext.indexOf("log") >= 0 || file_ext == serviceBusTask.blobName) {
-        msghandler = logHandler;
-    } else if (file_ext === "csv") {
-        msghandler = csvHandler;
-    } else if (file_ext === "blob") {
-        msghandler = blobHandler;
-    } else if (file_ext === "json" && serviceBusTask.blobType === "AppendBlob") {
-        // jsonline format where every line is a json object
-        msghandler = blobHandler;
-    } else if (file_ext === "json" && serviceBusTask.blobType !== "AppendBlob") {
-        // JSON format ie array of json objects is not supported for appendblobs
+    var file_ext = serviceBusTask.blobName.split(".").pop();
+    if (file_ext == serviceBusTask.blobName) {
+        file_ext = "log";
+    }
+    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
+    if (!(file_ext in msghandler)) {
+        context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
+        context.done(); 
+        return;
+    }
+    if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
         if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
-            //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
-            return releaseMessagefromDLQ(context, serviceBusTask).then(function(){
-                context.done();
-            });
+            context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
+            return;
         }
         serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
         if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
             serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
         } else {
-            serviceBusTask.startByte -= JSON_BLOB_TAIL_BYTES;
+            serviceBusTask.startByte -= 1; //to remove comma before json object
         }
-        msghandler = jsonHandler;
-
-    } else {
-        // releasing message so that it doesn't get stuck in DLQ
-        return releaseMessagefromDLQ(context, serviceBusTask).then(function(){
-            context.done("Unknown file extension: " + file_ext + " for blob: " + serviceBusTask.rowKey);
-        });
+        file_ext = "nsg";
     }
-
-    return getBlockBlobService(context, serviceBusTask).then(function (blobService) {
-        context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
-        return getData(serviceBusTask, blobService, context).then(function (r) {
-            var msg = r[0];
-            var resp = r[1];
-            context.log("Sucessfully downloaded contentLength: ", resp.contentLength);
-
+    getBlockBlobService(context, serviceBusTask).then(function (blobService) {
+        return getData(serviceBusTask, blobService, context).then(function (msg) {
+            context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
             if (file_ext === "csv") {
-                return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, context, blobService).then(function (headers) {
+                return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
                     context.log("Received headers %d", headers.length);
-                    messageArray = csvHandler(msg, headers);
+                    messageArray = msghandler[file_ext](context,msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
                     messageArray.forEach(function (msg) {
                         sumoClient.addData(msg);
                     });
                     sumoClient.flushAll();
                 }).catch(function (err) {
-                    context.log.error("Error in creating json from csv " + err);
-                    return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
-                        return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
-                            context.done(err);
-                        });
-                    });
+                    context.log.error("Error in creating json from csv.");
+                    context.done(err);
                 });
             } else {
-                if ((file_ext === "json" && serviceBusTask.blobType === "AppendBlob") || (file_ext === "blob" )) {
-                    messageArray = blobHandler(context, msg, serviceBusTask);
-                } else {
-                    messageArray = msghandler(msg);
-                }
-
+                messageArray = msghandler[file_ext](context,msg);
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
@@ -746,83 +718,35 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             }
         });
     }).catch(function (err) {
-
-
-        let discardError = false;
-        if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
-            // here in case of appendblob data may not exists after startByte
-            context.verbose("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
-            discardError = true;
-        } else if(err.statusCode == 404){
-            discardError = true;
-        } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
-            context.log.verbose("Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
-        } else if (err !== undefined && (err.code === "ContainerNotFound" || err.code === "BlobNotFound")) {
-            // sometimes it may happen that the file/container gets deleted
-            context.log.verbose("File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
-            discardError = true;
-        } else if (err !== undefined && (err.code === "ECONNREFUSED")) {
-            context.log.verbose("Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        if(err.statusCode === 404) {
+            context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
+            context.done()
         } else {
-            context.log.error(`Error in messageHandler:  blob ${serviceBusTask.rowKey} ${serviceBusTask.startByte} ${serviceBusTask.endByte} ${err.statusCode} ${err.code} ${err}`);
+            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
+            context.done(err);
         }
-        return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
-            return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
-                if (discardError) {
-                    context.done();
-                } else {
-                    // after 1 hr lock automatically releases
-                    context.done(err);
-                }
-            });
-        });
 
     });
 }
-/**
- * @param {} servisBusTask
- * @param {} options
- *
- * This functions is used to route the logs/metrics to custom source categories based on the serviceBusTask attributes and also to add other metadata.
- * metadata.sourceName attribute sets the source name
- * metadata.sourceHost attribute sets the source host
- * metadata.sourceCategory attribute sets the source category
- */
-function setSourceCategory(serviceBusTask, options,context) {
+
+function setSourceCategory(serviceBusTask, options) {
+
     options.metadata = options.metadata || {};
-    let customFields = {"containername":serviceBusTask.containerName,"storagename":serviceBusTask.storageName};
-    let sourcecategory = "azure_br_logs";
-    //var source = "azure_blobstorage"
-    if (customFields) {
-        let customFieldsArr = []
-        Object.keys(customFields).map(function(key, index) {
-            customFieldsArr.push(key.toString() + "=" + customFields[key].toString());
-        });
-        options.metadata["sourceFields"] = customFieldsArr.join();
-    }
-    //options.metadata["sourceHost"] = source
-    //context.log(sourcecategory,serviceBusTask.blobName,serviceBusTask.storageName,serviceBusTask.containerName);
-    options.metadata["sourceCategory"] =  sourcecategory;
-    options.metadata["sourceName"]= serviceBusTask.blobName;
+    options.metadata["name"]= serviceBusTask.storageName + "/" + serviceBusTask.containerName + "/" + serviceBusTask.blobName;
+    // options.metadata["category"] = <custom source category>
 }
-/**
- * @param  {} context
- * @param  {} serviceBusTask
- *
- * This is invoked when the function is triggered by Service bug Trigger
- * It consumes the tasks from service bus.
- */
+
 function servicebushandler(context, serviceBusTask) {
     var sumoClient;
 
     var options = {
-        urlString: getSumoEndpoint(serviceBusTask),
+        urlString: process.env.APPSETTING_SumoLogEndpoint,
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,
         clientHeader: "blobreader-azure-function"
     };
-    setSourceCategory(serviceBusTask, options, context);
+    setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
         ctx.log("ServiceBus Task: ", serviceBusTask)
         ctx.log.error("Failed to send to Sumo");
@@ -838,88 +762,100 @@ function servicebushandler(context, serviceBusTask) {
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
                 ctx.log('Successfully sent to Sumo, Exiting now.');
-                return releaseLockfromOffsetTable(ctx, serviceBusTask).then(function() {
-                    return releaseMessagefromDLQ(ctx, serviceBusTask).then(function() {
-                        ctx.done();
-                    });
-                });
+                ctx.done();
             }
         }
     }
 
     sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+    //context.log("Reached inside ServiceBus Handler")
     messageHandler(serviceBusTask, context, sumoClient);
 
 }
-/**
- * @param  {} context
- * @param  {} timetrigger
- * This is invoked when the function is triggered by Time trigger
- * It consumes tasks from Dead letter queue of the service bus
- */
-function timetriggerhandler(context, timetrigger) {
+
+async function timetriggerhandler(context, timetrigger) {
 
     if (timetrigger.isPastDue) {
         context.log("timetriggerhandler running late");
     }
-    var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
-    serviceBusService.receiveQueueMessage(process.env.APPSETTING_TASKQUEUE_NAME + '/$DeadLetterQueue', { isPeekLock: true }, function (error, lockedMessage) {
-        if (!error) {
-            DLQMessage = lockedMessage;
-            var serviceBusTask = JSON.parse(lockedMessage.body);
-            if (serviceBusTask.blobType === "AppendBlob") {
-                return releaseMessagefromDLQ(context, serviceBusTask).then(function() {
-                    context.done();
-                });
+    try{
+        var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
+        var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME,{ subQueueType: "deadLetter", receiveMode: "peekLock" });
+    }catch(err){
+        context.log.error("Failed to create service bus client and receiver");
+        context.done(err);
+    }
+    try {
+        var messages = await queueReceiver.receiveMessages(1, {
+            maxWaitTimeInMs: 60 * 1000,
+        });
+        if (!messages.length) {
+            context.log("No more messages to receive");
+            await queueReceiver.close();
+            await sbClient.close();
+            context.done();
+            return;
+        }
+        var myJSON = JSON.stringify(messages[0].body);
+        var serviceBusTask = JSON.parse(myJSON);
+        // Message received and locked and try to resend
+        var options = {
+            urlString: process.env.APPSETTING_SumoLogEndpoint,
+            MaxAttempts: 3,
+            RetryInterval: 3000,
+            compress_data: true,
+            clientHeader: "dlqblobreader-azure-function"
+        };
+        setSourceCategory(serviceBusTask, options);
+        var sumoClient;
+        async function failureHandler(msgArray, ctx) {
+            ctx.log.error("Failed to send to Sumo");
+            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                await queueReceiver.close();
+                await sbClient.close();
+                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             }
-            // Message received and locked and try to resend
-            var options = {
-                urlString: getSumoEndpoint(serviceBusTask),
-                MaxAttempts: 3,
-                RetryInterval: 3000,
-                compress_data: true,
-                clientHeader: "dlqblobreader-azure-function"
-            };
-            setSourceCategory(serviceBusTask, options, context);
-            var sumoClient;
-            function failureHandler(msgArray, ctx) {
-                ctx.log("ServiceBus Task: ", serviceBusTask)
-                ctx.log.error("Failed to send to Sumo");
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                }
-            }
-            function successHandler(ctx) {
-                ctx.log("ServiceBus Task: ", serviceBusTask)
-                if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                    if (sumoClient.messagesFailed > 0) {
-                        ctx.log.error('Failed to send few messages to Sumo')
-                        ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                    } else {
-                        ctx.log('Successfully sent to Sumo, Exiting now.');
-                        return releaseLockfromOffsetTable(ctx, serviceBusTask).then(function() {
-                            return releaseMessagefromDLQ(ctx, serviceBusTask).then(function() {
-                                ctx.done();
-                            });
-                        });
+        }
+        async function successHandler(ctx) {
+            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
+                //TODO: Test Scenario for combination of successful and failed requests
+                if (sumoClient.messagesFailed > 0) {
+                    await queueReceiver.close();
+                    await sbClient.close();
+                    ctx.log.error('Failed to send few messages to Sumo')
+                    ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
+                } else {
+                    ctx.log('Successfully sent to Sumo, Exiting now.');
+                    try{
+                        await queueReceiver.completeMessage(messages[0]);
+                    }catch(err){
+                        await queueReceiver.close();
+                        await sbClient.close();
+                        if (!err) {
+                            ctx.log("sent and deleted");
+                            ctx.done();
+                        } else {
+                            ctx.log.verbose("Messages Sent but failed delete from DeadLetterQueue");
+                            ctx.done(err);
+                        }
                     }
                 }
             }
-            sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
-            messageHandler(serviceBusTask, context, sumoClient);
-
-        } else {
-            if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-                context.log(error);
-                context.done();
-            } else {
-                context.log.error("Error in reading messages from DLQ: ");
-                context.done(error);
-            }
         }
-
-    });
-}
+        sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+        messageHandler(serviceBusTask, context, sumoClient);
+      }catch(error){
+        await queueReceiver.close();
+        await sbClient.close();
+        if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
+            context.log.error(error);
+            context.done();
+        } else {
+            context.log.error("Error in reading messages from DLQ");
+            context.done(error);
+        }
+      }
+    }
 
 module.exports = function (context, triggerData) {
     contentDownloaded = 0;

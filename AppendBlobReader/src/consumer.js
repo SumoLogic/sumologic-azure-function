@@ -247,32 +247,6 @@ function getUpdatedEntity(task, endByte) {
     }
     return entity;
 }
-
-/**
- * @param  {} task
- * @param  {} blobService
- * @param  {} context
- *
- * fetching ranged data from a file in storage account
- */
-function getData(task, blockBlobClient, context) {
-    // Todo support for chunk reading(if range is large)
-    // valid offset status code 206 (Partial Content).
-    // invalid offset status code 416 (Requested Range Not Satisfiable)
-    //context.log("Inside get data function:");
-    return new Promise(async function (resolve, reject) {
-        try {
-            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
-            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
-            abortSignal: AbortController.timeout(30 * 60 * 1000),
-            blockSize: 4 * 1024 * 1024,
-            concurrency: 1
-            });
-            resolve(buffer.toString());
-        } catch (err) {
-            reject(err);
-        }
-})};
 /**
  * @param  {} task
  * @param  {} blobResult
@@ -305,6 +279,34 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
         });
     });
 }
+
+
+
+/**
+ * @param  {} task
+ * @param  {} blobService
+ * @param  {} context
+ *
+ * fetching ranged data from a file in storage account
+ */
+function getData(task, blockBlobClient, context) {
+    // Todo support for chunk reading(if range is large)
+    // valid offset status code 206 (Partial Content).
+    // invalid offset status code 416 (Requested Range Not Satisfiable)
+    //context.log("Inside get data function:");
+    return new Promise(async function (resolve, reject) {
+        try {
+            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
+            abortSignal: AbortController.timeout(30 * 60 * 1000),
+            blockSize: 4 * 1024 * 1024,
+            concurrency: 1
+            });
+            resolve(buffer.toString());
+        } catch (err) {
+            reject(err);
+        }
+})};
 
 function getBlockBlobService(context, task) {
     return new Promise(function (resolve, reject) {

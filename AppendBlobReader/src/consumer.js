@@ -3,6 +3,12 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
+var dataTransformer = require('./datatransformer');
+var storage = require('azure-storage');
+var storageManagementClient = require('azure-arm-storage');
+var MsRest = require('ms-rest-azure');
+var servicebus = require('azure-sb');
+var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
 var { ContainerClient } = require("@azure/storage-blob");
 var { DefaultAzureCredential } = require("@azure/identity");
 var { AbortController } = require("@azure/abort-controller");
@@ -13,7 +19,12 @@ var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
 var DLQMessage = null;
 var contentDownloaded = 0;
-
+/**
+ * @param  {} strData
+ * @param  {} strDelimiter
+ *
+ * converts multiline string from a csv file to array of rows
+ */
 function csvToArray(strData, strDelimiter) {
     strDelimiter = (strDelimiter || ",");
     var objPattern = new RegExp(
@@ -46,7 +57,14 @@ function csvToArray(strData, strDelimiter) {
     }
     return arrData;
 }
-
+/**
+ * @param  {} headertext
+ * @param  {} task
+ * @param  {} blobService
+ * @param  {} context
+ *
+ * Extracts the header from the start of the csv file
+ */
 function hasAllHeaders(text) {
     var delimitters = new RegExp("(\\r?\\n|\\r)");
     var strMatchedDelimiter = text.match(delimitters);
@@ -86,7 +104,11 @@ function getHeaderRecursively(headertext, task, blobService, context) {
     });
 
 }
-
+/**
+ * @param  {} msgtext
+ * @param  {} headers
+ * Handler for CSV to JSON log conversion
+ */
 function getcsvHeader(containerName, blobName, blobService, context) {
     // Todo optimize to avoid multiple request
     var bytesOffset = MAX_CHUNK_SIZE;
@@ -117,7 +139,10 @@ function csvHandler(context,msgtext, headers) {
     });
     return messageArray;
 }
-
+/**
+ * @param  {} jsonArray
+ * Handler for NSG Flow logs to JSON supports version 1 and version 2 both
+ */
 function nsgLogsHandler(context,msg) {
 
     var jsonArray = [];
@@ -168,7 +193,11 @@ function nsgLogsHandler(context,msg) {
     });
     return eventsArr;
 }
-
+/**
+ * @param  {} msg
+ *
+ * Handler for extracting multiple json objects from the middle of the json array(from a file present in storage account)
+ */
 function jsonHandler(context,msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
@@ -177,7 +206,10 @@ function jsonHandler(context,msg) {
     jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;
 }
-
+/**
+ * @param  {} msg
+ * Handler for json line format where every line is a json object
+ */
 function blobHandler(context,msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
@@ -193,25 +225,6 @@ function blobHandler(context,msg) {
 function logHandler(context,msg) {
     return [msg];
 }
-
-function getData(task, blockBlobClient, context) {
-    // Todo support for chunk reading(if range is large)
-    // valid offset status code 206 (Partial Content).
-    // invalid offset status code 416 (Requested Range Not Satisfiable)
-    //context.log("Inside get data function:");
-    return new Promise(async function (resolve, reject) {
-        try {
-            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
-            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
-            abortSignal: AbortController.timeout(30 * 60 * 1000),
-            blockSize: 4 * 1024 * 1024,
-            concurrency: 1
-            });
-            resolve(buffer.toString());
-        } catch (err) {
-            reject(err);
-        }
-})};
 
 function getUpdatedEntity(task, endByte) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
@@ -237,6 +250,32 @@ function getUpdatedEntity(task, endByte) {
     }
     return entity;
 }
+
+/**
+ * @param  {} task
+ * @param  {} blobService
+ * @param  {} context
+ *
+ * fetching ranged data from a file in storage account
+ */
+function getData(task, blockBlobClient, context) {
+    // Todo support for chunk reading(if range is large)
+    // valid offset status code 206 (Partial Content).
+    // invalid offset status code 416 (Requested Range Not Satisfiable)
+    //context.log("Inside get data function:");
+    return new Promise(async function (resolve, reject) {
+        try {
+            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
+            abortSignal: AbortController.timeout(30 * 60 * 1000),
+            blockSize: 4 * 1024 * 1024,
+            concurrency: 1
+            });
+            resolve(buffer.toString());
+        } catch (err) {
+            reject(err);
+        }
+})};
 /**
  * @param  {} task
  * @param  {} blobResult

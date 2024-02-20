@@ -5,17 +5,21 @@
 var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 var storage = require('azure-storage');
-var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
-var { ContainerClient } = require("@azure/storage-blob");
-var { DefaultAzureCredential } = require("@azure/identity");
-var { AbortController } = require("@azure/abort-controller");
-var { ServiceBusClient } = require("@azure/service-bus");
-var DEFAULT_CSV_SEPARATOR = ",";
-var MAX_CHUNK_SIZE = 1024;
+const { ContainerClient } = require("@azure/storage-blob");
+const { DefaultAzureCredential } = require("@azure/identity");
+const { AbortController } = require("@azure/abort-controller");
+const { ServiceBusClient } = require("@azure/service-bus");
+const { TableServiceClient } = require("@azure/data-tables");
+const DEFAULT_CSV_SEPARATOR = ",";
+const MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
 var DLQMessage = null;
 var contentDownloaded = 0;
+
+const credential = new DefaultAzureCredential();
+const tableClient = new TableServiceClient(tablesUrl, credential);
+
 /**
  * @param  {} strData
  * @param  {} strDelimiter
@@ -225,25 +229,24 @@ function logHandler(context,msg) {
 
 function getUpdatedEntity(task, endByte) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    var entGen = storage.TableUtilities.entityGenerator;
     // RowKey/Partition key cannot contain "/"
     // sets the offset updatedate done(releases the enque lock)
     var entity = {
-        done: entGen.Boolean(false),
-        updatedate: entGen.DateTime((new Date()).toISOString()),
-        offset: entGen.Int64(endByte),
+        done: false,
+        updatedate: new Date().toISOString(),
+        offset: endByte,
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
-        PartitionKey: entGen.String(task.containerName),
-        RowKey: entGen.String(task.rowKey),
-        blobName: entGen.String(task.blobName),
-        containerName: entGen.String(task.containerName),
-        storageName: entGen.String(task.storageName),
-        blobType: entGen.String(task.blobType),
-        resourceGroupName: entGen.String(task.resourceGroupName),
-        subscriptionId: entGen.String(task.subscriptionId)
+        partitionKey: task.containerName,
+        rowKey: task.rowKey,
+        blobName: task.blobName,
+        containerName: task.containerName,
+        storageName: task.storageName,
+        blobType: task.blobType,
+        resourceGroupName: task.resourceGroupName,
+        subscriptionId: task.subscriptionId
     };
     if (contentDownloaded > 0) {
-        entity["senddate"] = entGen.DateTime((new Date()).toISOString())
+        entity["senddate"] = new Date().toISOString()
     }
     return entity;
 }
@@ -255,28 +258,31 @@ function getUpdatedEntity(task, endByte) {
  */
 
 function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
         context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
         entity = getUpdatedEntity(serviceBusTask, newOffset);
-        //using merge to preserve eventdate
-        tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
-            if (!error) {
-                if (serviceBusTask.startByte === newOffset) {
-                    context.log("Successfully updated Lock  for Table row: " + serviceBusTask.rowKey +  " Offset remains the same : " + newOffset);
-                } else {
-                    context.log("Successfully updated OffsetMap Table row: " + serviceBusTask.rowKey +  " table to : " + newOffset + " from: " + serviceBusTask.startByte);
-                }
 
-                resolve(response);
-            } else if (error.code === "ResourceNotFound" && error.statusCode === 404) {
-                context.log.verbose("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
-                resolve(response)
-            } else {
-                reject(error);
-            }
-        });
+        var updateResult = tableClient.submitTransaction(updateTransaction);
+        context.log("updateResult: ",updateResult)
+        // //using merge to preserve eventdate
+        // tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
+        //     if (!error) {
+        //         if (serviceBusTask.startByte === newOffset) {
+        //             context.log("Successfully updated Lock  for Table row: " + serviceBusTask.rowKey + " Offset remains the same : " + newOffset);
+        //         } else {
+        //             context.log("Successfully updated OffsetMap Table row: " + serviceBusTask.rowKey + " table to : " + newOffset + " from: " + serviceBusTask.startByte);
+        //         }
+
+        //         resolve(response);
+        //     } else if (error.code === "ResourceNotFound" && error.statusCode === 404) {
+        //         context.log.verbose("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
+        //         resolve(response);
+        //     } else {
+        //         reject(error);
+        //     }
+        // });
     });
 }
 
@@ -561,18 +567,10 @@ function errorHandler(err, serviceBusTask, context) {
     return discardError;
 }
 
-function archiveIngestedFile(serviceBusTask, context) {
-    return tableService.deleteEntity(process.env.APPSETTING_TABLE_NAME, {
-        PartitionKey: serviceBusTask.containerName,
-        RowKey: serviceBusTask.rowKey
-    }, function(err, resp) {
-        if (!err) {
-            context.log("Archived non existing file", serviceBusTask.rowKey);
-        } else {
-            context.log.error(`Error in appendBlobStreamMessageHandlerv2: not able to delete table row, rowKey: ${serviceBusTask.rowKey}, err: ${JSON.stringify(err)}`);
-        }
-        context.done()
-    });
+async function archiveIngestedFile(serviceBusTask, context) {
+    
+    await tableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
+    context.done("Entity deleted")
 }
 
 function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {

@@ -56,6 +56,7 @@ function hasAllHeaders(text) {
         return null;
     }
 }
+
 function getHeaderRecursively(headertext, task, blobService, context) {
 
     return new Promise(function (resolve, reject) {
@@ -295,24 +296,6 @@ function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     } else {
         return new Promise(function (resolve, reject) {resolve();});
     }
-}
-
-function releaseMessagefromDLQ(context, serviceBusTask) {
-    return new Promise(function (resolve, reject) {
-        if (DLQMessage) {
-            var serviceBusService = servicebus.createServiceBusService(process.env.APPSETTING_TaskQueueConnectionString);
-            serviceBusService.deleteMessage(DLQMessage, function (deleteError) {
-                if (!deleteError) {
-                    context.log("Deleted DeadLetterQueue Message");
-                } else {
-                    context.log.error(`Failed to delete from DeadLetterQueue: deleteError: ${JSON.stringify(deleteError)}`);
-                }
-                resolve();
-            });
-        } else {
-            resolve();
-        }
-    });
 }
 
 function sendToSumoBlocking(chunk, sendOptions, context, isText) {

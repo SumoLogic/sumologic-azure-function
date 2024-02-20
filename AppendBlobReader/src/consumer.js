@@ -1,25 +1,19 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Function to read from an Azure Storage Account by consuming task from Service Bus and send data to SumoLogic //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+//           Function to read from an Azure EventHubs to SumoLogic               //
+///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
-var storage = require('azure-storage');
-var storageManagementClient = require('azure-arm-storage');
-var MsRest = require('ms-rest-azure');
-var servicebus = require('azure-sb');
+var { ContainerClient } = require("@azure/storage-blob");
+var { DefaultAzureCredential } = require("@azure/identity");
+var { AbortController } = require("@azure/abort-controller");
+var { ServiceBusClient } = require("@azure/service-bus");
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
-var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
 var DLQMessage = null;
 var contentDownloaded = 0;
-/**
- * @param  {} strData
- * @param  {} strDelimiter
- *
- * converts multiline string from a csv file to array of rows
- */
+
 function csvToArray(strData, strDelimiter) {
     strDelimiter = (strDelimiter || ",");
     var objPattern = new RegExp(
@@ -62,19 +56,10 @@ function hasAllHeaders(text) {
         return null;
     }
 }
-/**
- * @param  {} headertext
- * @param  {} task
- * @param  {} blobService
- * @param  {} context
- *
- * Extracts the header from the start of the csv file
- */
 function getHeaderRecursively(headertext, task, blobService, context) {
 
     return new Promise(function (resolve, reject) {
-        getData(task, blobService, context).then(function (r) {
-            var text = r[0];
+        getData(task, blobService, context).then(function (text) {
             headertext += text;
             var onlyheadertext = hasAllHeaders(headertext);
             var bytesOffset = MAX_CHUNK_SIZE;
@@ -101,7 +86,7 @@ function getHeaderRecursively(headertext, task, blobService, context) {
 
 }
 
-function getcsvHeader(containerName, blobName, context, blobService) {
+function getcsvHeader(containerName, blobName, blobService, context) {
     // Todo optimize to avoid multiple request
     var bytesOffset = MAX_CHUNK_SIZE;
     var task = {
@@ -113,12 +98,8 @@ function getcsvHeader(containerName, blobName, context, blobService) {
 
     return getHeaderRecursively("", task, blobService, context);
 }
-/**
- * @param  {} msgtext
- * @param  {} headers
- * Handler for CSV to JSON log conversion
- */
-function csvHandler(msgtext, headers) {
+
+function csvHandler(context,msgtext, headers) {
     var messages = csvToArray(msgtext, DEFAULT_CSV_SEPARATOR);
     var messageArray = [];
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
@@ -135,12 +116,13 @@ function csvHandler(msgtext, headers) {
     });
     return messageArray;
 }
-/**
- * @param  {} jsonArray
- * Handler for NSG Flow logs to JSON supports version 1 and version 2 both
- */
-function nsgLogsHandler(jsonArray) {
-    var splitted_tuples, eventsArr = [];
+
+function nsgLogsHandler(context,msg) {
+
+    var jsonArray = [];
+    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    jsonArray = JSON.parse("[" + msg + "]");
+    var eventsArr = [];
     jsonArray.forEach(function (record) {
         version = record.properties.Version;
         record.properties.flows.forEach(function (rule) {
@@ -172,11 +154,11 @@ function nsgLogsHandler(jsonArray) {
                         // resource_group_name:
                     }
                     if (version === 2) {
-                        event.flow_state = (col[8] === "" || col[8] === undefined) ? null : col[8];
-                        event.num_packets_sent_src_to_dest = (col[9] === "" || col[9] === undefined) ? null : col[9];
-                        event.bytes_sent_src_to_dest = (col[10] === "" || col[10] === undefined) ? null : col[10];
-                        event.num_packets_sent_dest_to_src = (col[11] === "" || col[11] === undefined) ? null : col[11];
-                        event.bytes_sent_dest_to_src = (col[12] === "" || col[12] === undefined) ? null : col[12];
+                        event.flow_state = (col[8] === "" || col[8] === undefined) ?  null : col[8];
+                        event.num_packets_sent_src_to_dest = (col[9] === "" || col[9] === undefined) ?  null : col[9];
+                        event.bytes_sent_src_to_dest = (col[10] === "" || col[10] === undefined) ?  null : col[10];
+                        event.num_packets_sent_dest_to_src = (col[11] === "" || col[11] === undefined) ?  null : col[11];
+                        event.bytes_sent_dest_to_src = (col[12] === "" || col[12] === undefined) ?  null : col[12];
                     }
                     eventsArr.push(event);
                 })
@@ -185,54 +167,55 @@ function nsgLogsHandler(jsonArray) {
     });
     return eventsArr;
 }
-/**
- * @param  {} msg
- *
- * Handler for extracting multiple json objects from the middle of the json array(from a file present in storage account)
- */
-function jsonHandler(msg) {
+
+function jsonHandler(context,msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
-
+    msg = JSON.stringify(msg)
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
     jsonArray = JSON.parse("[" + msg + "]");
-    jsonArray = (jsonArray.length > 0 && jsonArray[0].category === "NetworkSecurityGroupFlowEvent") ? nsgLogsHandler(jsonArray) : jsonArray;
     return jsonArray;
 }
-/**
- * @param  {} msg
- * Handler for json line format where every line is a json object
- */
-function blobHandler(context, msg, serviceBusTask) {
+
+function blobHandler(context,msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
-
-    let jsonArray = [];
-    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
-
-    try {
-        jsonArray = JSON.parse("[" + msg.replace(/}\r?\n{/g,  "},{") + "]");
-    } catch(e) {
-        context.log.error(`JSON ParseException in blobHandler, error: ${JSON.stringify(e)}, msg: ${msg} `);
-        // removing unparsed prefix and suffix
-        let start_idx = msg.indexOf('{');
-        let last_idx = msg.lastIndexOf('}');
-        let submsg = msg.substr(start_idx, last_idx+1-start_idx); // prefix & suffix removed
-        try {
-            jsonArray = JSON.parse("[" + msg.replace(/}\r?\n{/g,  "},{") + "]");
-            let suffixlen = msg.length - (li+1);
-            contentDownloaded -= suffixlen;
-        } catch(e) {
-            context.log.error("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0,start_idx), msg.substr(last_idx+1));
-            // will try to ingest the whole block
-            jsonArray = [msg];
-        }
-    }
+    
+    var jsonArray = [];
+    msg = msg.replace(/\0/g, '');
+    msg = msg.replace(/(\r?\n|\r)/g, ",");
+    msg = msg.trim().replace(/(^,+)|(,+$)/g, ""); //removing trailing spaces,newlines and leftover commas
+    jsonArray = JSON.parse("[" + msg + "]");
     return jsonArray;
 }
 
-function logHandler(msg) {
+function logHandler(context,msg) {
     return [msg];
+}
+
+function getData(task, blobService, context) {
+    // Todo support for chunk reading(if range is large)
+    // valid offset status code 206 (Partial Content).
+    // invalid offset status code 416 (Requested Range Not Satisfiable)
+
+    var containerName = task.containerName;
+    var blobName = task.blobName;
+    var options = { rangeStart: task.startByte };
+    if (task.endByte) {
+        options.rangeEnd = task.endByte;
+    }
+
+    return new Promise(function (resolve, reject) {
+        blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blobResult) {
+            if (err) {
+                context.log.error(`Error in fetching: ${JSON.stringify(err)}`)
+                reject(err);
+            } else {
+                resolve([blobContent, blobResult]);
+            }
+        });
+    });
+
 }
 
 function getUpdatedEntity(task, endByte) {
@@ -291,37 +274,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
         });
     });
 }
-/**
- * @param  {} task
- * @param  {} blobService
- * @param  {} context
- *
- * fetching ranged data from a file in storage account
- */
-function getData(task, blobService, context) {
-    // Todo support for chunk reading(if range is large)
-    // valid offset status code 206 (Partial Content).
-    // invalid offset status code 416 (Requested Range Not Satisfiable)
 
-    var containerName = task.containerName;
-    var blobName = task.blobName;
-    var options = { rangeStart: task.startByte };
-    if (task.endByte) {
-        options.rangeEnd = task.endByte;
-    }
-
-    return new Promise(function (resolve, reject) {
-        blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blobResult) {
-            if (err) {
-                context.log.error(`Error in fetching: ${JSON.stringify(err)}`)
-                reject(err);
-            } else {
-                resolve([blobContent, blobResult]);
-            }
-        });
-    });
-
-}
 var lastTokenGenTime = null;
 var refreshTokenDuratoninMin = 60;
 var cachedTokenResponse = null;

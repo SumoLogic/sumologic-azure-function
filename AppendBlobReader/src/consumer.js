@@ -3,22 +3,17 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
-var dataTransformer = require('./datatransformer');
-var storage = require('azure-storage');
 const { ContainerClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { AbortController } = require("@azure/abort-controller");
 const { ServiceBusClient } = require("@azure/service-bus");
 const { TableServiceClient } = require("@azure/data-tables");
-const DEFAULT_CSV_SEPARATOR = ",";
-const MAX_CHUNK_SIZE = 1024;
+var DEFAULT_CSV_SEPARATOR = ",";
+var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
-var DLQMessage = null;
 var contentDownloaded = 0;
-
-const credential = new DefaultAzureCredential();
-const tableClient = new TableServiceClient(tablesUrl, credential);
+const tokenCredential = new DefaultAzureCredential();
 
 /**
  * @param  {} strData
@@ -263,7 +258,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
         var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
         context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
         entity = getUpdatedEntity(serviceBusTask, newOffset);
-
+        var tableClient = new TableServiceClient(`https://${serviceBusTask.storageName}.table.core.windows.net`, tokenCredential);
         var updateResult = tableClient.submitTransaction(updateTransaction);
         context.log("updateResult: ",updateResult)
         // //using merge to preserve eventdate
@@ -317,8 +312,7 @@ function getData(task, blockBlobClient, context) {
 function getBlockBlobService(context, task) {
     return new Promise(function (resolve, reject) {
     try{
-        //context.log("Inside Block Blob Service")
-        var tokenCredential = new DefaultAzureCredential();
+
         var containerClient = new ContainerClient(
             `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
             tokenCredential
@@ -568,7 +562,7 @@ function errorHandler(err, serviceBusTask, context) {
 }
 
 async function archiveIngestedFile(serviceBusTask, context) {
-    
+    var tableClient = new TableServiceClient(`https://${serviceBusTask.storageName}.table.core.windows.net`, tokenCredential);
     await tableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
     context.done("Entity deleted")
 }

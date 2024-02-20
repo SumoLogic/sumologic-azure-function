@@ -5,9 +5,6 @@
 var sumoHttp = require('./sumoclient');
 var dataTransformer = require('./datatransformer');
 var storage = require('azure-storage');
-var storageManagementClient = require('azure-arm-storage');
-var MsRest = require('ms-rest-azure');
-var servicebus = require('azure-sb');
 var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
 var { ContainerClient } = require("@azure/storage-blob");
 var { DefaultAzureCredential } = require("@azure/identity");

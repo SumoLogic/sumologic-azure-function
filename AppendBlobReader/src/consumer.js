@@ -193,30 +193,24 @@ function logHandler(context,msg) {
     return [msg];
 }
 
-function getData(task, blobService, context) {
+function getData(task, blockBlobClient, context) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
-
-    var containerName = task.containerName;
-    var blobName = task.blobName;
-    var options = { rangeStart: task.startByte };
-    if (task.endByte) {
-        options.rangeEnd = task.endByte;
-    }
-
-    return new Promise(function (resolve, reject) {
-        blobService.getBlobToText(containerName, blobName, options, function (err, blobContent, blobResult) {
-            if (err) {
-                context.log.error(`Error in fetching: ${JSON.stringify(err)}`)
-                reject(err);
-            } else {
-                resolve([blobContent, blobResult]);
-            }
-        });
-    });
-
-}
+    //context.log("Inside get data function:");
+    return new Promise(async function (resolve, reject) {
+        try {
+            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
+            abortSignal: AbortController.timeout(30 * 60 * 1000),
+            blockSize: 4 * 1024 * 1024,
+            concurrency: 1
+            });
+            resolve(buffer.toString());
+        } catch (err) {
+            reject(err);
+        }
+})};
 
 function getUpdatedEntity(task, endByte) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
@@ -275,119 +269,21 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
     });
 }
 
-var lastTokenGenTime = null;
-var refreshTokenDuratoninMin = 60;
-var cachedTokenResponse = null;
-
-
-function isRefreshTokenDurationExceeded() {
-    if (!lastTokenGenTime) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastTokenGenTime)/(1000 * 60)) >= refreshTokenDuratoninMin ? true : false;
-}
-
-/**
-- * @param  {} task
-- * @param  {} context
-- *
-- * fetching token and caching it for refreshTokenDuratoninMin
-- */
-function getCachedToken(context, task) {
-    if (!cachedTokenResponse || isRefreshTokenDurationExceeded()) {
-        context.log("Regenerating token at: %s", new Date().toISOString());
-        return getToken(context, task).then(function(tokenResponse) {
-            lastTokenGenTime = new Date().getTime();
-            cachedTokenResponse = tokenResponse;
-            return cachedTokenResponse;
-        })
-    } else {
-        return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = ((new Date()).getTime() - lastTokenGenTime)/(1000 * 60)
-            context.log.verbose("Using cached token timeRemainingToRefreshToken: %d", timeRemainingToRefreshToken);
-            resolve(cachedTokenResponse);
-        });
-    }
-}
-
-function getToken(context, task) {
-    var options = { msiEndpoint: process.env.MSI_ENDPOINT, msiSecret: process.env.MSI_SECRET };
-    return new Promise(function (resolve, reject) {
-        MsRest.loginWithAppServiceMSI(options, function (err, tokenResponse) {
-            if (err) {
-                context.log.error(`MSI_REST_TOKEN, error: ${JSON.stringify(err)}, task: ${JSON.stringify(task)}`);
-                reject(err);
-            } else {
-                resolve(tokenResponse);
-            }
-        });
-    });
-}
-
-
-var lastAccountKeyGenTime = {};
-var refreshAccountKeyDuratoninMin = 60;
-var cachedAccountKeyResponse = {};
-
-function isRefreshAccountKeyDurationExceeded(task) {
-    if (!lastAccountKeyGenTime[getStorageAccountCacheKey(task)]) {
-        return true;
-    }
-    var currentTimestamp = new Date().getTime();
-    return ((currentTimestamp - lastAccountKeyGenTime[getStorageAccountCacheKey(task)])/(1000 * 60)) >= refreshAccountKeyDuratoninMin ? true : false;
-}
-
-function getStorageAccountCacheKey(task) {
-    return task.resourceGroupName + "-" + task.storageName;
-}
-/**
- * @param  {} task
- * @param  {} context
- *
- * fetching account key and caching it for refreshAccountKeyDuratoninMin
- */
-function getCachedAccountKey(context, task) {
-    if (!cachedAccountKeyResponse[getStorageAccountCacheKey(task)] || isRefreshAccountKeyDurationExceeded(task)) {
-        context.log.verbose("Regenerating accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
-        return getStorageAccountAccessKey(context, task).then(function(accountKey) {
-            lastAccountKeyGenTime[getStorageAccountCacheKey(task)] = new Date().getTime();
-            cachedAccountKeyResponse[getStorageAccountCacheKey(task)] = accountKey;
-            context.log("Regenerated accountKey for %s at: %s ", task.rowKey, new Date().toISOString());
-            return accountKey;
-        });
-
-    } else {
-        return new Promise(function (resolve, reject) {
-            var timeRemainingToRefreshToken = (lastAccountKeyGenTime[getStorageAccountCacheKey(task)] +  (refreshAccountKeyDuratoninMin * 1000 * 60) - (new Date()).getTime())/(1000 * 60);
-            context.log("Using cached accountKey for %s timeRemainingToRefreshToken: %d", task.rowKey, timeRemainingToRefreshToken);
-            resolve(cachedAccountKeyResponse[getStorageAccountCacheKey(task)]);
-        });
-    }
-}
-
-function getStorageAccountAccessKey(context, task) {
-
-    return getCachedToken(context, task).then(function(credentials) {
-        var storagecli = new storageManagementClient(
-            credentials,
-            task.subscriptionId
-        );
-        return storagecli.storageAccounts.listKeys(task.resourceGroupName, task.storageName).then(function (resp) {
-            return resp.keys[0].value;
-        });
-    });
-
-}
-
 function getBlockBlobService(context, task) {
-
-    return getCachedAccountKey(context, task).then(function (accountKey) {
-        var blobService = storage.createBlobService(task.storageName, accountKey);
-        return blobService;
-    });
-
-}
+    return new Promise(function (resolve, reject) {
+    try{
+        //context.log("Inside Block Blob Service")
+        var tokenCredential = new DefaultAzureCredential();
+        var containerClient = new ContainerClient(
+            `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
+            tokenCredential
+        );
+        var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+        resolve(blockBlobClient);
+        } catch (err){
+            reject(err);
+        }
+    })};
 
 function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     var curdataLenSent = dataLenSent || contentDownloaded;

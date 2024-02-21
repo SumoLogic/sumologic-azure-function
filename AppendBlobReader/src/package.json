@@ -3,12 +3,6 @@
   "version": "1.0.0",
   "description": "Azure functions for reading new logs from Azure Blobs by listening to a container and then forwarding it to Sumo collector HTTP endpoint.",
   "main": "index.js",
-  "dependencies": {
-    "azure-sb": "^0.10.6",
-    "azure-storage": "^2.10.1",
-    "azure-arm-storage": "^6.0.0",
-    "ms-rest-azure": "^2.5.9"
-  },
   "devDependencies": {},
   "scripts": {
     "test": "",

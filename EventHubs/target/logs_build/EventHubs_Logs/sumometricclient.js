@@ -2,13 +2,15 @@
 /**
  * Created by duc on 6/30/17. This is a client for metric
  */
-var https = require('node:https');
-var zlib = require('node:zlib');
-var url = require('node:url');
+var https = require('https');
+var zlib= require('zlib');
+var url = require('url');
 
 var sumoclient = require('./sumoclient');
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
+
+
 
 var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
 /**
@@ -117,7 +119,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    this.context.log.verbose("Flush METRIC buffer for metaKey:"+metaKey);
+    this.context.log("Flush METRIC buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
 
@@ -168,12 +170,11 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
 
-            return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
+            zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
-                    self.context.log.verbose("gzip successful");
                     sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
                         .then(()=> {
-                        self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
+                        //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                 )
                 .catch((err) => {
@@ -191,13 +192,13 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
             });
         }  else {
             //self.context.log('Send raw data to Sumo');
-            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
+            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
                 .then(()=> { self.success_callback(self.context);})
-            .catch((err) => {
-                self.messagesFailed += msgArray.length;
-                self.messagesAttempted += msgArray.length;
-                self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
-                self.failure_callback(msgArray,self.context);
+        .catch((err) => {
+            self.messagesFailed += msgArray.length;
+            self.messagesAttempted += msgArray.length;
+            self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+            self.failure_callback(msgArray,self.context);
         });
         }
     }
@@ -215,7 +216,7 @@ function FlushFailureHandler (messageArray,ctx) {
 };
 
 /**
- * Default built-in callback function to handle successful sent. It simply logs a success message
+ * Default built-in callback function to handle successful sents. It simply logs a success message
  * @param ctx is a context variable that supports a log method
  * @constructor
  */
@@ -228,3 +229,4 @@ module.exports = {
     FlushFailureHandler:FlushFailureHandler,
     DefaultSuccessHandler:DefaultSuccessHandler
 }
+

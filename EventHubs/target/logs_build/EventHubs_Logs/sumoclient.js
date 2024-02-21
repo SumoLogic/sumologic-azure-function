@@ -184,13 +184,13 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                     .catch((err) => {
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
-                        self.context.log.error("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                        self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                         self.failure_callback(msgArray,self.context);
                     });
                 } else {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
-                    self.context.log.error("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                    self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 }
             });
@@ -201,7 +201,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             .catch((err) => {
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
-                self.context.log.error("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                 self.failure_callback(msgArray,self.context);
             });
         }

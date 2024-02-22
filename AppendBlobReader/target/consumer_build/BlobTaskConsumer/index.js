@@ -3,16 +3,20 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoHttp = require('./sumoclient');
+
 const { ContainerClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { AbortController } = require("@azure/abort-controller");
 const { ServiceBusClient } = require("@azure/service-bus");
-const { TableServiceClient } = require("@azure/data-tables");
+const { TableClient } = require("@azure/data-tables");
+const { ShareServiceClient } = require("@azure/storage-file-share");
+
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
 var contentDownloaded = 0;
+
 const tokenCredential = new DefaultAzureCredential();
 
 /**
@@ -222,26 +226,18 @@ function logHandler(context,msg) {
     return [msg];
 }
 
-function getUpdatedEntity(task, endByte) {
+async function getUpdatedEntity(task, endByte) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     // RowKey/Partition key cannot contain "/"
     // sets the offset updatedate done(releases the enque lock)
-    var entity = {
-        done: false,
-        updatedate: new Date().toISOString(),
-        offset: endByte,
-        // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
-        partitionKey: task.containerName,
-        rowKey: task.rowKey,
-        blobName: task.blobName,
-        containerName: task.containerName,
-        storageName: task.storageName,
-        blobType: task.blobType,
-        resourceGroupName: task.resourceGroupName,
-        subscriptionId: task.subscriptionId
-    };
+
+    let entity = await azureTableClient.getEntity(task.containerName, task.rowKey);
+    entity.done=false;
+    entity.updatedate= new Date().toISOString();
+    entity.offset=endByte;
+
     if (contentDownloaded > 0) {
-        entity["senddate"] = new Date().toISOString()
+        entity.senddate = new Date().toISOString();
     }
     return entity;
 }
@@ -252,36 +248,22 @@ function getUpdatedEntity(task, endByte) {
  * updates the offset in FileOffsetMap table for append blob file rows after the data has been sent to sumo
  */
 
+async function updateAppendBlobPointerMap(entity) {
+    
+    let response = await azureTableClient.updateEntity(entity, "Replace")
+    return response;
+}
+
 function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
         context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
-        entity = getUpdatedEntity(serviceBusTask, newOffset);
-        var tableClient = new TableServiceClient(`https://${serviceBusTask.storageName}.table.core.windows.net`, tokenCredential);
-        var updateResult = tableClient.submitTransaction(updateTransaction);
+        entity = await getUpdatedEntity(serviceBusTask, newOffset);
+        var updateResult = await updateAppendBlobPointerMap(entity)
         context.log("updateResult: ",updateResult)
-        // //using merge to preserve eventdate
-        // tableService.mergeEntity(process.env.APPSETTING_TABLE_NAME, entity, function (error, result, response) {
-        //     if (!error) {
-        //         if (serviceBusTask.startByte === newOffset) {
-        //             context.log("Successfully updated Lock  for Table row: " + serviceBusTask.rowKey + " Offset remains the same : " + newOffset);
-        //         } else {
-        //             context.log("Successfully updated OffsetMap Table row: " + serviceBusTask.rowKey + " table to : " + newOffset + " from: " + serviceBusTask.startByte);
-        //         }
-
-        //         resolve(response);
-        //     } else if (error.code === "ResourceNotFound" && error.statusCode === 404) {
-        //         context.log.verbose("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
-        //         resolve(response);
-        //     } else {
-        //         reject(error);
-        //     }
-        // });
     });
 }
-
-
 
 /**
  * @param  {} task
@@ -361,7 +343,6 @@ function sendToSumoBlocking(chunk, sendOptions, context, isText) {
 
 }
 
-
 function setAppendBlobBatchSize(serviceBusTask) {
 
     var batchSize = serviceBusTask.batchSize;
@@ -370,7 +351,7 @@ function setAppendBlobBatchSize(serviceBusTask) {
     } else if (serviceBusTask.containerName === "onboard-prod-applogs") {
         batchSize = 30 * 1024 * 1024;
     }
-
+    batchSize = 180 * 1024 * 1024; //TODO - remove
     return batchSize;
 }
 
@@ -493,7 +474,6 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
  */
 function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, serviceBusTask) {
 
-
     var results = decodeDataChunks(context, dataBytesBuffer, serviceBusTask);
     var ignoredprefixLen = results[0];
     var dataChunks = results[1];
@@ -562,8 +542,7 @@ function errorHandler(err, serviceBusTask, context) {
 }
 
 async function archiveIngestedFile(serviceBusTask, context) {
-    var tableClient = new TableServiceClient(`https://${serviceBusTask.storageName}.table.core.windows.net`, tokenCredential);
-    await tableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
+    await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
     context.done("Entity deleted")
 }
 
@@ -605,6 +584,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
             // timeoutIntervalInMs server timeout
             // clientRequestTimeoutInMs client timeout
         };
+
         let readStream = blobService.createReadStream(serviceBusTask.containerName, serviceBusTask.blobName, options, (err, res) => {
             if(err) {
                 context.log.error(`Error in appendBlobStreamMessageHandlerv2 Failed to create readStream,  res: ${res}, err: ${err}, statuscode: ${err.statusCode}`);
@@ -637,6 +617,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         });
 
         readStream.on('error', function(err) {
+        context.log("readStream error:"+JSON.stringify(err))
             // Todo: Test error cases for fetching
         return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function(dataLenSent) {
                 contentDownloaded = dataLenSent;
@@ -871,22 +852,22 @@ module.exports = function (context, triggerData) {
     contentDownloaded = 0;
     context.log("Inside blob task consumer:", triggerData.rowKey);
     /*
+        var triggerData = {
+            subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
+            resourceGroupName: "SumoAuditCollection",
+            storageName: "allbloblogseastus",
+            containerName: "testabb",
+            blobName: 'blob_fixtures.csv',
+            startByte: 0,
+            blobType: "AppendBlob",
+            rowKey: "allbloblogseastus-testabb-blob_fixtures.csv"
+        };
 
-    var triggerData = {
-        subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
-        resourceGroupName: "SumoAuditCollection",
-        storageName: "allbloblogseastus",
-        containerName: "appendblobexp1002-3-104857600",
-        blobName: 'appendblobfileallbloblogseastus_1002_3_104857600_1.json',
-        startByte: 0,
-        blobType: "AppendBlob",
-        rowKey: "allbloblogseastus-appendblobexp1002-3-104857600-appendblobfileallbloblogseastus_1002_3_104857600_1.json"
-    };
-    appendBlobStreamMessageHandlerv2(context, triggerData);
-    // appendBlobStreamMessageHandler(context, triggerData);
-    //servicebushandler(context, triggerData);
+        appendBlobStreamMessageHandlerv2(context, triggerData);
+    
+        appendBlobStreamMessageHandler(context, triggerData);
+        servicebushandler(context, triggerData);
     */
-
 
     if (triggerData.isPastDue === undefined) {
         DLQMessage = null;
@@ -901,5 +882,5 @@ module.exports = function (context, triggerData) {
         // Todo: Test with old blockblob flow and remove appendblob from it's code may be separate out code in commonjs
         timetriggerhandler(context, triggerData);
     }
-
+    
 };

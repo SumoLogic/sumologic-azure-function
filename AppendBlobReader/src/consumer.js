@@ -9,7 +9,7 @@ const { DefaultAzureCredential } = require("@azure/identity");
 const { AbortController } = require("@azure/abort-controller");
 const { ServiceBusClient } = require("@azure/service-bus");
 const { TableClient } = require("@azure/data-tables");
-const { ShareServiceClient } = require("@azure/storage-file-share");
+const { BlobServiceClient, StorageSharedKeyCredential } = require("@azure/storage-blob");
 
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
@@ -122,7 +122,7 @@ function getcsvHeader(containerName, blobName, blobService, context) {
     return getHeaderRecursively("", task, blobService, context);
 }
 
-function csvHandler(context,msgtext, headers) {
+function csvHandler(context, msgtext, headers) {
     var messages = csvToArray(msgtext, DEFAULT_CSV_SEPARATOR);
     var messageArray = [];
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
@@ -143,7 +143,7 @@ function csvHandler(context,msgtext, headers) {
  * @param  {} jsonArray
  * Handler for NSG Flow logs to JSON supports version 1 and version 2 both
  */
-function nsgLogsHandler(context,msg) {
+function nsgLogsHandler(context, msg) {
 
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
@@ -180,11 +180,11 @@ function nsgLogsHandler(context,msg) {
                         // resource_group_name:
                     }
                     if (version === 2) {
-                        event.flow_state = (col[8] === "" || col[8] === undefined) ?  null : col[8];
-                        event.num_packets_sent_src_to_dest = (col[9] === "" || col[9] === undefined) ?  null : col[9];
-                        event.bytes_sent_src_to_dest = (col[10] === "" || col[10] === undefined) ?  null : col[10];
-                        event.num_packets_sent_dest_to_src = (col[11] === "" || col[11] === undefined) ?  null : col[11];
-                        event.bytes_sent_dest_to_src = (col[12] === "" || col[12] === undefined) ?  null : col[12];
+                        event.flow_state = (col[8] === "" || col[8] === undefined) ? null : col[8];
+                        event.num_packets_sent_src_to_dest = (col[9] === "" || col[9] === undefined) ? null : col[9];
+                        event.bytes_sent_src_to_dest = (col[10] === "" || col[10] === undefined) ? null : col[10];
+                        event.num_packets_sent_dest_to_src = (col[11] === "" || col[11] === undefined) ? null : col[11];
+                        event.bytes_sent_dest_to_src = (col[12] === "" || col[12] === undefined) ? null : col[12];
                     }
                     eventsArr.push(event);
                 })
@@ -198,7 +198,7 @@ function nsgLogsHandler(context,msg) {
  *
  * Handler for extracting multiple json objects from the middle of the json array(from a file present in storage account)
  */
-function jsonHandler(context,msg) {
+function jsonHandler(context, msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
     msg = JSON.stringify(msg)
@@ -210,10 +210,10 @@ function jsonHandler(context,msg) {
  * @param  {} msg
  * Handler for json line format where every line is a json object
  */
-function blobHandler(context,msg) {
+function blobHandler(context, msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
-    
+
     var jsonArray = [];
     msg = msg.replace(/\0/g, '');
     msg = msg.replace(/(\r?\n|\r)/g, ",");
@@ -222,7 +222,7 @@ function blobHandler(context,msg) {
     return jsonArray;
 }
 
-function logHandler(context,msg) {
+function logHandler(context, msg) {
     return [msg];
 }
 
@@ -232,9 +232,9 @@ async function getUpdatedEntity(task, endByte) {
     // sets the offset updatedate done(releases the enque lock)
 
     let entity = await azureTableClient.getEntity(task.containerName, task.rowKey);
-    entity.done=false;
-    entity.updatedate= new Date().toISOString();
-    entity.offset=endByte;
+    entity.done = false;
+    entity.updatedate = new Date().toISOString();
+    entity.offset = endByte;
 
     if (contentDownloaded > 0) {
         entity.senddate = new Date().toISOString();
@@ -249,7 +249,7 @@ async function getUpdatedEntity(task, endByte) {
  */
 
 async function updateAppendBlobPointerMap(entity) {
-    
+
     let response = await azureTableClient.updateEntity(entity, "Replace")
     return response;
 }
@@ -261,7 +261,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
         context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
         entity = await getUpdatedEntity(serviceBusTask, newOffset);
         var updateResult = await updateAppendBlobPointerMap(entity)
-        context.log("updateResult: ",updateResult)
+        context.log("updateResult: ", updateResult)
     });
 }
 
@@ -280,31 +280,33 @@ function getData(task, blockBlobClient, context) {
     return new Promise(async function (resolve, reject) {
         try {
             var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
-            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1) , {
-            abortSignal: AbortController.timeout(30 * 60 * 1000),
-            blockSize: 4 * 1024 * 1024,
-            concurrency: 1
+            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1), {
+                abortSignal: AbortController.timeout(30 * 60 * 1000),
+                blockSize: 4 * 1024 * 1024,
+                concurrency: 1
             });
             resolve(buffer.toString());
         } catch (err) {
             reject(err);
         }
-})};
+    })
+};
 
 function getBlockBlobService(context, task) {
     return new Promise(function (resolve, reject) {
-    try{
+        try {
 
-        var containerClient = new ContainerClient(
-            `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
-            tokenCredential
-        );
-        var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
-        resolve(blockBlobClient);
-        } catch (err){
+            var containerClient = new ContainerClient(
+                `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
+                tokenCredential
+            );
+            var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+            resolve(blockBlobClient);
+        } catch (err) {
             reject(err);
         }
-    })};
+    })
+};
 
 function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     var curdataLenSent = dataLenSent || contentDownloaded;
@@ -314,13 +316,13 @@ function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
             context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
         });
     } else {
-        return new Promise(function (resolve, reject) {resolve();});
+        return new Promise(function (resolve, reject) { resolve(); });
     }
 }
 
 function sendToSumoBlocking(chunk, sendOptions, context, isText) {
 
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
         function failureHandler(msgArray, ctx) {
             reject();
@@ -351,7 +353,6 @@ function setAppendBlobBatchSize(serviceBusTask) {
     } else if (serviceBusTask.containerName === "onboard-prod-applogs") {
         batchSize = 30 * 1024 * 1024;
     }
-    batchSize = 180 * 1024 * 1024; //TODO - remove
     return batchSize;
 }
 
@@ -369,7 +370,7 @@ function regexLastIndexOf(string, regex, startpos) {
     // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
     var stringToWorkWith = string.substring(startpos, string.length);
     var match = string.match(regex);
-    return  match ? string.lastIndexOf(match.slice(-1)) : -1;
+    return match ? string.lastIndexOf(match.slice(-1)) : -1;
 }
 
 
@@ -386,8 +387,8 @@ function getBoundaryRegex(serviceBusTask) {
     if (serviceBusTask.storageName === "mue1supportakspocsa" || serviceBusTask.storageName === "mue1supportaksdevsa" || serviceBusTask.storageName === "muw1nortonaksintsa" || serviceBusTask.storageName === "muw1supportaksstgsa" || serviceBusTask.storageName === "muw1supportaksprodsa" || serviceBusTask.storageName === "mue2supportaksprodsa" || serviceBusTask.storageName === "muw1supportakscoresa") {
         if (file_ext === "log") {
             logRegex = '\{\"\@timestamp\"\:\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';
-        } else if(file_ext === "json") {
-            if(serviceBusTask.containerName === "insights-logs-kube-audit") {
+        } else if (file_ext === "json") {
+            if (serviceBusTask.containerName === "insights-logs-kube-audit") {
                 logRegex = '\{\\s+\"operationName\"\:\\s+\"';
             }
             else {
@@ -424,10 +425,10 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
 
     // returm -1 if not found
     let firstIdx = regexIndexOf(data, logRegex);
-    let lastIndex = regexLastIndexOf(data, logRegex, firstIdx+1);
+    let lastIndex = regexLastIndexOf(data, logRegex, firstIdx + 1);
 
     // data.substring method extracts the characters in a string between "start" and "end", not including "end" itself.
-    let prefix = data.substring(0,firstIdx);
+    let prefix = data.substring(0, firstIdx);
     // in case only one time string
     if (lastIndex === -1 && data.length > 0) {
         lastIndex = data.length;
@@ -440,8 +441,8 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
             JSON.parse(suffix)
             lastIndex = data.length;
         }
-    } catch(e) {
-        context.log.verbose("last chunk not json parseable so ignoring", suffix, lastIndex,  e);
+    } catch (e) {
+        context.log.verbose("last chunk not json parseable so ignoring", suffix, lastIndex, e);
     }
     // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
     // for new files offset will always start from date
@@ -451,7 +452,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
     // can't use matchAll since it's available only after version > 12
     let startpos = 0;
     let maxChunkSize = 1 * 1024 * 1024; // 1 MB
-    while((match = logRegex.exec(data)) !== null) {
+    while ((match = logRegex.exec(data)) !== null) {
 
         if (match.index - startpos >= maxChunkSize) {
             dataChunks.push(data.substring(startpos, match.index));
@@ -479,11 +480,11 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
     var dataChunks = results[1];
     var numChunksSent = 0;
     var dataLenSent = 0;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
         let promiseChain = Promise.resolve();
         const makeNextPromise = (chunk) => () => {
-            return sendToSumoBlocking(chunk, sendOptions, context, true).then(function() {
+            return sendToSumoBlocking(chunk, sendOptions, context, true).then(function () {
                 if ((numChunksSent >= 10 && numChunksSent % 10 === 0) || numChunksSent <= 2) {
                     context.log("sent chunks: ", numChunksSent);
                 }
@@ -491,13 +492,13 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
                 dataLenSent += Buffer.byteLength(chunk);
             });
         };
-        for(var i = 0; i < dataChunks.length; i++) {
+        for (var i = 0; i < dataChunks.length; i++) {
             promiseChain = promiseChain.then(makeNextPromise(dataChunks[i]));
         }
-        return promiseChain.catch(function(err) {
+        return promiseChain.catch(function (err) {
             context.log.error(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`)
-            resolve(dataLenSent+ignoredprefixLen);
-        }).then(function() {
+            resolve(dataLenSent + ignoredprefixLen);
+        }).then(function () {
             if (dataChunks.length === 0) {
                 context.log(`No chunks to send ${serviceBusTask.rowKey}`);
             } else if (numChunksSent === dataChunks.length) {
@@ -505,7 +506,7 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
                     context.log(`All chunks sucessfully sent to sumo blob ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
                 }
             }
-            resolve(dataLenSent+ignoredprefixLen);
+            resolve(dataLenSent + ignoredprefixLen);
         });
 
     });
@@ -516,7 +517,7 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
  */
 function errorHandler(err, serviceBusTask, context) {
     let discardError = false;
-    let errMsg = (err !== undefined ? err.toString(): "");
+    let errMsg = (err !== undefined ? err.toString() : "");
     if (typeof errMsg === 'string' && (errMsg.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") >= 0 || errMsg.indexOf("SyntaxError: Unexpected end of JSON input") >= 0)) {
         context.log.verbose("Error in appendBlobStreamMessageHandlerv2 MSI Toke Error ignored: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
@@ -552,13 +553,13 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
+    var msghandler = { "log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler };
     if (!(file_ext in msghandler)) {
         context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
-        context.done(); 
+        context.done();
         return;
     }
-    
+
     var options = {
         urlString: process.env.APPSETTING_SumoLogEndpoint,
         MaxAttempts: 3,
@@ -568,13 +569,13 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
 
-    return getBlockBlobService(context, serviceBusTask).then(function (blobService) {
+    return getBlockBlobService(context, serviceBusTask).then(async function (blobService) {
         context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
         var numChunks = 0;
         let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
         context.log("setting batchsize", batchSize);
         var dataLen = 0;
-        var dataChunks=[];
+        var dataChunks = [];
         let options = {
             "rangeStart": serviceBusTask.startByte,
             "rangeEnd": serviceBusTask.startByte + batchSize - 1,
@@ -585,8 +586,14 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
             // clientRequestTimeoutInMs client timeout
         };
 
+        // Iterate over all containers in the account
+        console.log("Containers:");
+        for await (const container of serviceClient.listContainers()) {
+            console.log(`- ${container.name}`);
+        }
+
         let readStream = blobService.createReadStream(serviceBusTask.containerName, serviceBusTask.blobName, options, (err, res) => {
-            if(err) {
+            if (err) {
                 context.log.error(`Error in appendBlobStreamMessageHandlerv2 Failed to create readStream,  res: ${res}, err: ${err}, statuscode: ${err.statusCode}`);
             }
         });
@@ -603,30 +610,30 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         });
 
-        readStream.on('end', function(res) {
+        readStream.on('end', function (res) {
             context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
-            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function(dataLenSent) {
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function (dataLenSent) {
                 contentDownloaded = dataLenSent;
-                return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function() {
-                        context.done();
-                    });
-            }).catch(function(err) {
+                return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                    context.done();
+                });
+            }).catch(function (err) {
                 context.log.error(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`)
                 context.done();
             });
         });
 
-        readStream.on('error', function(err) {
-        context.log("readStream error:"+JSON.stringify(err))
+        readStream.on('error', function (err) {
+            context.log("readStream error:" + JSON.stringify(err))
             // Todo: Test error cases for fetching
-        return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function(dataLenSent) {
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function (dataLenSent) {
                 contentDownloaded = dataLenSent;
                 let discardError = errorHandler(err, serviceBusTask, context);
                 if (err !== undefined && (err.code === "BlobNotFound" || err.statusCode == 404)) {
                     // delete the entry from table storage
                     return archiveIngestedFile(serviceBusTask, context);
                 } else {
-                    return releaseLockfromOffsetTable(context, serviceBusTask,dataLenSent).then(function() {
+                    return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
                         if (discardError) {
                             context.done()
                         } else {
@@ -636,10 +643,10 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                     });
                 }
 
-            }).catch(function(err) {
+            }).catch(function (err) {
                 context.log.error(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`)
-                return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
-                        context.done();
+                return releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
+                    context.done();
                 });
             });
 
@@ -647,7 +654,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
     }).catch(function (err) {
         let discardError = errorHandler(err, serviceBusTask, context);
-        return releaseLockfromOffsetTable(context, serviceBusTask).then(function() {
+        return releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {
                 context.done();
             } else {
@@ -663,10 +670,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
+    var msghandler = { "log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler };
     if (!(file_ext in msghandler)) {
         context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
-        context.done(); 
+        context.done();
         return;
     }
     if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {
@@ -690,7 +697,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             if (file_ext === "csv") {
                 return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
                     context.log("Received headers %d", headers.length);
-                    messageArray = msghandler[file_ext](context,msg, headers);
+                    messageArray = msghandler[file_ext](context, msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
                     messageArray.forEach(function (msg) {
                         sumoClient.addData(msg);
@@ -701,7 +708,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     context.done(err);
                 });
             } else {
-                messageArray = msghandler[file_ext](context,msg);
+                messageArray = msghandler[file_ext](context, msg);
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });
@@ -709,11 +716,11 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             }
         });
     }).catch(function (err) {
-        if(err.statusCode === 404) {
-            context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
+        if (err.statusCode === 404) {
+            context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " + serviceBusTask.endByte);
             context.done()
         } else {
-            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
+            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " + serviceBusTask.endByte);
             context.done(err);
         }
 
@@ -723,7 +730,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
 function setSourceCategory(serviceBusTask, options) {
 
     options.metadata = options.metadata || {};
-    options.metadata["name"]= serviceBusTask.storageName + "/" + serviceBusTask.containerName + "/" + serviceBusTask.blobName;
+    options.metadata["name"] = serviceBusTask.storageName + "/" + serviceBusTask.containerName + "/" + serviceBusTask.blobName;
     // options.metadata["category"] = <custom source category>
 }
 
@@ -769,10 +776,10 @@ async function timetriggerhandler(context, timetrigger) {
     if (timetrigger.isPastDue) {
         context.log("timetriggerhandler running late");
     }
-    try{
+    try {
         var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
-        var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME,{ subQueueType: "deadLetter", receiveMode: "peekLock" });
-    }catch(err){
+        var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME, { subQueueType: "deadLetter", receiveMode: "peekLock" });
+    } catch (err) {
         context.log.error("Failed to create service bus client and receiver");
         context.done(err);
     }
@@ -817,9 +824,9 @@ async function timetriggerhandler(context, timetrigger) {
                     ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
                 } else {
                     ctx.log('Successfully sent to Sumo, Exiting now.');
-                    try{
+                    try {
                         await queueReceiver.completeMessage(messages[0]);
-                    }catch(err){
+                    } catch (err) {
                         await queueReceiver.close();
                         await sbClient.close();
                         if (!err) {
@@ -835,7 +842,7 @@ async function timetriggerhandler(context, timetrigger) {
         }
         sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
         messageHandler(serviceBusTask, context, sumoClient);
-      }catch(error){
+    } catch (error) {
         await queueReceiver.close();
         await sbClient.close();
         if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
@@ -845,28 +852,29 @@ async function timetriggerhandler(context, timetrigger) {
             context.log.error("Error in reading messages from DLQ");
             context.done(error);
         }
-      }
     }
+}
 
 module.exports = function (context, triggerData) {
     contentDownloaded = 0;
     context.log("Inside blob task consumer:", triggerData.rowKey);
     /*
-        var triggerData = {
-            subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
-            resourceGroupName: "SumoAuditCollection",
-            storageName: "allbloblogseastus",
-            containerName: "testabb",
-            blobName: 'blob_fixtures.csv',
-            startByte: 0,
-            blobType: "AppendBlob",
-            rowKey: "allbloblogseastus-testabb-blob_fixtures.csv"
-        };
-
-        appendBlobStreamMessageHandlerv2(context, triggerData);
     
-        appendBlobStreamMessageHandler(context, triggerData);
-        servicebushandler(context, triggerData);
+    var triggerData = {
+        subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
+        resourceGroupName: "SumoAuditCollection",
+        storageName: "allbloblogseastus",
+        containerName: "testabb",
+        blobName: 'blob_fixtures.csv',
+        startByte: 0,
+        blobType: "AppendBlob",
+        rowKey: "allbloblogseastus-testabb-blob_fixtures.csv"
+    };
+
+    appendBlobStreamMessageHandlerv2(context, triggerData);
+    //appendBlobStreamMessageHandler(context, triggerData);
+    //servicebushandler(context, triggerData);
+   
     */
 
     if (triggerData.isPastDue === undefined) {
@@ -882,5 +890,5 @@ module.exports = function (context, triggerData) {
         // Todo: Test with old blockblob flow and remove appendblob from it's code may be separate out code in commonjs
         timetriggerhandler(context, triggerData);
     }
-    
+
 };

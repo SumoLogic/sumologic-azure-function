@@ -5,6 +5,6 @@
     "@azure/abort-controller": "^2.0.0",
     "@azure/service-bus": "^7.9.4",
     "@azure/data-tables": "^13.2.2",
-    "@azure/storage-file-share": "^12.17.0"
+    "@azure/storage-blob": "^12.17.0"
   }
 }

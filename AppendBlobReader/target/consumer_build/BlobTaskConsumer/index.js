@@ -58,14 +58,7 @@ function csvToArray(strData, strDelimiter) {
     }
     return arrData;
 }
-/**
- * @param  {} headertext
- * @param  {} task
- * @param  {} blobService
- * @param  {} context
- *
- * Extracts the header from the start of the csv file
- */
+
 function hasAllHeaders(text) {
     var delimitters = new RegExp("(\\r?\\n|\\r)");
     var strMatchedDelimiter = text.match(delimitters);
@@ -75,7 +68,14 @@ function hasAllHeaders(text) {
         return null;
     }
 }
-
+/**	
+ * @param  {} headertext	
+ * @param  {} task	
+ * @param  {} blobService	
+ * @param  {} context	
+ *	
+ * Extracts the header from the start of the csv file	
+ */
 function getHeaderRecursively(headertext, task, blobService, context) {
 
     return new Promise(function (resolve, reject) {

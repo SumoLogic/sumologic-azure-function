@@ -105,11 +105,7 @@ function getHeaderRecursively(headertext, task, blobService, context) {
     });
 
 }
-/**
- * @param  {} msgtext
- * @param  {} headers
- * Handler for CSV to JSON log conversion
- */
+
 function getcsvHeader(containerName, blobName, blobService, context) {
     // Todo optimize to avoid multiple request
     var bytesOffset = MAX_CHUNK_SIZE;
@@ -122,8 +118,12 @@ function getcsvHeader(containerName, blobName, blobService, context) {
 
     return getHeaderRecursively("", task, blobService, context);
 }
-
-function csvHandler(context, msgtext, headers) {
+/**
+ * @param  {} msgtext
+ * @param  {} headers
+ * Handler for CSV to JSON log conversion
+ */
+function csvHandler(msgtext, headers) {
     var messages = csvToArray(msgtext, DEFAULT_CSV_SEPARATOR);
     var messageArray = [];
     if (headers.length > 0 && messages.length > 0 && messages[0].length > 0 && headers[0] === messages[0][0]) {
@@ -144,7 +144,7 @@ function csvHandler(context, msgtext, headers) {
  * @param  {} jsonArray
  * Handler for NSG Flow logs to JSON supports version 1 and version 2 both
  */
-function nsgLogsHandler(context, msg) {
+function nsgLogsHandler(msg) {
 
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
@@ -199,7 +199,7 @@ function nsgLogsHandler(context, msg) {
  *
  * Handler for extracting multiple json objects from the middle of the json array(from a file present in storage account)
  */
-function jsonHandler(context, msg) {
+function jsonHandler(msg) {
     // it's assumed that json is well formed {},{}
     var jsonArray = [];
     msg = JSON.stringify(msg)
@@ -211,7 +211,7 @@ function jsonHandler(context, msg) {
  * @param  {} msg
  * Handler for json line format where every line is a json object
  */
-function blobHandler(context, msg) {
+function blobHandler(msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
 
@@ -223,7 +223,7 @@ function blobHandler(context, msg) {
     return jsonArray;
 }
 
-function logHandler(context, msg) {
+function logHandler(msg) {
     return [msg];
 }
 
@@ -273,7 +273,7 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
  *
  * fetching ranged data from a file in storage account
  */
-function getData(task, blockBlobClient, context) {
+function getData(task, blobService) {
     // Todo support for chunk reading(if range is large)
     // valid offset status code 206 (Partial Content).
     // invalid offset status code 416 (Requested Range Not Satisfiable)
@@ -281,7 +281,7 @@ function getData(task, blockBlobClient, context) {
     return new Promise(async function (resolve, reject) {
         try {
             var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
-            await blockBlobClient.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1), {
+            await blobService.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1), {
                 abortSignal: AbortController.timeout(30 * 60 * 1000),
                 blockSize: 4 * 1024 * 1024,
                 concurrency: 1
@@ -561,7 +561,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         return;
     }
 
-    var options = {
+    var sendOptions = {
         urlString: process.env.APPSETTING_SumoLogEndpoint,
         MaxAttempts: 3,
         RetryInterval: 3000,
@@ -741,7 +741,7 @@ function setSourceCategory(serviceBusTask, options) {
 function servicebushandler(context, serviceBusTask) {
     var sumoClient;
 
-    var options = {
+    var sendOptions = {
         urlString: process.env.APPSETTING_SumoLogEndpoint,
         MaxAttempts: 3,
         RetryInterval: 3000,
@@ -801,7 +801,7 @@ async function timetriggerhandler(context, timetrigger) {
         var myJSON = JSON.stringify(messages[0].body);
         var serviceBusTask = JSON.parse(myJSON);
         // Message received and locked and try to resend
-        var options = {
+        var sendOptions = {
             urlString: process.env.APPSETTING_SumoLogEndpoint,
             MaxAttempts: 3,
             RetryInterval: 3000,

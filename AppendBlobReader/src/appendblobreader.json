@@ -104,6 +104,9 @@
         "StorageAccountResourceGroupName": {
             "type": "String"
         },
+        "StorageAccountConnectionString": {
+            "type": "String"
+        },
         "logAnalyticsWorkspaceName": {
             "defaultValue": "[concat('SUMOBRLAworkspace', uniqueString(resourceGroup().id))]",
             "type": "String"
@@ -662,6 +665,10 @@
                         {
                             "name": "WEBSITE_CONTENTSHARE",
                             "value": "[toLower(parameters('sites_blobreaderconsumer_name'))]"
+                        },
+                        {
+                            "name": "AzureBlobStorage",
+                            "value": "[parameters('StorageAccountConnectionString')]"
                         },
                         {
                             "name": "AzureWebJobsStorage",

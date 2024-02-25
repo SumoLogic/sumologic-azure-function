@@ -4,12 +4,13 @@
 
 var sumoHttp = require('./sumoclient');
 
-const { ContainerClient } = require("@azure/storage-blob");
+const { ContainerClient, BlobServiceClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { AbortController } = require("@azure/abort-controller");
 const { ServiceBusClient } = require("@azure/service-bus");
 const { TableClient } = require("@azure/data-tables");
 const azureTableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, 'FileOffsetMap');
+const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.APPSETTING_AzureBlobStorage);
 
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;

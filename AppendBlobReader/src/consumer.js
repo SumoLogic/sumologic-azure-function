@@ -593,11 +593,11 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         //     length:
         // }
 
-        //let containerClient = blobServiceClient.getContainerClient(serviceBusTask.containerName);
-        var containerClient = new ContainerClient(
-            `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
-            tokenCredential
-        );
+        // let containerClient = new ContainerClient(
+        //     `https://${serviceBusTask.storageName}.blob.core.windows.net/${serviceBusTask.containerName}`,
+        //     tokenCredential
+        // );
+        let containerClient = blobServiceClient.getContainerClient(serviceBusTask.containerName);
         let blockBlobClient = containerClient.getBlockBlobClient(serviceBusTask.blobName);
 
         // Download blob content

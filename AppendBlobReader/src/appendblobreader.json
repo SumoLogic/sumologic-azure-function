@@ -101,6 +101,9 @@
         "StorageAccountName": {
             "type": "String"
         },
+        "StorageAccountConnectionString": {
+            "type": "String"
+        },
         "StorageAccountResourceGroupName": {
             "type": "String"
         },
@@ -669,7 +672,7 @@
                         },
                         {
                             "name": "AzureBlobStorage",
-                            "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('StorageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('StorageAccountName')), '2022-09-01').keys[0].value)]"
+                            "value": "[format(parameters('StorageAccountConnectionString'))]"
                         },
                         {
                             "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",

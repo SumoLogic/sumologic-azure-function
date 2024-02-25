@@ -101,9 +101,6 @@
         "StorageAccountName": {
             "type": "String"
         },
-        "StorageAccountConnectionString": {
-            "type": "String"
-        },
         "StorageAccountResourceGroupName": {
             "type": "String"
         },
@@ -669,10 +666,6 @@
                         {
                             "name": "AzureWebJobsStorage",
                             "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccounts_blobreaderaea3_name'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')), '2022-09-01').keys[0].value)]"
-                        },
-                        {
-                            "name": "AzureBlobStorage",
-                            "value": "[format(parameters('StorageAccountConnectionString'))]"
                         },
                         {
                             "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",

@@ -4,12 +4,13 @@
 
 var sumoHttp = require('./sumoclient');
 
-const { ContainerClient } = require("@azure/storage-blob");
+const { ContainerClient, BlobServiceClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { AbortController } = require("@azure/abort-controller");
 const { ServiceBusClient } = require("@azure/service-bus");
 const { TableClient } = require("@azure/data-tables");
-const { BlobServiceClient, StorageSharedKeyCredential } = require("@azure/storage-blob");
+const azureTableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, 'FileOffsetMap');
+const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.APPSETTING_AzureBlobStorage);
 
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
@@ -567,7 +568,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         compress_data: true,
         clientHeader: "blobreader-azure-function"
     };
-    setSourceCategory(serviceBusTask, options);
+    setSourceCategory(serviceBusTask, sendOptions);
 
     return getBlockBlobService(context, serviceBusTask).then(async function (blobService) {
         context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
@@ -586,31 +587,34 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
             // clientRequestTimeoutInMs client timeout
         };
 
-        // Iterate over all containers in the account
-        console.log("Containers:");
-        for await (const container of serviceClient.listContainers()) {
-            console.log(`- ${container.name}`);
-        }
+        // let options = {
+        /** Offset byte to start download from. */
+        //     offset:
+        /** Max content length in bytes. */
+        //     length:
+        // }
 
-        let readStream = blobService.createReadStream(serviceBusTask.containerName, serviceBusTask.blobName, options, (err, res) => {
-            if (err) {
-                context.log.error(`Error in appendBlobStreamMessageHandlerv2 Failed to create readStream,  res: ${res}, err: ${err}, statuscode: ${err.statusCode}`);
-            }
-        });
+        let containerClient = blobServiceClient.getContainerClient(serviceBusTask.containerName);
+        let blockBlobClient = containerClient.getBlockBlobClient(serviceBusTask.blobName);
 
-        readStream.on('data', (chunk, range) => {
+        // Download blob content
+        context.log("// Download blob content...");
+        let downloadBlockBlobResponse = await blockBlobClient.download();
+        let readStream = downloadBlockBlobResponse.readableStreamBody
+        context.log("Downloaded blob content");
+        context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+
+        readStream.on("data", (data) => {
             // Todo: returns 4 MB chunks we may need to break it to 1MB
             if ((numChunks >= 10 && numChunks % 10 === 0) || numChunks <= 2) {
-                context.log(`Received ${chunk.length} bytes of data. numChunks ${numChunks} range: ${JSON.stringify(range)}`);
+                context.log(`Received ${data.length} bytes of data. numChunks ${numChunks}`);
             }
-            dataLen += chunk.length;
+            dataLen += data.length;
             numChunks += 1;
-            // https://github.com/Azure/azure-sdk-for-js/blob/master/sdk/storage/storage-blob/samples/javascript/basic.js#L73
-            dataChunks.push(chunk instanceof Buffer ? chunk : Buffer.from(chunk));
-
+            dataChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
         });
 
-        readStream.on('end', function (res) {
+        readStream.on("end", function (res) {
             context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
             return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function (dataLenSent) {
                 contentDownloaded = dataLenSent;
@@ -744,7 +748,7 @@ function servicebushandler(context, serviceBusTask) {
         compress_data: true,
         clientHeader: "blobreader-azure-function"
     };
-    setSourceCategory(serviceBusTask, options);
+    setSourceCategory(serviceBusTask, sendOptions);
     function failureHandler(msgArray, ctx) {
         ctx.log("ServiceBus Task: ", serviceBusTask)
         ctx.log.error("Failed to send to Sumo");
@@ -765,7 +769,7 @@ function servicebushandler(context, serviceBusTask) {
         }
     }
 
-    sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+    sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
     //context.log("Reached inside ServiceBus Handler")
     messageHandler(serviceBusTask, context, sumoClient);
 
@@ -804,7 +808,7 @@ async function timetriggerhandler(context, timetrigger) {
             compress_data: true,
             clientHeader: "dlqblobreader-azure-function"
         };
-        setSourceCategory(serviceBusTask, options);
+        setSourceCategory(serviceBusTask, sendOptions);
         var sumoClient;
         async function failureHandler(msgArray, ctx) {
             ctx.log.error("Failed to send to Sumo");
@@ -840,7 +844,7 @@ async function timetriggerhandler(context, timetrigger) {
                 }
             }
         }
-        sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
+        sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
         messageHandler(serviceBusTask, context, sumoClient);
     } catch (error) {
         await queueReceiver.close();
@@ -858,23 +862,22 @@ async function timetriggerhandler(context, timetrigger) {
 module.exports = function (context, triggerData) {
     contentDownloaded = 0;
     context.log("Inside blob task consumer:", triggerData.rowKey);
+
     /*
-    
-    var triggerData = {
+    triggerData = {
         subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
         resourceGroupName: "SumoAuditCollection",
         storageName: "allbloblogseastus",
         containerName: "testabb",
-        blobName: 'blob_fixtures.csv',
+        blobName: 'blob_fixtures.log',
         startByte: 0,
         blobType: "AppendBlob",
-        rowKey: "allbloblogseastus-testabb-blob_fixtures.csv"
+        rowKey: "allbloblogseastus-testabb-blob_fixtures.log"
     };
 
-    appendBlobStreamMessageHandlerv2(context, triggerData);
+    //appendBlobStreamMessageHandlerv2(context, triggerData);
     //appendBlobStreamMessageHandler(context, triggerData);
     //servicebushandler(context, triggerData);
-   
     */
 
     if (triggerData.isPastDue === undefined) {

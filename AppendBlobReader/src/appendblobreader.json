@@ -668,6 +668,10 @@
                             "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccounts_blobreaderaea3_name'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')), '2022-09-01').keys[0].value)]"
                         },
                         {
+                            "name": "AzureBlobStorage",
+                            "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('StorageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('StorageAccountName')), '2022-09-01').keys[0].value)]"
+                        },
+                        {
                             "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
                             "value": "[reference(variables('appInsightsResourceType'), '2020-02-02').ConnectionString]"
                         },

@@ -281,6 +281,14 @@ function setAppendBlobBatchSize(serviceBusTask) {
     return batchSize;
 }
 
+function getSumoEndpoint(serviceBusTask) {
+    var file_ext = String(serviceBusTask.blobName).split(".").pop();
+    var endpoint = process.env.APPSETTING_SumoLogEndpoint;
+    // You can also change change sumo logic endpoint if you have multiple sources
+
+    return endpoint;
+}
+
 /*
     return index of first time when pattern matches the string
  */
@@ -486,7 +494,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     }
 
     var sendOptions = {
-        urlString: process.env.APPSETTING_SumoLogEndpoint,
+        urlString: getSumoEndpoint(),
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,

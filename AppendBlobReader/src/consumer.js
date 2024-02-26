@@ -6,16 +6,11 @@ var sumoHttp = require('./sumoclient');
 
 const { ContainerClient, BlobServiceClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
-const { AbortController } = require("@azure/abort-controller");
-const { ServiceBusClient } = require("@azure/service-bus");
 const { TableClient } = require("@azure/data-tables");
 const azureTableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, 'FileOffsetMap');
 const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.APPSETTING_AzureBlobStorage);
 
 var DEFAULT_CSV_SEPARATOR = ",";
-var MAX_CHUNK_SIZE = 1024;
-var JSON_BLOB_HEAD_BYTES = 12;
-var JSON_BLOB_TAIL_BYTES = 2;
 var contentDownloaded = 0;
 
 const tokenCredential = new DefaultAzureCredential();
@@ -59,65 +54,6 @@ function csvToArray(strData, strDelimiter) {
     return arrData;
 }
 
-function hasAllHeaders(text) {
-    var delimitters = new RegExp("(\\r?\\n|\\r)");
-    var strMatchedDelimiter = text.match(delimitters);
-    if (strMatchedDelimiter) {
-        return text.split(strMatchedDelimiter[0])[0];
-    } else {
-        return null;
-    }
-}
-/**	
- * @param  {} headertext	
- * @param  {} task	
- * @param  {} blobService	
- * @param  {} context	
- *	
- * Extracts the header from the start of the csv file	
- */
-function getHeaderRecursively(headertext, task, blobService, context) {
-
-    return new Promise(function (resolve, reject) {
-        getData(task, blobService, context).then(function (text) {
-            headertext += text;
-            var onlyheadertext = hasAllHeaders(headertext);
-            var bytesOffset = MAX_CHUNK_SIZE;
-            if (onlyheadertext) {
-                var csvHeaders = csvToArray(onlyheadertext, DEFAULT_CSV_SEPARATOR);
-                if (csvHeaders && csvHeaders[0].length > 0) {
-                    resolve(csvHeaders[0]);
-                } else {
-                    reject("Error in csvToArray parsing: " + csvHeaders);
-                }
-            } else {
-                task.startByte = task.endByte + 1;
-                task.endByte = task.startByte + bytesOffset - 1;
-                getHeaderRecursively(headertext, task, blobService, context).then(function (headers) {
-                    resolve(headers);
-                }).catch(function (err) {
-                    reject(err);
-                });
-            }
-        }).catch(function (err) {
-            reject(err);
-        });
-    });
-
-}
-
-function getcsvHeader(containerName, blobName, blobService, context) {
-    // Todo optimize to avoid multiple request
-    var bytesOffset = MAX_CHUNK_SIZE;
-    var task = {
-        containerName: containerName,
-        blobName: blobName,
-        startByte: 0,
-        endByte: bytesOffset - 1
-    };
-
-    return getHeaderRecursively("", task, blobService, context);
-}
 /**
  * @param  {} msgtext
  * @param  {} headers
@@ -140,6 +76,7 @@ function csvHandler(msgtext, headers) {
     });
     return messageArray;
 }
+
 /**
  * @param  {} jsonArray
  * Handler for NSG Flow logs to JSON supports version 1 and version 2 both
@@ -156,7 +93,7 @@ function nsgLogsHandler(msg) {
             rule.flows.forEach(function (flow) {
                 flow.flowTuples.forEach(function (tuple) {
                     col = tuple.split(",");
-                    event = {
+                    let event = {
                         time: col[0], // this should be epoch time
                         sys_id: record.systemId,
                         category: record.category,
@@ -194,6 +131,7 @@ function nsgLogsHandler(msg) {
     });
     return eventsArr;
 }
+
 /**
  * @param  {} msg
  *
@@ -227,16 +165,24 @@ function logHandler(msg) {
     return [msg];
 }
 
-async function getUpdatedEntity(task, endByte) {
+function getUpdatedEntity(task, endByte) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     // RowKey/Partition key cannot contain "/"
     // sets the offset updatedate done(releases the enque lock)
-
-    let entity = await azureTableClient.getEntity(task.containerName, task.rowKey);
-    entity.done = false;
-    entity.updatedate = new Date().toISOString();
-    entity.offset = endByte;
-
+    var entity = {
+        done: false,
+        updatedate: new Date().toISOString(),
+        offset: endByte,
+        // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
+        PartitionKey: task.containerName,
+        RowKey: task.rowKey,
+        blobName: task.blobName,
+        containerName: task.containerName,
+        storageName: task.storageName,
+        blobType: task.blobType,
+        resourceGroupName: task.resourceGroupName,
+        subscriptionId: task.subscriptionId
+    };
     if (contentDownloaded > 0) {
         entity.senddate = new Date().toISOString();
     }
@@ -250,9 +196,14 @@ async function getUpdatedEntity(task, endByte) {
  */
 
 async function updateAppendBlobPointerMap(entity) {
-
-    let response = await azureTableClient.updateEntity(entity, "Replace")
-    return response;
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await azureTableClient.updateEntity(entity, "Merge");
+            resolve(response);
+        } catch (error) {
+            reject(error);
+        }
+    })
 }
 
 function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
@@ -260,38 +211,11 @@ function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
         context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
-        entity = await getUpdatedEntity(serviceBusTask, newOffset);
+        entity = getUpdatedEntity(serviceBusTask, newOffset);
         var updateResult = await updateAppendBlobPointerMap(entity)
         context.log("updateResult: ", updateResult)
     });
 }
-
-/**
- * @param  {} task
- * @param  {} blobService
- * @param  {} context
- *
- * fetching ranged data from a file in storage account
- */
-function getData(task, blobService) {
-    // Todo support for chunk reading(if range is large)
-    // valid offset status code 206 (Partial Content).
-    // invalid offset status code 416 (Requested Range Not Satisfiable)
-    //context.log("Inside get data function:");
-    return new Promise(async function (resolve, reject) {
-        try {
-            var buffer = Buffer.alloc(task.endByte - task.startByte + 1);
-            await blobService.downloadToBuffer(buffer, task.startByte, (task.endByte - task.startByte + 1), {
-                abortSignal: AbortController.timeout(30 * 60 * 1000),
-                blockSize: 4 * 1024 * 1024,
-                concurrency: 1
-            });
-            resolve(buffer.toString());
-        } catch (err) {
-            reject(err);
-        }
-    })
-};
 
 function getBlockBlobService(context, task) {
     return new Promise(function (resolve, reject) {
@@ -577,22 +501,13 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log("setting batchsize", batchSize);
         var dataLen = 0;
         var dataChunks = [];
-        let options = {
-            "rangeStart": serviceBusTask.startByte,
-            "rangeEnd": serviceBusTask.startByte + batchSize - 1,
-            "skipSizeCheck": false, // if true it will call getblobProperties and makes decision to download full(returns _getBlobToStream) or download in range (returns _getBlobToRangeStream)
-            // "speedSummary" // Todo: check whether it will print something
-            // "parallelOperationThreadCount": 1 // default is 1 for appendblobToText and 5 for others
-            // timeoutIntervalInMs server timeout
-            // clientRequestTimeoutInMs client timeout
-        };
 
-        // let options = {
-        /** Offset byte to start download from. */
-        //     offset:
-        /** Max content length in bytes. */
-        //     length:
-        // }
+        let options = {
+            /** Offset byte to start download from. */
+            offset: serviceBusTask.startByte,
+            /** Max content length in bytes. */
+            length: serviceBusTask.startByte + batchSize - 1
+        }
 
         // let containerClient = new ContainerClient(
         //     `https://${serviceBusTask.storageName}.blob.core.windows.net/${serviceBusTask.containerName}`,
@@ -603,7 +518,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         // Download blob content
         context.log("// Download blob content...");
-        let downloadBlockBlobResponse = await blockBlobClient.download();
+        let downloadBlockBlobResponse = await blockBlobClient.download(options);
         let readStream = downloadBlockBlobResponse.readableStreamBody
         context.log("Downloaded blob content");
         context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
@@ -673,229 +588,47 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     });
 }
 
-function messageHandler(serviceBusTask, context, sumoClient) {
-    var file_ext = serviceBusTask.blobName.split(".").pop();
-    if (file_ext == serviceBusTask.blobName) {
-        file_ext = "log";
-    }
-    var msghandler = { "log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler };
-    if (!(file_ext in msghandler)) {
-        context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
-        context.done();
-        return;
-    }
-    if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {
-        // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
-        if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
-            context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
-            return;
-        }
-        serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
-        if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
-            serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
-        } else {
-            serviceBusTask.startByte -= 1; //to remove comma before json object
-        }
-        file_ext = "nsg";
-    }
-    getBlockBlobService(context, serviceBusTask).then(function (blobService) {
-        return getData(serviceBusTask, blobService, context).then(function (msg) {
-            context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
-            var messageArray;
-            if (file_ext === "csv") {
-                return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
-                    context.log("Received headers %d", headers.length);
-                    messageArray = msghandler[file_ext](context, msg, headers);
-                    // context.log("Transformed data %s", JSON.stringify(messageArray));
-                    messageArray.forEach(function (msg) {
-                        sumoClient.addData(msg);
-                    });
-                    sumoClient.flushAll();
-                }).catch(function (err) {
-                    context.log.error("Error in creating json from csv.");
-                    context.done(err);
-                });
-            } else {
-                messageArray = msghandler[file_ext](context, msg);
-                messageArray.forEach(function (msg) {
-                    sumoClient.addData(msg);
-                });
-                sumoClient.flushAll();
-            }
-        });
-    }).catch(function (err) {
-        if (err.statusCode === 404) {
-            context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " + serviceBusTask.endByte);
-            context.done()
-        } else {
-            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " + serviceBusTask.endByte);
-            context.done(err);
-        }
-
-    });
-}
-
+/**
+ * @param {} servisBusTask
+ * @param {} options
+ *
+ * This functions is used to route the logs/metrics to custom source categories based on the serviceBusTask attributes and also to add other metadata.
+ * metadata.sourceName attribute sets the source name
+ * metadata.sourceHost attribute sets the source host
+ * metadata.sourceCategory attribute sets the source category
+ */
 function setSourceCategory(serviceBusTask, options) {
-
-    options.metadata = options.metadata || {};
-    options.metadata["name"] = serviceBusTask.storageName + "/" + serviceBusTask.containerName + "/" + serviceBusTask.blobName;
-    // options.metadata["category"] = <custom source category>
-}
-
-function servicebushandler(context, serviceBusTask) {
-    var sumoClient;
-
-    var sendOptions = {
-        urlString: process.env.APPSETTING_SumoLogEndpoint,
-        MaxAttempts: 3,
-        RetryInterval: 3000,
-        compress_data: true,
-        clientHeader: "blobreader-azure-function"
-    };
-    setSourceCategory(serviceBusTask, sendOptions);
-    function failureHandler(msgArray, ctx) {
-        ctx.log("ServiceBus Task: ", serviceBusTask)
-        ctx.log.error("Failed to send to Sumo");
-        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-            ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-        }
-    }
-    function successHandler(ctx) {
-        if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-            ctx.log("ServiceBus Task: ", serviceBusTask)
-            if (sumoClient.messagesFailed > 0) {
-                ctx.log.error('Failed to send few messages to Sumo')
-                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-            } else {
-                ctx.log('Successfully sent to Sumo, Exiting now.');
-                ctx.done();
-            }
-        }
-    }
-
-    sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
-    //context.log("Reached inside ServiceBus Handler")
-    messageHandler(serviceBusTask, context, sumoClient);
-
-}
-
-async function timetriggerhandler(context, timetrigger) {
-
-    if (timetrigger.isPastDue) {
-        context.log("timetriggerhandler running late");
-    }
-    try {
-        var sbClient = new ServiceBusClient(process.env.APPSETTING_TaskQueueConnectionString);
-        var queueReceiver = sbClient.createReceiver(process.env.APPSETTING_TASKQUEUE_NAME, { subQueueType: "deadLetter", receiveMode: "peekLock" });
-    } catch (err) {
-        context.log.error("Failed to create service bus client and receiver");
-        context.done(err);
-    }
-    try {
-        var messages = await queueReceiver.receiveMessages(1, {
-            maxWaitTimeInMs: 60 * 1000,
+    options.metadata = options.metadata || {}; let customFields = { "containername": serviceBusTask.containerName, "storagename": serviceBusTask.storageName };
+    let sourcecategory = "azure_br_logs";
+    //var source = "azure_blobstorage"
+    if (customFields) {
+        let customFieldsArr = []
+        Object.keys(customFields).map(function (key, index) {
+            customFieldsArr.push(key.toString() + "=" + customFields[key].toString());
         });
-        if (!messages.length) {
-            context.log("No more messages to receive");
-            await queueReceiver.close();
-            await sbClient.close();
-            context.done();
-            return;
-        }
-        var myJSON = JSON.stringify(messages[0].body);
-        var serviceBusTask = JSON.parse(myJSON);
-        // Message received and locked and try to resend
-        var sendOptions = {
-            urlString: process.env.APPSETTING_SumoLogEndpoint,
-            MaxAttempts: 3,
-            RetryInterval: 3000,
-            compress_data: true,
-            clientHeader: "dlqblobreader-azure-function"
-        };
-        setSourceCategory(serviceBusTask, sendOptions);
-        var sumoClient;
-        async function failureHandler(msgArray, ctx) {
-            ctx.log.error("Failed to send to Sumo");
-            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                await queueReceiver.close();
-                await sbClient.close();
-                ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
-            }
-        }
-        async function successHandler(ctx) {
-            if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-                //TODO: Test Scenario for combination of successful and failed requests
-                if (sumoClient.messagesFailed > 0) {
-                    await queueReceiver.close();
-                    await sbClient.close();
-                    ctx.log.error('Failed to send few messages to Sumo')
-                    ctx.done("DLQTaskConsumer failedmessages: " + sumoClient.messagesFailed);
-                } else {
-                    ctx.log('Successfully sent to Sumo, Exiting now.');
-                    try {
-                        await queueReceiver.completeMessage(messages[0]);
-                    } catch (err) {
-                        await queueReceiver.close();
-                        await sbClient.close();
-                        if (!err) {
-                            ctx.log("sent and deleted");
-                            ctx.done();
-                        } else {
-                            ctx.log.verbose("Messages Sent but failed delete from DeadLetterQueue");
-                            ctx.done(err);
-                        }
-                    }
-                }
-            }
-        }
-        sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
-        messageHandler(serviceBusTask, context, sumoClient);
-    } catch (error) {
-        await queueReceiver.close();
-        await sbClient.close();
-        if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {
-            context.log.error(error);
-            context.done();
-        } else {
-            context.log.error("Error in reading messages from DLQ");
-            context.done(error);
-        }
+        options.metadata["sourceFields"] = customFieldsArr.join();
     }
+    //options.metadata["sourceHost"] = source
+    //context.log(sourcecategory,serviceBusTask.blobName,serviceBusTask.storageName,serviceBusTask.containerName);
+    options.metadata["sourceCategory"] = sourcecategory;
+    options.metadata["sourceName"] = serviceBusTask.blobName;
 }
 
 module.exports = function (context, triggerData) {
     contentDownloaded = 0;
+
+    // triggerData = {
+    //     subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
+    //     resourceGroupName: "SumoAuditCollection",
+    //     storageName: "allbloblogseastus",
+    //     containerName: "testabb",
+    //     blobName: 'blob_fixtures.log',
+    //     startByte: 0,
+    //     blobType: "AppendBlob",
+    //     rowKey: "allbloblogseastus-testabb-blob_fixtures.log"
+    // };
+
     context.log("Inside blob task consumer:", triggerData.rowKey);
-
-    /*
-    triggerData = {
-        subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
-        resourceGroupName: "SumoAuditCollection",
-        storageName: "allbloblogseastus",
-        containerName: "testabb",
-        blobName: 'blob_fixtures.log',
-        startByte: 0,
-        blobType: "AppendBlob",
-        rowKey: "allbloblogseastus-testabb-blob_fixtures.log"
-    };
-
-    //appendBlobStreamMessageHandlerv2(context, triggerData);
-    //appendBlobStreamMessageHandler(context, triggerData);
-    //servicebushandler(context, triggerData);
-    */
-
-    if (triggerData.isPastDue === undefined) {
-        DLQMessage = null;
-        // Todo: create two separate queues in the same namespace for appendblob and block blobs
-        if (triggerData.blobType === undefined || triggerData.blobType === "BlockBlob") {
-            servicebushandler(context, triggerData);
-        } else {
-            appendBlobStreamMessageHandlerv2(context, triggerData);
-        }
-
-    } else {
-        // Todo: Test with old blockblob flow and remove appendblob from it's code may be separate out code in commonjs
-        timetriggerhandler(context, triggerData);
-    }
+    appendBlobStreamMessageHandlerv2(context, triggerData);
 
 };

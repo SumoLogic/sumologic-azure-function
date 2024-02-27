@@ -165,29 +165,6 @@ function logHandler(msg) {
     return [msg];
 }
 
-function getUpdatedEntity(task, endByte) {
-    //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    // RowKey/Partition key cannot contain "/"
-    // sets the offset updatedate done(releases the enque lock)
-    var entity = {
-        done: false,
-        updatedate: new Date().toISOString(),
-        offset: endByte,
-        // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
-        PartitionKey: task.containerName,
-        RowKey: task.rowKey,
-        blobName: task.blobName,
-        containerName: task.containerName,
-        storageName: task.storageName,
-        blobType: task.blobType,
-        resourceGroupName: task.resourceGroupName,
-        subscriptionId: task.subscriptionId
-    };
-    if (contentDownloaded > 0) {
-        entity.senddate = new Date().toISOString();
-    }
-    return entity;
-}
 /**
  * @param  {} task
  * @param  {} blobResult
@@ -195,25 +172,36 @@ function getUpdatedEntity(task, endByte) {
  * updates the offset in FileOffsetMap table for append blob file rows after the data has been sent to sumo
  */
 
-async function updateAppendBlobPointerMap(entity) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            let response = await azureTableClient.updateEntity(entity, "Merge");
-            resolve(response);
-        } catch (error) {
-            reject(error);
-        }
-    })
+async function updateAppendBlobPointerMap(task, newOffset) {
+    let entity = {
+        partitionKey: task.containerName,
+        rowKey: task.rowKey,
+        blobName: task.blobName,
+        blobType: task.blobType,
+        containerName: task.containerName,
+        done: false,
+        offset: newOffset,
+        resourceGroupName: task.resourceGroupName,
+        storageName: task.storageName,
+        subscriptionId: task.subscriptionId,
+        updatedate: new Date().toISOString()
+    }
+    var result = await azureTableClient.updateEntity(entity, "Merge");
+    return result;
 }
 
-function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
+async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
     return new Promise(async (resolve, reject) => {
-        // Todo: this should be atomic update if other request decreases offset it shouldn't allow
-        var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
-        context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
-        entity = getUpdatedEntity(serviceBusTask, newOffset);
-        var updateResult = await updateAppendBlobPointerMap(entity)
-        context.log("updateResult: ", updateResult)
+        try {
+            // Todo: this should be atomic update if other request decreases offset it shouldn't allow
+            var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
+            context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
+            var updateResult = await updateAppendBlobPointerMap(serviceBusTask, newOffset)
+            context.log("updateResult: ", updateResult)
+            resolve();
+        } catch (error) {
+            reject(error)
+        }
     });
 }
 
@@ -233,10 +221,10 @@ function getBlockBlobService(context, task) {
     })
 };
 
-function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
+async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     var curdataLenSent = dataLenSent || contentDownloaded;
     if (serviceBusTask.blobType === "AppendBlob") {
-        return setAppendBlobOffset(context, serviceBusTask, curdataLenSent).catch(function (error) {
+        return await setAppendBlobOffset(context, serviceBusTask, curdataLenSent).catch(function (error) {
             // not failing with error because log will automatically released by appendblob
             context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
         });
@@ -494,7 +482,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     }
 
     var sendOptions = {
-        urlString: getSumoEndpoint(),
+        urlString: getSumoEndpoint(serviceBusTask),
         MaxAttempts: 3,
         RetryInterval: 3000,
         compress_data: true,
@@ -526,7 +514,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         // Download blob content
         context.log("// Download blob content...");
-        let downloadBlockBlobResponse = await blockBlobClient.download(options);
+        let downloadBlockBlobResponse = await blockBlobClient.download();
         let readStream = downloadBlockBlobResponse.readableStreamBody
         context.log("Downloaded blob content");
         context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
@@ -543,9 +531,9 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         readStream.on("end", function (res) {
             context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
-            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function (dataLenSent) {
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
                 contentDownloaded = dataLenSent;
-                return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
                     context.done();
                 });
             }).catch(function (err) {
@@ -557,14 +545,14 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         readStream.on('error', function (err) {
             context.log("readStream error:" + JSON.stringify(err))
             // Todo: Test error cases for fetching
-            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(function (dataLenSent) {
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
                 contentDownloaded = dataLenSent;
                 let discardError = errorHandler(err, serviceBusTask, context);
                 if (err !== undefined && (err.code === "BlobNotFound" || err.statusCode == 404)) {
                     // delete the entry from table storage
                     return archiveIngestedFile(serviceBusTask, context);
                 } else {
-                    return releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                    return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
                         if (discardError) {
                             context.done()
                         } else {
@@ -574,18 +562,18 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                     });
                 }
 
-            }).catch(function (err) {
+            }).catch(async function (err) {
                 context.log.error(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`)
-                return releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
+                return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
                     context.done();
                 });
             });
 
         });
 
-    }).catch(function (err) {
+    }).catch(async function (err) {
         let discardError = errorHandler(err, serviceBusTask, context);
-        return releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
+        return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {
                 context.done();
             } else {

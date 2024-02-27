@@ -165,6 +165,31 @@ function logHandler(msg) {
     return [msg];
 }
 
+function getUpdatedEntity(task, endByte) {
+    //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
+    // RowKey/Partition key cannot contain "/"
+    // sets the offset updatedate done(releases the enque lock)
+    
+    let entity = {
+        done: false,
+        updatedate: new Date().toISOString(),
+        offset: endByte,
+        // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
+        partitionKey: task.containerName,
+        rowKey: task.rowKey,
+        blobName: task.blobName,
+        containerName: task.containerName,
+        storageName: task.storageName,
+        blobType: task.blobType,
+        resourceGroupName: task.resourceGroupName,
+        subscriptionId: task.subscriptionId
+    }
+    if (contentDownloaded > 0) {
+        entity.senddate = new Date().toISOString()
+    }
+    return entity;
+}
+
 /**
  * @param  {} task
  * @param  {} blobResult
@@ -172,22 +197,8 @@ function logHandler(msg) {
  * updates the offset in FileOffsetMap table for append blob file rows after the data has been sent to sumo
  */
 
-async function updateAppendBlobPointerMap(task, newOffset) {
-    let entity = {
-        partitionKey: task.containerName,
-        rowKey: task.rowKey,
-        blobName: task.blobName,
-        blobType: task.blobType,
-        containerName: task.containerName,
-        done: false,
-        offset: newOffset,
-        resourceGroupName: task.resourceGroupName,
-        storageName: task.storageName,
-        subscriptionId: task.subscriptionId,
-        updatedate: new Date().toISOString()
-    }
-    var result = await azureTableClient.updateEntity(entity, "Merge");
-    return result;
+async function updateAppendBlobPointerMap(entity) {
+    return await azureTableClient.updateEntity(entity, "Merge");
 }
 
 async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
@@ -196,7 +207,8 @@ async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
             // Todo: this should be atomic update if other request decreases offset it shouldn't allow
             var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
             context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
-            var updateResult = await updateAppendBlobPointerMap(serviceBusTask, newOffset)
+            var entity = getUpdatedEntity(serviceBusTask, newOffset)
+            var updateResult = await updateAppendBlobPointerMap(entity)
             context.log("updateResult: ", updateResult)
             resolve();
         } catch (error) {

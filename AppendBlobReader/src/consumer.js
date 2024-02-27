@@ -7,8 +7,9 @@ var sumoHttp = require('./sumoclient');
 const { ContainerClient, BlobServiceClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { TableClient } = require("@azure/data-tables");
-const azureTableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, 'FileOffsetMap');
+const azureTableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, process.env.APPSETTING_TABLE_NAME);
 const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.APPSETTING_AzureBlobStorage);
+const MaxAttempts = 3
 
 var DEFAULT_CSV_SEPARATOR = ",";
 var contentDownloaded = 0;
@@ -495,7 +496,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
     var sendOptions = {
         urlString: getSumoEndpoint(serviceBusTask),
-        MaxAttempts: 3,
+        MaxAttempts: MaxAttempts,
         RetryInterval: 3000,
         compress_data: true,
         clientHeader: "blobreader-azure-function"
@@ -521,7 +522,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log("// Download blob content...");
 
         let options = {
-            maxRetryRequests: 3
+            maxRetryRequests: MaxAttempts
         }
         let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
         let readStream = downloadBlockBlobResponse.readableStreamBody

@@ -514,7 +514,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
             /** Offset byte to start download from. */
             offset: serviceBusTask.startByte,
             /** Max content length in bytes. */
-            length: serviceBusTask.startByte + batchSize - 1
+            count: serviceBusTask.startByte + batchSize - 1
         }
 
         // let containerClient = new ContainerClient(
@@ -526,7 +526,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         // Download blob content
         context.log("// Download blob content...");
-        let downloadBlockBlobResponse = await blockBlobClient.download();
+        let downloadBlockBlobResponse = await blockBlobClient.download(options);
         let readStream = downloadBlockBlobResponse.readableStreamBody
         context.log("Downloaded blob content");
         context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
@@ -555,7 +555,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         });
 
         readStream.on('error', function (err) {
-            context.log("readStream error:" + JSON.stringify(err))
+            context.log.error(`readStream error: ${JSON.stringify(err)}`)
             // Todo: Test error cases for fetching
             return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
                 contentDownloaded = dataLenSent;

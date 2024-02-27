@@ -307,7 +307,7 @@ function regexLastIndexOf(string, regex, startpos) {
 }
 
 
-/*  Funciton to use boundary regex for azure storage accounts to avoid split issue & multiple single event issue */
+/*  Function to use boundary regex for azure storage accounts to avoid split issue & multiple single event issue */
 function getBoundaryRegex(serviceBusTask) {
     //this boundary regex is matching for cct, llev, msgdir logs
     let logRegex = '\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}';
@@ -356,7 +356,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
     // remove suffix after last date
     let logRegex = getBoundaryRegex(serviceBusTask);
 
-    // returm -1 if not found
+    // return -1 if not found
     let firstIdx = regexIndexOf(data, logRegex);
     let lastIndex = regexLastIndexOf(data, logRegex, firstIdx + 1);
 
@@ -369,13 +369,13 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
     let suffix = data.substring(lastIndex, data.length);
 
     try {
-        // if last chunk is parseable then make lastIndex = data.length
+        // if last chunk is parsable then make lastIndex = data.length
         if (suffix.length > 0) {
             JSON.parse(suffix)
             lastIndex = data.length;
         }
     } catch (e) {
-        context.log.verbose("last chunk not json parseable so ignoring", suffix, lastIndex, e);
+        context.log.verbose("last chunk not json parsable so ignoring", suffix, lastIndex, e);
     }
     // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
     // for new files offset will always start from date
@@ -403,7 +403,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
     return [ignoredprefixLen, dataChunks];
 }
 /*
-    Creates a promise chain for each of the chunk recieved from decodeDataChunks
+    Creates a promise chain for each of the chunk received from decodeDataChunks
     It increments
  */
 function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, serviceBusTask) {
@@ -436,7 +436,7 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
                 context.log(`No chunks to send ${serviceBusTask.rowKey}`);
             } else if (numChunksSent === dataChunks.length) {
                 if (numChunksSent === dataChunks.length) {
-                    context.log(`All chunks sucessfully sent to sumo blob ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
+                    context.log(`All chunks successfully sent to sumo blob ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
                 }
             }
             resolve(dataLenSent + ignoredprefixLen);
@@ -510,13 +510,6 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         var dataLen = 0;
         var dataChunks = [];
 
-        let options = {
-            /** Offset byte to start download from. */
-            offset: serviceBusTask.startByte,
-            /** Max content length in bytes. */
-            count: serviceBusTask.startByte + batchSize - 1
-        }
-
         // let containerClient = new ContainerClient(
         //     `https://${serviceBusTask.storageName}.blob.core.windows.net/${serviceBusTask.containerName}`,
         //     tokenCredential
@@ -526,7 +519,11 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         // Download blob content
         context.log("// Download blob content...");
-        let downloadBlockBlobResponse = await blockBlobClient.download(options);
+
+        let options = {
+            maxRetryRequests: 3
+        }
+        let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
         let readStream = downloadBlockBlobResponse.readableStreamBody
         context.log("Downloaded blob content");
         context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);

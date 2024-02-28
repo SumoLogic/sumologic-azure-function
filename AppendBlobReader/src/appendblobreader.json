@@ -500,7 +500,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~18"
+                            "value": "6.11.0"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",

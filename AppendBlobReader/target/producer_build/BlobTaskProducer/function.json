@@ -4,7 +4,7 @@
       "type": "eventHubTrigger",
       "name": "eventHubMessages",
       "direction": "in",
-      "path": "blobreadereventhub",
+      "eventHubName": "blobreadereventhub",
       "connection": "AzureEventHubConnectionString",
       "cardinality": "many",
       "consumerGroup": "$Default"

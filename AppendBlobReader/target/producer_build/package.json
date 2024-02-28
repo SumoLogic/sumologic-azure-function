@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "azure-storage": "^2.8.2"
+    "@azure/data-tables": "^13.2.2"
   }
 }

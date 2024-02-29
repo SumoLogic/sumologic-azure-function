@@ -2,8 +2,11 @@
 //           Function to create Append Blob tasks using File OffsetMap Table into Azure Service Bus //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var storage = require('azure-storage');
-var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
+var storageOld = require('azure-storage');
+var tableService = storageOld.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
+
+var { TableClient } = require("@azure/data-tables");
+var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, process.env.APPSETTING_TABLE_NAME);
 
 function queryEntitiesSegmented (table, tableQuery, continuationToken)  {
     return new Promise(function (resolve, reject)  {
@@ -176,7 +179,7 @@ function batchUpdateOffsetTable(context, allentities, mode) {
         for (let batchIndex = 0; batchIndex < entities.length; batchIndex += maxBatchItems) {
             (function (batchIndex, groupKey) {
                 batch_promises.push(new Promise(function (resolve, reject) {
-                    var batch = new storage.TableBatch();
+                    var batch = new storageOld.TableBatch();
                     var currentBatch = entities.slice(batchIndex, batchIndex + maxBatchItems);
                     for (let index = 0; index < currentBatch.length; index++) {
                         const element = currentBatch[index];
@@ -225,7 +228,7 @@ function getArchivedBlockBlobFiles(context) {
     dateVal.setDate(dateVal.getDate() - maxArchivedDays);
 
     // fetch only Row and Partition Key for faster fetching
-    var archivedFileQuery = new storage.TableQuery().select('PartitionKey', 'RowKey').where(' blobType eq ? and eventdate le ?date?', "BlockBlob", dateVal);
+    var archivedFileQuery = new storageOld.TableQuery().select('PartitionKey', 'RowKey').where(' blobType eq ? and eventdate le ?date?', "BlockBlob", dateVal);
     return queryFiles(null, archivedFileQuery, context).then(function (processedFiles) {
         context.log("BlockBlob Archived Files: " + processedFiles.length);
         return processedFiles;
@@ -247,7 +250,7 @@ function getLockedEntitiesExceedingThreshold(context) {
     var maxlockThresholdMin = 15;
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0,dateVal.getMinutes() - maxlockThresholdMin));
-    var lockedFileQuery = new storage.TableQuery().where(' (done eq ?) and (blobType eq ?) and (offset ge ?) and lastEnqueLockTime le ?date?', true, "AppendBlob", 0, dateVal);
+    var lockedFileQuery = new storageOld.TableQuery().where(' (done eq ?) and (blobType eq ?) and (offset ge ?) and lastEnqueLockTime le ?date?', true, "AppendBlob", 0, dateVal);
     // context.log("maxlastEnqueLockTime: %s", dateVal.toISOString());
     return queryFiles(null, lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdMin: " + allentities.length);
@@ -336,7 +339,7 @@ function setBatchSizePerStorageAccount(newFiletasks) {
  * then only new task is produced for that file in case of append blobs.
  */
 function getTasksForUnlockedFiles(context) {
-    var existingFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset ge ?', false, "AppendBlob", 0);
+    var existingFileQuery = new storageOld.TableQuery().where(' done eq ? and  blobType eq ? and offset ge ?', false, "AppendBlob", 0);
     return new Promise(function (resolve, reject)  {
         queryFiles(null, existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];

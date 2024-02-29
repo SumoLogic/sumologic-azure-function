@@ -56,7 +56,7 @@ function getBlobMetadata(message) {
 *
 *
  */
-function getEntity(metadata, startByte, currentEtag) {
+function getEntity(metadata, endByte, currentEtag) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
     // rowKey/partitionKey cannot contain "/"
     var entity = {
@@ -180,6 +180,19 @@ async function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, co
             }
             return Promise.reject({ status: "failed", rowKey: rowKey, message: "Unable to Update offset for rowKey: " + rowKey + " Error: " + err, lastoffset: lastoffset, currentoffset: currentoffset });
         }
+    } else if (currentoffset === -1 && lastoffset === -1) {
+        context.log("Append blob scenario create just an entry RowKey: ", rowKey)
+        try {
+            var entity = getEntity(metadata, 0, currentEtag);
+            var updatedResponse = await updateBlobPointerMap(entity, context);
+            context.bindings.tasks = context.bindings.tasks.concat(tasks);
+            return Promise.resolve({ status: "success", rowKey: rowKey, message: "AppendBlob Entry added for RowKey: " + rowKey });
+        } catch (err) {
+            if (err.code === "UpdateConditionNotSatisfied") {
+                context.log("Need to Retry: " + rowKey, entity);
+            }
+            return Promise.reject({ status: "failed", rowKey: rowKey, message: "Unable to Update offset for rowKey: " + rowKey });
+        }
     } else {
         return Promise.resolve({ status: "success", rowKey: rowKey, message: "No tasks created for rowKey: " + rowKey });
     }
@@ -214,23 +227,21 @@ module.exports = async function (context, eventHubMessages) {
     //             topic: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/SumoAuditCollection/providers/Microsoft.Storage/storageAccounts/allbloblogseastus',
     //             subject: '/blobServices/default/containers/testabb/blobs/dummy_data.csv',
     //             eventType: 'Microsoft.Storage.BlobCreated',
-    //             id: '6a093faf-501e-006c-2f87-6a4998067a11',
+    //             id: '05bad26c-b01e-0064-59cf-6a5397068de0',
     //             data: {
     //                 api: 'PutBlob',
-    //                 requestId: '075ec13d-401e-0060-0a88-6ade90000000',
-    //                 eTag: '0x8DC389F4D015905',
+    //                 requestId: '05bad26c-b01e-0064-59cf-6a5397000000',
+    //                 eTag: '0x8DC38E65A421B29',
     //                 contentType: 'text/csv',
     //                 contentLength: 0,
     //                 blobType: 'AppendBlob',
     //                 url: 'https://allbloblogseastus.blob.core.windows.net/testabb/dummy_data.csv',
-    //                 sequencer: '00000000000000000000000000010F87000000000001955c',
-    //                 storageDiagnostics: {
-    //                     batchId: 'd7242b73-7006-0036-0088-6a2f7f000000'
-    //                 }
+    //                 sequencer: '00000000000000000000000000010F8A0000000000047e92',
+    //                 storageDiagnostics: { batchId: 'd7656e84-7006-0036-00cf-6a2f7f000000' }
     //             },
     //             dataVersion: '',
     //             metadataVersion: '1',
-    //             eventTime: new Date().toISOString()
+    //             eventTime: new Date().toISOString(),
     //         }
     //     ]
     // ]

@@ -1,43 +1,34 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-//           Function to create Append Blob tasks using File OffsetMap Table into Azure Service Bus //
+//           Function to create Append Blob tasks using File OffsetMap Table into Azure Event Hub //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var storage = require('azure-storage');
-var tableService = storage.createTableService(process.env.APPSETTING_AzureWebJobsStorage);
-
-function queryEntitiesSegmented (table, tableQuery, continuationToken)  {
-    return new Promise(function (resolve, reject)  {
-        tableService.queryEntities(table, tableQuery, continuationToken, function (error, results) {
-            if (error) { reject(error); }
-            else { resolve(results); }
-        });
-    });
-}
+var { TableClient, TableTransaction } = require("@azure/data-tables");
+var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, process.env.APPSETTING_TABLE_NAME);
 
 function getTask(entity) {
     return {
-        rowKey: entity.RowKey._,
-        containerName: entity.containerName._,
-        blobName: entity.blobName._,
-        storageName: entity.storageName._,
-        resourceGroupName: entity.resourceGroupName._,
-        subscriptionId: entity.subscriptionId._,
+        partitionKey: entity.partitionKey,
+        rowKey: entity.rowKey,
+        containerName: entity.containerName,
+        blobName: entity.blobName,
+        storageName: entity.storageName,
+        resourceGroupName: entity.resourceGroupName,
+        subscriptionId: entity.subscriptionId,
         blobType: "AppendBlob",
-        startByte: parseInt(entity.offset._) ,
+        startByte: parseInt(entity.offset),
     };
 }
 
 function getLockedEntity(entity) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    var entGen = storage.TableUtilities.entityGenerator;
-    // RowKey/Partition key cannot contain "/"
-    // lastEnqueLockTime - it denotes the last time when it was enqueued in Service Bus
-    // done - it is set to true which means the task is enqueued in Service Bus
+    // rowKey/partitionKey cannot contain "/"
+    // lastEnqueLockTime - it denotes the last time when it was enqueued in Event Hub
+    // done - it is set to true which means the task is enqueued in Event Hub
     var entity = {
-        PartitionKey: entity.PartitionKey,
-        RowKey: entity.RowKey,
-        done: entGen.Boolean(true),
-        lastEnqueLockTime: entGen.DateTime((new Date()).toISOString()),
+        partitionKey: entity.partitionKey,
+        rowKey: entity.rowKey,
+        done: true,
+        lastEnqueLockTime: new Date().toISOString(),
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
         blobName: entity.blobName,
         containerName: entity.containerName,
@@ -52,20 +43,19 @@ function getLockedEntity(entity) {
 
 function getunLockedEntity(entity) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    var entGen = storage.TableUtilities.entityGenerator;
-    // RowKey/Partition key cannot contain "/"
-    // lastEnqueLockTime - it denotes the last time when it was enqueued in Service Bus
-    // done - it is set to true which means the task is enqueued in Service Bus
+    // rowKey/partitionKey cannot contain "/"
+    // lastEnqueLockTime - it denotes the last time when it was enqueued in Event Hub
+    // done - it is set to true which means the task is enqueued in Event Hub
     var lastEnqueLockTime;
     if (entity.lastEnqueLockTime === undefined) {
-        lastEnqueLockTime =  entity.eventdate;
+        lastEnqueLockTime = entity.eventdate;
     } else {
         lastEnqueLockTime = entity.lastEnqueLockTime;
     }
     var entity = {
-        PartitionKey: entity.PartitionKey,
-        RowKey: entity.RowKey,
-        done: entGen.Boolean(false),
+        partitionKey: entity.partitionKey,
+        rowKey: entity.rowKey,
+        done: false,
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
         lastEnqueLockTime: lastEnqueLockTime,
         eventdate: entity.eventdate,
@@ -90,23 +80,23 @@ function getunLockedEntity(entity) {
  */
 function isAppendBlobArchived(context, entity) {
 
-    if (entity.blobType._ === "AppendBlob" && entity.offset._ > 0 && entity.eventdate !== undefined) {
+    if (entity.blobType === "AppendBlob" && entity.offset > 0 && entity.eventdate !== undefined) {
         var maxArchivedHours = parseInt(process.env.APPSETTING_MAX_LOG_FILE_ROLLOVER_HOURS);
-        if (entity.storageName._ === "muw1olpmessagingprodsa01" || entity.storageName._ === "mue1olpmessagingprodsa01" || entity.storageName._ === "muw1olpolpadminccatsa01" || entity.storageName._ === "mue2olpolpadminccatsa01" || entity.storageName._ === "muw1bitfunctionslogssa" || entity.storageName._ === "mue1bitfunctionslogssa") {
-                    maxArchivedHours = 1;
-                } else if (entity.storageName._ === "mue1supportakspocsa" || entity.storageName._ === "mue1supportaksdevsa" || entity.storageName._ === "muw1nortonaksintsa" || entity.storageName._ === "muw1supportaksstgsa" || entity.storageName._ === "muw1supportaksprodsa" || entity.storageName._ === "mue2supportaksprodsa" || entity.storageName._ === "muw1supportakscoresa") {
-                    maxArchivedHours = 4;
-                }
+        if (entity.storageName === "muw1olpmessagingprodsa01" || entity.storageName === "mue1olpmessagingprodsa01" || entity.storageName === "muw1olpolpadminccatsa01" || entity.storageName === "mue2olpolpadminccatsa01" || entity.storageName === "muw1bitfunctionslogssa" || entity.storageName === "mue1bitfunctionslogssa") {
+            maxArchivedHours = 1;
+        } else if (entity.storageName === "mue1supportakspocsa" || entity.storageName === "mue1supportaksdevsa" || entity.storageName === "muw1nortonaksintsa" || entity.storageName === "muw1supportaksstgsa" || entity.storageName === "muw1supportaksprodsa" || entity.storageName === "mue2supportaksprodsa" || entity.storageName === "muw1supportakscoresa") {
+            maxArchivedHours = 4;
+        }
         var curDate = new Date();
 
-        var fileCreationDate = new Date(entity.eventdate._);
+        var fileCreationDate = new Date(entity.eventdate);
         var numHoursPassedSinceFileCreation = (curDate - fileCreationDate) / (1000 * 60 * 60);
 
         var lastEnqueLockTime;
         if (entity.lastEnqueLockTime === undefined) {
-            lastEnqueLockTime =  entity.eventdate._;
+            lastEnqueLockTime = entity.eventdate;
         } else {
-            lastEnqueLockTime = entity.lastEnqueLockTime._;
+            lastEnqueLockTime = entity.lastEnqueLockTime;
         }
 
         var lastEnqueTaskDate = new Date(lastEnqueLockTime);
@@ -114,14 +104,14 @@ function isAppendBlobArchived(context, entity) {
         var maxlockThresholdMin = 15;
         // Here we are also checking that file creation date should exceed threshold.
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
-        if ( (numHoursPassedSinceFileCreation >= maxArchivedHours) && (numMinPassedSinceLastEnquedTask <= maxlockThresholdMin)) {
-            context.log("Archiving Append Blob File with RowKey: %s numHoursPassedSinceFileCreation: %d numMinPassedSinceLastEnquedTask: %d", entity.RowKey._, numHoursPassedSinceFileCreation, numMinPassedSinceLastEnquedTask)
+        if ((numHoursPassedSinceFileCreation >= maxArchivedHours) && (numMinPassedSinceLastEnquedTask <= maxlockThresholdMin)) {
+            context.log("Archiving Append Blob File with rowKey: %s numHoursPassedSinceFileCreation: %d numMinPassedSinceLastEnquedTask: %d", entity.rowKey, numHoursPassedSinceFileCreation, numMinPassedSinceLastEnquedTask)
             return true;
         } else {
             return false;
         }
     } else if (entity.eventdate === undefined) {
-        context.log("Archiving Append Blob File with(no eventdate) RowKey: ", entity.RowKey)
+        context.log("Archiving Append Blob File with(no eventdate) rowKey: ", entity.rowKey)
         return true;
     } else {
         return false;
@@ -129,35 +119,31 @@ function isAppendBlobArchived(context, entity) {
 }
 
 /**
- * @param  {} continuationToken
  * @param  {} tableQuery
- * @param  {} newFiles
- *
  * fetches the files from FileOffset Map table recursively
  */
-function queryFiles(continuationToken, tableQuery, context) {
+function queryFiles(tableQuery, context) {
     var allentities = [];
-    return new Promise(function (resolve, reject) {
-        return queryEntitiesSegmented(process.env.APPSETTING_TABLE_NAME, tableQuery, continuationToken).then(function (results) {
-            continuationToken = results.continuationToken;
-            results.entries.forEach(function (entity) {
-                allentities.push(entity);
+    return new Promise(async (resolve, reject) => {
+        try {
+            var entities = tableClient.listEntities({
+                queryOptions: { filter: tableQuery }
             });
-            if (continuationToken == null) {
-                // context.log("queryFiles: finished all pages.");
-                return resolve(allentities);
-            } else {
-                //context.log("queryFiles: moving to next page.");
-                return queryFiles(continuationToken, tableQuery, context).then(function (r) {
-                    resolve(allentities.concat(r));
-                }).catch(reject);
+
+            for await (const entity of entities) {
+                allentities.push(entity);
             }
-        }).catch(reject);
+
+            resolve(allentities);
+        } catch (error) {
+            context.log.error(`Error while fetching queryFiles: ${JSON.stringify(error)}`);
+            reject(error);
+        }
     })
 }
 
 /*
- *  Updates the entities in batches, it groups the entities by partitionkey
+ *  Updates the entities in batches, it groups the entities by partitionKey
  *  mode - if mode == insert it inserts or merges the entity
  */
 function batchUpdateOffsetTable(context, allentities, mode) {
@@ -165,9 +151,9 @@ function batchUpdateOffsetTable(context, allentities, mode) {
     var successCnt = 0;
     var errorCnt = 0;
     var maxBatchItems = 100;
-    // All entities in the batch must have the same PartitionKey
+    // All entities in the batch must have the same partitionKey
     var groupedEntities = allentities.reduce(function (rv, e) {
-        (rv[e.PartitionKey._] = rv[e.PartitionKey._] || []).push(e);
+        (rv[e.partitionKey] = rv[e.partitionKey] || []).push(e);
         return rv;
     }, {});
 
@@ -175,38 +161,36 @@ function batchUpdateOffsetTable(context, allentities, mode) {
         var entities = groupedEntities[groupKey];
         for (let batchIndex = 0; batchIndex < entities.length; batchIndex += maxBatchItems) {
             (function (batchIndex, groupKey) {
-                batch_promises.push(new Promise(function (resolve, reject) {
-                    var batch = new storage.TableBatch();
+                batch_promises.push(new Promise(async function (resolve, reject) {
                     var currentBatch = entities.slice(batchIndex, batchIndex + maxBatchItems);
+                    var transaction = new TableTransaction();
                     for (let index = 0; index < currentBatch.length; index++) {
                         const element = currentBatch[index];
                         if (mode === "delete") {
-                            batch.deleteEntity(element);
+                            transaction.deleteEntity(element);
                         } else {
-                            batch.insertOrMergeEntity(element);
+                            transaction.updateEntity(element, "Merge");
                         }
                     }
-                    tableService.executeBatch(process.env.APPSETTING_TABLE_NAME, batch,
-                        function (error, result, response) {
-                            if (error) {
-                                context.log("Error occurred while updating offset table for batch: " + batchIndex,  error);
-                                // not using reject so that all promises will get processed in promise.all
-                                errorCnt += 1;
-                                return resolve({status: "error"})
-                            } else {
-                                //context.log("Updated offset table mode: " + mode + "for batch: " + batchIndex + " groupKey: " + groupKey + " numElementinBatch: " + currentBatch.length);
-                                successCnt += 1
-                                return resolve({ status: "success" });
-                            }
-                        });
+                    try {
+                        await tableClient.submitTransaction(transaction.actions);
+                        successCnt += 1
+                        return resolve({ status: "success" });
+                    } catch (error) {
+                        context.log.error(`Error occurred while updating offset table for batch: ${batchIndex}, error: ${JSON.stringify(error)}`);
+                        // not using reject so that all promises will get processed in promise.all
+                        errorCnt += 1;
+                        return resolve({ status: "error" })
+                    }
                 }));
             })(batchIndex, groupKey);
 
         }
     });
-    return Promise.all(batch_promises).then(function(results) {
+    return Promise.all(batch_promises).then(function (results) {
 
-        context.log("batchUpdateOffsetTable mode: " + mode + " succentCount: " + successCnt + " errorCount: " + errorCnt);
+
+        context.log.verbose("batchUpdateOffsetTable mode: " + mode + " succentCount: " + successCnt + " errorCount: " + errorCnt);
         return results;
     });
 }
@@ -224,14 +208,13 @@ function getArchivedBlockBlobFiles(context) {
     var dateVal = new Date();
     dateVal.setDate(dateVal.getDate() - maxArchivedDays);
 
-    // fetch only Row and Partition Key for faster fetching
-    var archivedFileQuery = new storage.TableQuery().select('PartitionKey', 'RowKey').where(' blobType eq ? and eventdate le ?date?', "BlockBlob", dateVal);
-    return queryFiles(null, archivedFileQuery, context).then(function (processedFiles) {
+    var archivedFileQuery = `blobType eq '${'BlockBlob'}' and eventdate le ${dateVal}`;
+    return queryFiles(archivedFileQuery, context).then(function (processedFiles) {
         context.log("BlockBlob Archived Files: " + processedFiles.length);
         return processedFiles;
     }).catch(function (error) {
         // not failing so that other tasks gets archived
-        context.log("Unable to fetch blockblob archived rows from table ", error);
+        context.log.error(`Unable to fetch blockblob archived rows from table, Error: ${JSON.stringify(error)}`);
         return [];
     });
 }
@@ -246,18 +229,17 @@ function getLockedEntitiesExceedingThreshold(context) {
 
     var maxlockThresholdMin = 15;
     var dateVal = new Date();
-    dateVal.setMinutes(Math.max(0,dateVal.getMinutes() - maxlockThresholdMin));
-    var lockedFileQuery = new storage.TableQuery().where(' (done eq ?) and (blobType eq ?) and (offset ge ?) and lastEnqueLockTime le ?date?', true, "AppendBlob", 0, dateVal);
-    // context.log("maxlastEnqueLockTime: %s", dateVal.toISOString());
-    return queryFiles(null, lockedFileQuery, context).then(function (allentities) {
+    dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxlockThresholdMin));
+    var lockedFileQuery = `done eq ${true} and  blobType ${'AppendBlob'} and offset ge ${0} and lastEnqueLockTime le ${dateVal}`
+    return queryFiles(lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdMin: " + allentities.length);
-        var unlockedEntities = allentities.map(function(entity) {
-             context.log("Unlocking Append Blob File with RowKey: %s lastEnqueLockTime: %s", entity.RowKey._, entity.lastEnqueLockTime._);
+        var unlockedEntities = allentities.map(function (entity) {
+            context.log("Unlocking Append Blob File with rowKey: %s lastEnqueLockTime: %s", entity.rowKey, entity.lastEnqueLockTime);
             return getunLockedEntity(entity);
         });
         return unlockedEntities;
     }).catch(function (error) {
-        context.log("Unable to fetch AppendBlob locked rows from table ", error);
+        context.log.error(`Unable to fetch AppendBlob locked rows from table, Error: ${JSON.stringify(error)}`);
         return [];
     });
 }
@@ -266,16 +248,16 @@ function getFixedNumberOfEntitiesbyEnqueTime(context, entities) {
     // sort by lastenquetime they are in isoformat so are lexicographically sorted
     let lastEnqueLockTime_a;
     let lastEnqueLockTime_b;
-    entities = entities.sort(function(a, b) {
+    entities = entities.sort(function (a, b) {
         if (a.lastEnqueLockTime === undefined) {
-            lastEnqueLockTime_a =  a.eventdate._;
+            lastEnqueLockTime_a = a.eventdate;
         } else {
-            lastEnqueLockTime_a = a.lastEnqueLockTime._;
+            lastEnqueLockTime_a = a.lastEnqueLockTime;
         }
         if (b.lastEnqueLockTime === undefined) {
-            lastEnqueLockTime_b =  b.eventdate._;
+            lastEnqueLockTime_b = b.eventdate;
         } else {
-            lastEnqueLockTime_b = b.lastEnqueLockTime._;
+            lastEnqueLockTime_b = b.lastEnqueLockTime;
         }
         return lastEnqueLockTime_a - lastEnqueLockTime_b;
     });
@@ -289,12 +271,12 @@ function getFixedNumberOfEntitiesbyEnqueTime(context, entities) {
     for (let idx = 0; idx < entities.length; idx += 1) {
         entity = entities[idx];
 
-        if (filesPerStorageAccountCount[entity.storageName._] === undefined) {
-            filesPerStorageAccountCount[entity.storageName._] = 1;
+        if (filesPerStorageAccountCount[entity.storageName] === undefined) {
+            filesPerStorageAccountCount[entity.storageName] = 1;
         } else {
-            filesPerStorageAccountCount[entity.storageName._] += 1;
+            filesPerStorageAccountCount[entity.storageName] += 1;
         }
-        if (filesPerStorageAccountCount[entity.storageName._] <= maxFileTaskPerInvokePerStorageAccount) {
+        if (filesPerStorageAccountCount[entity.storageName] <= maxFileTaskPerInvokePerStorageAccount) {
             allFileCount += 1;
             filteredEntities.push(entity);
         }
@@ -323,22 +305,22 @@ function setBatchSizePerStorageAccount(newFiletasks) {
     let MAX_GET_BLOB_REQUEST_PER_INVOKE = 25;
     for (let idx = 0; idx < newFiletasks.length; idx += 1) {
         task = newFiletasks[idx];
-        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, Math.floor(MAX_READ_API_LIMIT_PER_SEC/filesPerStorageAccountCount[task.storageName]))*4*1024*1024;
+        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName])) * 4 * 1024 * 1024;
     }
     return newFiletasks;
 }
 
 /**
- *First it fetches the unlocked append blob files rows and creates tasks for them in service bus
+ *First it fetches the unlocked append blob files rows and creates tasks for them in Event Hub
  *
- * To avoid duplication of tasks all the enqueued tasks (in service bus) are marked as locked
+ * To avoid duplication of tasks all the enqueued tasks (in Event Hub) are marked as locked
  * This will ensure that only after consumer function releases the lock after successfully sending the log file
  * then only new task is produced for that file in case of append blobs.
  */
 function getTasksForUnlockedFiles(context) {
-    var existingFileQuery = new storage.TableQuery().where(' done eq ? and  blobType eq ? and offset ge ?', false, "AppendBlob", 0);
-    return new Promise(function (resolve, reject)  {
-        queryFiles(null, existingFileQuery, context).then(function (allentities) {
+    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0}`
+    return new Promise(function (resolve, reject) {
+        queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];
             var archivedFiles = [];
             var newFileEntities = [];
@@ -347,25 +329,25 @@ function getTasksForUnlockedFiles(context) {
                 if (isAppendBlobArchived(context, entity)) {
                     archivedFiles.push(entity);
                 } else {
-                    if (entity.storageName._ === "glo1503134026east01" || entity.storageName._ === "glo1503134026west01") {
+                    if (entity.storageName === "glo1503134026east01" || entity.storageName === "glo1503134026west01") {
                         newFiletasks.push(getTask(entity));
                         lockedEntities.push(getLockedEntity(entity));
                     } else {
                         newFileEntities.push(entity);
                     }
-                    //context.log("Creating task for file: " + entity.RowKey._);
+                    context.log.verbose("Creating task for file: " + entity.rowKey);
                 }
             });
             newFileEntities = getFixedNumberOfEntitiesbyEnqueTime(context, newFileEntities)
-            newFileEntities.forEach(function(entity) {
+            newFileEntities.forEach(function (entity) {
                 newFiletasks.push(getTask(entity));
                 lockedEntities.push(getLockedEntity(entity));
             });
             newFiletasks = setBatchSizePerStorageAccount(newFiletasks)
             context.log("New File Tasks created: " + newFiletasks.length + " AppendBlob Archived Files: " + archivedFiles.length);
             resolve([newFiletasks, archivedFiles, lockedEntities]);
-        }).catch(function(error) {
-            context.log("Error in getting new tasks");
+        }).catch(function (error) {
+            context.log.error(`Error in getting new tasks, Error: ${JSON.stringify(error)}`);
             reject(error);
         });
     });
@@ -374,7 +356,7 @@ function getTasksForUnlockedFiles(context) {
 /**
  * @param  {} context
  *
- * Then it fetches the existing append blob file rows and creates tasks for them in service bus
+ * Then it fetches the existing append blob file rows and creates tasks for them in Event Hub
  * Among the existing files it marks the ones which are inactive (it is assumed that the azure service won't be writing to this file after it switched to a new file)
  */
 function PollAppendBlobFiles(context) {
@@ -386,30 +368,41 @@ function PollAppendBlobFiles(context) {
         var archivedRowEntities = r[1];
         var entitiesToUpdate = r[2];
         context.bindings.tasks = context.bindings.tasks.concat(newFiletasks);
-        // context.log(newFiletasks);
+        context.log.verbose("new file tasks",newFiletasks);
         var batch_promises = [
-            getLockedEntitiesExceedingThreshold(context).then(function(unlockedEntities) {
+            getLockedEntitiesExceedingThreshold(context).then(function (unlockedEntities) {
                 // setting lock for new tasks and unsetting lock for old tasks
                 entitiesToUpdate = entitiesToUpdate.concat(unlockedEntities);
                 return batchUpdateOffsetTable(context, entitiesToUpdate, "insert");
             }),
-            getArchivedBlockBlobFiles(context).then(function(blockBlobArchivedFiles) {
+            getArchivedBlockBlobFiles(context).then(function (blockBlobArchivedFiles) {
                 // deleting both archived block blob and append blob files
                 archivedRowEntities = archivedRowEntities.concat(blockBlobArchivedFiles);
                 return batchUpdateOffsetTable(context, archivedRowEntities, "delete");
             })
         ];
-        return Promise.all(batch_promises).then(function(results) {
+        return Promise.all(batch_promises).then(function (results) {
             context.log("BatchUpdateResults - ", results);
             context.done();
         });
     }).catch(function (error) {
-            context.log("Error in PollOffsetTable", error);
-            context.done(error);
+        context.log.error(`Error in PollOffsetTable, Error: ${JSON.stringify(error)}`);
+        context.done(error);
     });
 }
 
 module.exports = function (context, triggerData) {
+
+    // just for ref.
+    // triggerData = {
+    //     schedule: { adjustForDST: true },
+    //     scheduleStatus: {
+    //         last: '2024-03-01T07:20:00.0173159+00:00',
+    //         next: '2024-03-01T07:25:00+00:00',
+    //         lastUpdated: '2024-03-01T07:20:00.0173159+00:00'
+    //     },
+    //     isPastDue: false
+    // }
 
     if (triggerData.isPastDue) {
         context.log("function is running late");

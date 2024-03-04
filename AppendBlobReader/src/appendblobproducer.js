@@ -189,7 +189,8 @@ function batchUpdateOffsetTable(context, allentities, mode) {
     });
     return Promise.all(batch_promises).then(function (results) {
 
-        context.log("batchUpdateOffsetTable mode: " + mode + " succentCount: " + successCnt + " errorCount: " + errorCnt);
+
+        context.log.verbose("batchUpdateOffsetTable mode: " + mode + " succentCount: " + successCnt + " errorCount: " + errorCnt);
         return results;
     });
 }
@@ -213,7 +214,7 @@ function getArchivedBlockBlobFiles(context) {
         return processedFiles;
     }).catch(function (error) {
         // not failing so that other tasks gets archived
-        context.log("Unable to fetch blockblob archived rows from table ", error);
+        context.log.error(`Unable to fetch blockblob archived rows from table, Error: ${JSON.stringify(error)}`);
         return [];
     });
 }
@@ -238,7 +239,7 @@ function getLockedEntitiesExceedingThreshold(context) {
         });
         return unlockedEntities;
     }).catch(function (error) {
-        context.log("Unable to fetch AppendBlob locked rows from table ", error);
+        context.log.error(`Unable to fetch AppendBlob locked rows from table, Error: ${JSON.stringify(error)}`);
         return [];
     });
 }
@@ -334,7 +335,7 @@ function getTasksForUnlockedFiles(context) {
                     } else {
                         newFileEntities.push(entity);
                     }
-                    //context.log("Creating task for file: " + entity.rowKey);
+                    context.log.verbose("Creating task for file: " + entity.rowKey);
                 }
             });
             newFileEntities = getFixedNumberOfEntitiesbyEnqueTime(context, newFileEntities)
@@ -346,7 +347,7 @@ function getTasksForUnlockedFiles(context) {
             context.log("New File Tasks created: " + newFiletasks.length + " AppendBlob Archived Files: " + archivedFiles.length);
             resolve([newFiletasks, archivedFiles, lockedEntities]);
         }).catch(function (error) {
-            context.log("Error in getting new tasks");
+            context.log.error(`Error in getting new tasks, Error: ${JSON.stringify(error)}`);
             reject(error);
         });
     });
@@ -367,7 +368,7 @@ function PollAppendBlobFiles(context) {
         var archivedRowEntities = r[1];
         var entitiesToUpdate = r[2];
         context.bindings.tasks = context.bindings.tasks.concat(newFiletasks);
-        // context.log(newFiletasks);
+        context.log.verbose("new file tasks",newFiletasks);
         var batch_promises = [
             getLockedEntitiesExceedingThreshold(context).then(function (unlockedEntities) {
                 // setting lock for new tasks and unsetting lock for old tasks
@@ -385,7 +386,7 @@ function PollAppendBlobFiles(context) {
             context.done();
         });
     }).catch(function (error) {
-        context.log("Error in PollOffsetTable", error);
+        context.log.error(`Error in PollOffsetTable, Error: ${JSON.stringify(error)}`);
         context.done(error);
     });
 }

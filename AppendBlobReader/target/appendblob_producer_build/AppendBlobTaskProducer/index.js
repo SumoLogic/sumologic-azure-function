@@ -7,7 +7,8 @@ var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureW
 
 function getTask(entity) {
     return {
-        rowKey: entity.RowKey,
+        partitionKey: entity.partitionKey,
+        rowKey: entity.rowKey,
         containerName: entity.containerName,
         blobName: entity.blobName,
         storageName: entity.storageName,
@@ -20,12 +21,12 @@ function getTask(entity) {
 
 function getLockedEntity(entity) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    // RowKey/Partition key cannot contain "/"
+    // rowKey/partitionKey cannot contain "/"
     // lastEnqueLockTime - it denotes the last time when it was enqueued in Event Hub
     // done - it is set to true which means the task is enqueued in Event Hub
     var entity = {
-        PartitionKey: entity.PartitionKey,
-        RowKey: entity.RowKey,
+        partitionKey: entity.partitionKey,
+        rowKey: entity.rowKey,
         done: true,
         lastEnqueLockTime: new Date().toISOString(),
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
@@ -42,7 +43,7 @@ function getLockedEntity(entity) {
 
 function getunLockedEntity(entity) {
     //a single entity group transaction is limited to 100 entities. Also, the entire payload of the transaction may not exceed 4MB
-    // RowKey/Partition key cannot contain "/"
+    // rowKey/partitionKey cannot contain "/"
     // lastEnqueLockTime - it denotes the last time when it was enqueued in Event Hub
     // done - it is set to true which means the task is enqueued in Event Hub
     var lastEnqueLockTime;
@@ -52,8 +53,8 @@ function getunLockedEntity(entity) {
         lastEnqueLockTime = entity.lastEnqueLockTime;
     }
     var entity = {
-        PartitionKey: entity.PartitionKey,
-        RowKey: entity.RowKey,
+        partitionKey: entity.partitionKey,
+        rowKey: entity.rowKey,
         done: false,
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
         lastEnqueLockTime: lastEnqueLockTime,
@@ -104,13 +105,13 @@ function isAppendBlobArchived(context, entity) {
         // Here we are also checking that file creation date should exceed threshold.
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
         if ((numHoursPassedSinceFileCreation >= maxArchivedHours) && (numMinPassedSinceLastEnquedTask <= maxlockThresholdMin)) {
-            context.log("Archiving Append Blob File with RowKey: %s numHoursPassedSinceFileCreation: %d numMinPassedSinceLastEnquedTask: %d", entity.RowKey, numHoursPassedSinceFileCreation, numMinPassedSinceLastEnquedTask)
+            context.log("Archiving Append Blob File with rowKey: %s numHoursPassedSinceFileCreation: %d numMinPassedSinceLastEnquedTask: %d", entity.rowKey, numHoursPassedSinceFileCreation, numMinPassedSinceLastEnquedTask)
             return true;
         } else {
             return false;
         }
     } else if (entity.eventdate === undefined) {
-        context.log("Archiving Append Blob File with(no eventdate) RowKey: ", entity.RowKey)
+        context.log("Archiving Append Blob File with(no eventdate) rowKey: ", entity.rowKey)
         return true;
     } else {
         return false;
@@ -142,7 +143,7 @@ function queryFiles(tableQuery, context) {
 }
 
 /*
- *  Updates the entities in batches, it groups the entities by partitionkey
+ *  Updates the entities in batches, it groups the entities by partitionKey
  *  mode - if mode == insert it inserts or merges the entity
  */
 function batchUpdateOffsetTable(context, allentities, mode) {
@@ -150,9 +151,9 @@ function batchUpdateOffsetTable(context, allentities, mode) {
     var successCnt = 0;
     var errorCnt = 0;
     var maxBatchItems = 100;
-    // All entities in the batch must have the same PartitionKey
+    // All entities in the batch must have the same partitionKey
     var groupedEntities = allentities.reduce(function (rv, e) {
-        (rv[e.PartitionKey] = rv[e.PartitionKey] || []).push(e);
+        (rv[e.partitionKey] = rv[e.partitionKey] || []).push(e);
         return rv;
     }, {});
 
@@ -161,14 +162,14 @@ function batchUpdateOffsetTable(context, allentities, mode) {
         for (let batchIndex = 0; batchIndex < entities.length; batchIndex += maxBatchItems) {
             (function (batchIndex, groupKey) {
                 batch_promises.push(new Promise(async function (resolve, reject) {
-                    const transaction = new TableTransaction();
                     var currentBatch = entities.slice(batchIndex, batchIndex + maxBatchItems);
+                    var transaction = new TableTransaction();
                     for (let index = 0; index < currentBatch.length; index++) {
                         const element = currentBatch[index];
                         if (mode === "delete") {
                             transaction.deleteEntity(element);
                         } else {
-                            transaction.insertOrMergeEntity(element);
+                            transaction.updateEntity(element, "Merge");
                         }
                     }
                     try {
@@ -232,7 +233,7 @@ function getLockedEntitiesExceedingThreshold(context) {
     return queryFiles(lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdMin: " + allentities.length);
         var unlockedEntities = allentities.map(function (entity) {
-            context.log("Unlocking Append Blob File with RowKey: %s lastEnqueLockTime: %s", entity.RowKey, entity.lastEnqueLockTime);
+            context.log("Unlocking Append Blob File with rowKey: %s lastEnqueLockTime: %s", entity.rowKey, entity.lastEnqueLockTime);
             return getunLockedEntity(entity);
         });
         return unlockedEntities;
@@ -333,7 +334,7 @@ function getTasksForUnlockedFiles(context) {
                     } else {
                         newFileEntities.push(entity);
                     }
-                    //context.log("Creating task for file: " + entity.RowKey);
+                    //context.log("Creating task for file: " + entity.rowKey);
                 }
             });
             newFileEntities = getFixedNumberOfEntitiesbyEnqueTime(context, newFileEntities)

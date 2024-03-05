@@ -71,7 +71,7 @@
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue": "hpal_nl_custom_code",
+            "defaultValue": "SUMO-236067-update-azure-function-code-for-append-blob",
             "type": "String"
         },
         "sourceCodeManualIntegration": {

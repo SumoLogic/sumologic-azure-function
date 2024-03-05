@@ -132,8 +132,7 @@
     },
     "variables": {
         "consumer_roleGuid": "[guid(parameters('sites_blobReaderConsumer_name'), uniqueString(resourceGroup().id))]",
-        "blobReaderConsumer_respurceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobReaderConsumer_name'))]",
-        "appendBlobProcessor_roleGuid": "[guid(parameters('sites_appendBlobProcessor_name'), uniqueString(resourceGroup().id))]",
+        "blobReaderConsumer_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobReaderConsumer_name'))]",
         "appendBlobProcessor_resourceId": "[resourceId('Microsoft.Web/sites/', parameters('sites_appendBlobProcessor_name'))]",
         "BlobReader_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobReader_name'))]",
         "TABLE_NAME": "FileOffsetMap",
@@ -149,8 +148,7 @@
             "type": "Microsoft.Resources/deployments",
             "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
             "dependsOn": [
-                "[variables('appendBlobProcessor_resourceId')]",
-                "[variables('blobreaderconsumer_respurceId')]"
+                "[variables('blobReaderConsumer_resourceId')]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -165,16 +163,6 @@
                             "properties": {
                                 "roleDefinitionId": "[variables('roleDefinitionId')]",
                                 "principalId": "[reference(resourceId(variables('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2022-03-01', 'Full').Identity.principalId]"
-                            }
-                        },
-                        {
-                            "type": "Microsoft.Authorization/roleAssignments",
-                            "apiVersion": "2022-04-01",
-                            "name": "[variables('appendBlobProcessor_roleGuid')]",
-                            "scope": "[variables('roleScope')]",
-                            "properties": {
-                                "roleDefinitionId": "[variables('roleDefinitionId')]",
-                                "principalId": "[reference(resourceId(variables('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_appendBlobProcessor_name')), '2022-03-01', 'Full').Identity.principalId]"
                             }
                         },
                         {
@@ -741,7 +729,7 @@
                     "type": "sourcecontrols",
                     "location": "[parameters('location')]",
                     "dependsOn": [
-                        "[variables('blobreaderconsumer_respurceId')]"
+                        "[variables('blobReaderConsumer_resourceId')]"
                     ],
                     "properties": {
                         "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",

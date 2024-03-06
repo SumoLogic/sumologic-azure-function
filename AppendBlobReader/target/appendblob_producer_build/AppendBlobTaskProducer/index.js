@@ -2,8 +2,8 @@
 //           Function to create Append Blob tasks using File OffsetMap Table into Azure Event Hub //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var { TableClient, TableTransaction } = require("@azure/data-tables");
-var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, process.env.APPSETTING_TABLE_NAME);
+const { TableClient, TableTransaction } = require("@azure/data-tables");
+const tableClient = TableClient.fromConnectionString(process.env.AzureWebJobsStorage, process.env.TABLE_NAME);
 
 function getTask(entity) {
     return {

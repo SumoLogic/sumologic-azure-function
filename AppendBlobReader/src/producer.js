@@ -3,8 +3,8 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 var sumoutils = require('./sumoutils.js');
-var { TableClient } = require("@azure/data-tables");
-var tableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, process.env.APPSETTING_TABLE_NAME);
+const { TableClient } = require("@azure/data-tables");
+const tableClient = TableClient.fromConnectionString(process.env.AzureWebJobsStorage, process.env.TABLE_NAME);
 const MaxAttempts = 3
 const RetryInterval = 3000
 

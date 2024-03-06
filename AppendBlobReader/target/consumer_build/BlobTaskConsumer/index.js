@@ -7,7 +7,7 @@ var sumoHttp = require('./sumoclient');
 const { ContainerClient, BlobServiceClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { TableClient } = require("@azure/data-tables");
-const azureTableClient = TableClient.fromConnectionString(process.env.APPSETTING_AzureWebJobsStorage, process.env.APPSETTING_TABLE_NAME);
+const azureTableClient = TableClient.fromConnectionString(process.env.AzureWebJobsStorage, process.env.TABLE_NAME);
 const MaxAttempts = 3
 
 var DEFAULT_CSV_SEPARATOR = ",";
@@ -216,23 +216,6 @@ async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
         }
     });
 }
-
-function getBlockBlobService(context, task) {
-    return new Promise(function (resolve, reject) {
-        try {
-
-            var containerClient = new ContainerClient(
-                `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
-                tokenCredential
-            );
-            var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
-            resolve(blockBlobClient);
-        } catch (err) {
-            context.log.error(`Error while generation blobk blob client, ${JSON.stringify(err)}`);
-            reject(err);
-        }
-    })
-};
 
 async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     var curdataLenSent = dataLenSent || contentDownloaded;
@@ -503,89 +486,88 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, sendOptions);
 
-    return await getBlockBlobService(context, serviceBusTask).then(async function (blobService) {
-        context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
-        var numChunks = 0;
-        let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
-        context.log("setting batchsize", batchSize);
-        var dataLen = 0;
-        var dataChunks = [];
 
-        // Download blob content
-        context.log("// Download blob content...");
+    context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
+    var numChunks = 0;
+    let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
+    context.log("setting batchsize", batchSize);
+    var dataLen = 0;
+    var dataChunks = [];
 
-        let options = {
-            maxRetryRequests: MaxAttempts
-        }
+    // Download blob content
+    context.log("// Download blob content...");
 
-        try {
-            var containerClient = new ContainerClient(
-                `https://${task.storageName}.blob.core.windows.net/${task.containerName}`,
-                tokenCredential
-            );
-            var blockBlobClient = containerClient.getBlockBlobClient(task.blobName);
+    let options = {
+        maxRetryRequests: MaxAttempts
+    };
 
-            let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
-            let readStream = downloadBlockBlobResponse.readableStreamBody
+    try {
 
-            context.log("Downloaded blob content");
-            context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+        var containerClient = new ContainerClient(
+            `https://${serviceBusTask.storageName}.blob.core.windows.net/${serviceBusTask.containerName}`,
+            tokenCredential
+        );
+        var blockBlobClient = containerClient.getBlockBlobClient(serviceBusTask.blobName);
 
-            readStream.on("data", (data) => {
-                // Todo: returns 4 MB chunks we may need to break it to 1MB
-                if ((numChunks >= 10 && numChunks % 10 === 0) || numChunks <= 2) {
-                    context.log.verbose(`Received ${data.length} bytes of data. numChunks ${numChunks}`);
-                }
-                dataLen += data.length;
-                numChunks += 1;
-                dataChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
+        let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
+        let readStream = downloadBlockBlobResponse.readableStreamBody;
+
+        context.log("Downloaded blob content");
+        context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+
+        readStream.on("data", (data) => {
+            // Todo: returns 4 MB chunks we may need to break it to 1MB
+            if ((numChunks >= 10 && numChunks % 10 === 0) || numChunks <= 2) {
+                context.log.verbose(`Received ${data.length} bytes of data. numChunks ${numChunks}`);
+            }
+            dataLen += data.length;
+            numChunks += 1;
+            dataChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
+        });
+
+        readStream.on("end", function (res) {
+            context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
+                contentDownloaded = dataLenSent;
+                return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                    context.done();
+                });
+            }).catch(function (err) {
+                context.log.error(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`);
+                context.done();
             });
+        });
 
-            readStream.on("end", function (res) {
-                context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
-                return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
-                    contentDownloaded = dataLenSent;
+        readStream.on('error', function (err) {
+            context.log.error(`readStream error: ${JSON.stringify(err)}`);
+            // Todo: Test error cases for fetching
+            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
+                contentDownloaded = dataLenSent;
+                let discardError = errorHandler(err, serviceBusTask, context);
+                if (err !== undefined && (err.code === "BlobNotFound" || err.statusCode == 404)) {
+                    // delete the entry from table storage
+                    return archiveIngestedFile(serviceBusTask, context);
+                } else {
                     return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
-                        context.done();
+                        if (discardError) {
+                            context.done();
+                        } else {
+                            // after 1 hr lock automatically releases
+                            context.done(err);
+                        }
                     });
-                }).catch(function (err) {
-                    context.log.error(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`)
+                }
+
+            }).catch(async function (err) {
+                context.log.error(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`);
+                return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
                     context.done();
                 });
             });
 
-            readStream.on('error', function (err) {
-                context.log.error(`readStream error: ${JSON.stringify(err)}`)
-                // Todo: Test error cases for fetching
-                return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
-                    contentDownloaded = dataLenSent;
-                    let discardError = errorHandler(err, serviceBusTask, context);
-                    if (err !== undefined && (err.code === "BlobNotFound" || err.statusCode == 404)) {
-                        // delete the entry from table storage
-                        return archiveIngestedFile(serviceBusTask, context);
-                    } else {
-                        return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
-                            if (discardError) {
-                                context.done()
-                            } else {
-                                // after 1 hr lock automatically releases
-                                context.done(err);
-                            }
-                        });
-                    }
-
-                }).catch(async function (err) {
-                    context.log.error(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`)
-                    return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
-                        context.done();
-                    });
-                });
-
-            });
-        } catch (error) {
-            context.log.error(`Error while downloading blob content, Error: ${JSON.stringify(error)}`);
-        }
-    }).catch(async function (err) {
+        });
+    } catch (error) {
+        context.log.error(`Error while downloading blob content, Error: ${JSON.stringify(error)}`);
         let discardError = errorHandler(err, serviceBusTask, context);
         return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {
@@ -595,7 +577,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                 context.done(err);
             }
         });
-    });
+    }
 }
 
 /**
@@ -628,15 +610,17 @@ module.exports = async function (context, triggerData) {
     contentDownloaded = 0;
 
     // triggerData = {
-    //     subscriptionId: "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
-    //     resourceGroupName: "prpatelappend",
-    //     storageName: "pappend",
-    //     containerName: "append",
-    //     blobName: 'dummy_data.csv',
-    //     startByte: 0,
-    //     blobType: "AppendBlob",
-    //     rowKey: "pappend-append-dummy_data.csv"
-    // };
+    //     "partitionKey": 'append',
+    //     "rowKey": 'pappend-append-dummy_data.csv',
+    //     "containerName": 'append',
+    //     "blobName": 'dummy_data.csv',
+    //     "storageName": 'pappend',
+    //     "resourceGroupName": 'prpatelappend',
+    //     "subscriptionId": 'c088dc46-d692-42ad-a4b6-9a542d28ad2a',
+    //     "blobType": 'AppendBlob',
+    //     "startByte": 0,
+    //     "batchSize": 104857600
+    // }
 
     context.log("Inside blob task consumer:", triggerData.rowKey);
     await appendBlobStreamMessageHandlerv2(context, triggerData);

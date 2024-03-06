@@ -532,7 +532,7 @@ function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         readStream.on("data", (data) => {
             // Todo: returns 4 MB chunks we may need to break it to 1MB
             if ((numChunks >= 10 && numChunks % 10 === 0) || numChunks <= 2) {
-                context.log(`Received ${data.length} bytes of data. numChunks ${numChunks}`);
+                context.log.verbose(`Received ${data.length} bytes of data. numChunks ${numChunks}`);
             }
             dataLen += data.length;
             numChunks += 1;

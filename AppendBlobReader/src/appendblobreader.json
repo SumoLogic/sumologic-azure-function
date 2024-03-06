@@ -136,8 +136,9 @@
         "appendBlobProcessor_resourceId": "[resourceId('Microsoft.Web/sites/', parameters('sites_appendBlobProcessor_name'))]",
         "BlobReader_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobReader_name'))]",
         "TABLE_NAME": "FileOffsetMap",
+        "StorageBlobDataReader": "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1",
         "resourceGroupName": "[resourceGroup().name]",
-        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '81a9662b-bebf-436f-a333-f67b29880f12')]",
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', variables('StorageBlobDataReader'))]",
         "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]",
         "appInsightsResourceType": "[concat('microsoft.insights/components/', parameters('appInsightsName'))]"

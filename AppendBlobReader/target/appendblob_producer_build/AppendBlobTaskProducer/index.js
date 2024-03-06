@@ -230,7 +230,7 @@ function getLockedEntitiesExceedingThreshold(context) {
     var maxlockThresholdMin = 15;
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxlockThresholdMin));
-    var lockedFileQuery = `done eq ${true} and  blobType ${'AppendBlob'} and offset ge ${0} and lastEnqueLockTime le ${dateVal}`
+    var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le ${dateVal}`
     return queryFiles(lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdMin: " + allentities.length);
         var unlockedEntities = allentities.map(function (entity) {

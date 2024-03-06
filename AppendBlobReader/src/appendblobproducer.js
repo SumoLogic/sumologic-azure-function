@@ -208,7 +208,7 @@ function getArchivedBlockBlobFiles(context) {
     var dateVal = new Date();
     dateVal.setDate(dateVal.getDate() - maxArchivedDays);
 
-    var archivedFileQuery = `blobType eq '${'BlockBlob'}' and eventdate le ${dateVal}`;
+    var archivedFileQuery = `blobType eq '${'BlockBlob'}' and eventdate le datetime'${dateVal.toISOString()}'`
     return queryFiles(archivedFileQuery, context).then(function (processedFiles) {
         context.log("BlockBlob Archived Files: " + processedFiles.length);
         return processedFiles;
@@ -230,7 +230,7 @@ function getLockedEntitiesExceedingThreshold(context) {
     var maxlockThresholdMin = 15;
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxlockThresholdMin));
-    var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le ${dateVal}`
+    var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`
     return queryFiles(lockedFileQuery, context).then(function (allentities) {
         context.log("AppendBlob Locked Files exceeding maxlockThresholdMin: " + allentities.length);
         var unlockedEntities = allentities.map(function (entity) {
@@ -368,7 +368,7 @@ function PollAppendBlobFiles(context) {
         var archivedRowEntities = r[1];
         var entitiesToUpdate = r[2];
         context.bindings.tasks = context.bindings.tasks.concat(newFiletasks);
-        context.log.verbose("new file tasks",newFiletasks);
+        context.log.verbose("new file tasks", newFiletasks);
         var batch_promises = [
             getLockedEntitiesExceedingThreshold(context).then(function (unlockedEntities) {
                 // setting lock for new tasks and unsetting lock for old tasks

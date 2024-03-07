@@ -209,7 +209,7 @@ async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
             context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
-            context.log("updateResult: ", updateResult)
+            context.log.verbose("updateResult: ", updateResult)
             resolve();
         } catch (error) {
             reject(error)
@@ -487,15 +487,12 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     setSourceCategory(serviceBusTask, sendOptions);
 
 
-    context.log("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
+    context.log.verbose("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
     var numChunks = 0;
     let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
-    context.log("setting batchsize", batchSize);
+    context.log.verbose("setting batch-size", batchSize);
     var dataLen = 0;
     var dataChunks = [];
-
-    // Download blob content
-    context.log("// Download blob content...");
 
     let options = {
         maxRetryRequests: MaxAttempts
@@ -509,6 +506,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         );
         var blockBlobClient = containerClient.getBlockBlobClient(serviceBusTask.blobName);
 
+        context.log.verbose(`Download blob content, offset: ${serviceBusTask.startByte}, count: ${serviceBusTask.startByte + batchSize - 1}, option: ${JSON.stringify(options)}`);
         let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
         let readStream = downloadBlockBlobResponse.readableStreamBody;
 
@@ -567,8 +565,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         });
     } catch (error) {
-        context.log.error(`Error while downloading blob content, Error: ${JSON.stringify(error)}`);
-        let discardError = errorHandler(err, serviceBusTask, context);
+        let discardError = errorHandler(error, serviceBusTask, context);
         return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {
                 context.done();

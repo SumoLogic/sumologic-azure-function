@@ -54,21 +54,20 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.check_resource_count(expected_resource_count)
     
     def test_03_insert_chunks(self):
-        self.upload_file_chunks_using_append_blobs()
-        self.assertTrue(True)
-
-    def test_03_func_logs(self):
         self.logger.info("inserting mock data in BlobStorage")
-        
         self.upload_file_chunks_using_append_blobs()
 
-        time.sleep(600)
+        time.sleep(1200)
 
         app_insights = self.get_resource('Microsoft.Insights/components')
         captured_output = self.fetchlogs(app_insights.name)
 
-        successful_sent_message = "All chunks successfully sent to sumo blob"
+        successful_sent_message = "All chunks successfully sent to sumo"
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
+                        "No success message found in azure function logs")
+
+        end_message = "Offset is already at the end"
+        self.assertTrue(self.filter_logs(captured_output, 'message', end_message),
                         "No success message found in azure function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),

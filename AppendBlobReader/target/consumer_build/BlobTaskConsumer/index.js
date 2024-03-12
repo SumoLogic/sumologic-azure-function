@@ -4,7 +4,7 @@
 
 var sumoHttp = require('./sumoclient');
 
-const { ContainerClient, BlobServiceClient } = require("@azure/storage-blob");
+const { ContainerClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { TableClient } = require("@azure/data-tables");
 const azureTableClient = TableClient.fromConnectionString(process.env.AzureWebJobsStorage, process.env.TABLE_NAME);
@@ -209,7 +209,7 @@ async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
             context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
-            context.log.verbose("updateResult: ", updateResult)
+            context.log.verbose("Update Result: ", updateResult)
             resolve();
         } catch (error) {
             reject(error)
@@ -237,7 +237,6 @@ function sendToSumoBlocking(chunk, sendOptions, context, isText) {
             reject();
         }
         function successHandler(ctx) {
-            ctx.log.verbose('Sent ' + sumoClient.messagesAttempted + ' data to Sumo.');
             resolve();
         }
         let sumoClient = new sumoHttp.SumoClient(sendOptions, context, failureHandler, successHandler);
@@ -359,7 +358,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
             lastIndex = data.length;
         }
     } catch (e) {
-        context.log.verbose("last chunk not json parsable so ignoring", suffix, lastIndex, e);
+        context.log.verbose("Last chunk not json parsable so ignoring", suffix, lastIndex, e);
     }
     // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
     // for new files offset will always start from date
@@ -373,7 +372,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
 
         if (match.index - startpos >= maxChunkSize) {
             dataChunks.push(data.substring(startpos, match.index));
-            context.log.verbose("new chunk %d %d", startpos, match.index);
+            context.log.verbose("New chunk %d %d", startpos, match.index);
             startpos = match.index;
         }
     }
@@ -383,7 +382,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
         dataChunks.push(lastChunk);
     }
 
-    context.log(`decodeDataChunks rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
+    context.log.verbose(`Decode Data Chunks, rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
     return [ignoredprefixLen, dataChunks];
 }
 /*
@@ -402,9 +401,6 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
         let promiseChain = Promise.resolve();
         const makeNextPromise = (chunk) => () => {
             return sendToSumoBlocking(chunk, sendOptions, context, true).then(function () {
-                if ((numChunksSent >= 10 && numChunksSent % 10 === 0) || numChunksSent <= 2) {
-                    context.log("sent chunks: ", numChunksSent);
-                }
                 numChunksSent += 1;
                 dataLenSent += Buffer.byteLength(chunk);
             });
@@ -420,7 +416,7 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
                 context.log(`No chunks to send ${serviceBusTask.rowKey}`);
             } else if (numChunksSent === dataChunks.length) {
                 if (numChunksSent === dataChunks.length) {
-                    context.log(`All chunks successfully sent to sumo blob ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
+                    context.log(`All chunks successfully sent to sumo, Blob: ${serviceBusTask.rowKey}, Prefix: ${ignoredprefixLen}, Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
                 }
             }
             resolve(dataLenSent + ignoredprefixLen);
@@ -440,7 +436,7 @@ function errorHandler(err, serviceBusTask, context) {
         discardError = true;
     } else if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
         // here in case of appendblob data may not exists after startByte
-        context.log.verbose("offset is already at the end startbyte: %d of blob: %s Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
+        context.log("Offset is already at the end, startbyte: %d of blob: %s. Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
         discardError = true;
     } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
         context.log.verbose("Error in appendBlobStreamMessageHandlerv2 Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
@@ -462,6 +458,31 @@ function errorHandler(err, serviceBusTask, context) {
 async function archiveIngestedFile(serviceBusTask, context) {
     await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
     context.done("Entity deleted")
+}
+
+async function streamToBuffer(context, readableStream, serviceBusTask) {
+    return new Promise((resolve, reject) => {
+        var dataLen = 0;
+        var chunks = [];
+
+        readableStream.on("data", (data) => {
+            // Todo: returns 4 MB chunks we may need to break it to 1MB
+            if ((chunks.length >= 10 && chunks.length % 10 === 0) || chunks.length <= 2) {
+                context.log.verbose(`Received ${data.length} bytes of data. numChunks ${chunks.length}`);
+            }
+            dataLen += data.length;
+            chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
+        });
+
+        readableStream.on("end", () => {
+            context.log(`Finished Fetching numChunks: ${chunks.length} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
+            resolve(Buffer.concat(chunks));
+        });
+
+        readableStream.on('error', (err) => {
+            reject(err)
+        });
+    });
 }
 
 async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
@@ -486,13 +507,10 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, sendOptions);
 
-
-    context.log.verbose("fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
-    var numChunks = 0;
+    context.log.verbose("Fetching blob %s %d %d", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte);
     let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
-    context.log.verbose("setting batch-size", batchSize);
-    var dataLen = 0;
-    var dataChunks = [];
+    context.log.verbose("Setting batch-size", batchSize);
+
 
     let options = {
         maxRetryRequests: MaxAttempts
@@ -508,45 +526,27 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         context.log.verbose(`Download blob content, offset: ${serviceBusTask.startByte}, count: ${serviceBusTask.startByte + batchSize - 1}, option: ${JSON.stringify(options)}`);
         let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
-        let readStream = downloadBlockBlobResponse.readableStreamBody;
-
-        context.log("Downloaded blob content");
-        context.log(`requestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
-
-        readStream.on("data", (data) => {
-            // Todo: returns 4 MB chunks we may need to break it to 1MB
-            if ((numChunks >= 10 && numChunks % 10 === 0) || numChunks <= 2) {
-                context.log.verbose(`Received ${data.length} bytes of data. numChunks ${numChunks}`);
-            }
-            dataLen += data.length;
-            numChunks += 1;
-            dataChunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
-        });
-
-        readStream.on("end", function (res) {
-            context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
-            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
-                contentDownloaded = dataLenSent;
-                return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+        await streamToBuffer(context, downloadBlockBlobResponse.readableStreamBody, serviceBusTask).then(
+            async function (value) {
+                context.log.verbose("Successfully downloaded data, sending to SUMO.");
+                await sendDataToSumoUsingSplitHandler(context, value, sendOptions, serviceBusTask).then(async (dataLenSent) => {
+                    contentDownloaded = dataLenSent;
+                    await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                        context.done();
+                    });
+                }).catch(function (err) {
+                    context.log.error(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`);
                     context.done();
                 });
-            }).catch(function (err) {
-                context.log.error(`Error in sendDataToSumoUsingSplitHandler: ${serviceBusTask.rowKey} err ${err}`);
-                context.done();
-            });
-        });
-
-        readStream.on('error', function (err) {
-            context.log.error(`readStream error: ${JSON.stringify(err)}`);
-            // Todo: Test error cases for fetching
-            return sendDataToSumoUsingSplitHandler(context, Buffer.concat(dataChunks), sendOptions, serviceBusTask).then(async function (dataLenSent) {
-                contentDownloaded = dataLenSent;
-                let discardError = errorHandler(err, serviceBusTask, context);
-                if (err !== undefined && (err.code === "BlobNotFound" || err.statusCode == 404)) {
+            },
+            async function (error) {
+                context.log.verbose("Failed to download data");
+                let discardError = errorHandler(error, serviceBusTask, context);
+                if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
                     // delete the entry from table storage
-                    return archiveIngestedFile(serviceBusTask, context);
+                    archiveIngestedFile(serviceBusTask, context);
                 } else {
-                    return await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                    await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
                         if (discardError) {
                             context.done();
                         } else {
@@ -555,16 +555,12 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                         }
                     });
                 }
+            }
+        );
+        context.log(`RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
 
-            }).catch(async function (err) {
-                context.log.error(`Error in sendDataToSumoUsingSplitHandler inside OnError: ${serviceBusTask.rowKey} err ${err}`);
-                return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
-                    context.done();
-                });
-            });
-
-        });
     } catch (error) {
+        context.log.verbose("Error while downloading and sending to sumo", error);
         let discardError = errorHandler(error, serviceBusTask, context);
         return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {
@@ -607,12 +603,12 @@ module.exports = async function (context, triggerData) {
     contentDownloaded = 0;
 
     // triggerData = {
-    //     "partitionKey": 'append',
-    //     "rowKey": 'pappend-append-dummy_data.csv',
-    //     "containerName": 'append',
-    //     "blobName": 'dummy_data.csv',
-    //     "storageName": 'pappend',
-    //     "resourceGroupName": 'prpatelappend',
+    //     "partitionKey": 'testcontainer-01-03-24-00-00-01',
+    //     "rowKey": 'testsa010324000001-testcontainer-01-03-24-00-00-01-testblob',
+    //     "containerName": 'testcontainer-01-03-24-00-00-01',
+    //     "blobName": 'testblob',
+    //     "storageName": 'testsa010324000001',
+    //     "resourceGroupName": 'tabrsrg010324000001',
     //     "subscriptionId": 'c088dc46-d692-42ad-a4b6-9a542d28ad2a',
     //     "blobType": 'AppendBlob',
     //     "startByte": 0,

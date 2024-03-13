@@ -3,100 +3,251 @@ import os
 import json
 import datetime
 import subprocess
-from azure.mgmt.resource.resources.models import DeploymentMode
-from azure.common.credentials import ServicePrincipalCredentials
-
+import logging
+import sys
+from datetime import timedelta
+from sumologic import SumoLogic
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.loganalytics import LogAnalyticsManagementClient
+from azure.monitor.query import LogsQueryClient, LogsQueryStatus
+from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
 class BaseTest(unittest.TestCase):
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.logger = logging.getLogger(__name__)
+        cls.logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+        LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(filename)s | %(message)s"
+        logFormatter = logging.Formatter(LOG_FORMAT)
+        consoleHandler = logging.StreamHandler(sys.stdout)
+        consoleHandler.setFormatter(logFormatter)
+        cls.logger.addHandler(consoleHandler)
 
-    def create_credentials(self):
-        config_file = os.path.expanduser("~/.azure/azure_credentials.json")
-        if os.path.isfile(config_file):
-            self.config = json.load(open(config_file))
-        else:
-            self.config = {
-                'AZURE_SUBSCRIPTION_ID': os.environ['AZURE_SUBSCRIPTION_ID'],
-                'AZURE_CLIENT_ID': os.environ['AZURE_CLIENT_ID'],
-                'AZURE_CLIENT_SECRET': os.environ['AZURE_CLIENT_SECRET'],
-                'AZURE_TENANT_ID': os.environ['AZURE_TENANT_ID'],
-                'AZURE_DEFAULT_REGION': os.environ.get("AZURE_DEFAULT_REGION",
-                                                       "westus")
-            }
-        self.subscription_id = str(self.config['AZURE_SUBSCRIPTION_ID'])
+        # acquire a credential object.
+        cls.azure_credential = DefaultAzureCredential()
 
-        self.credentials = ServicePrincipalCredentials(
-            client_id=self.config['AZURE_CLIENT_ID'],
-            secret=self.config['AZURE_CLIENT_SECRET'],
-            tenant=self.config['AZURE_TENANT_ID']
-        )
-        self.location = str(self.config['AZURE_DEFAULT_REGION'])
+        # retrieve subscription ID from environment variable.
+        cls.subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
+        cls.resourcegroup_location = os.environ["AZURE_DEFAULT_REGION"]
 
-        print("creating credentials", self.subscription_id)
+        # obtain the management object for resources.
+        cls.resource_client = ResourceManagementClient(
+            cls.azure_credential, cls.subscription_id)
+        cls.repo_name, cls.branch_name = cls.get_git_info()
 
-    def resource_group_exists(self, group_name):
+        # sumologic: collector and source
+        cls.sumologic_cli = SumoLogic(
+            os.environ["SUMO_ACCESS_ID"], os.environ["SUMO_ACCESS_KEY"], cls.api_endpoint(os.environ["SUMO_DEPLOYMENT"]))
+        cls.collector_id = cls.create_collector(cls.collector_name)
+        cls.sumo_source_id, cls.sumo_endpoint_url = cls.create_source(
+            cls.collector_id, cls.source_name)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.resource_group_exists(cls.resource_group_name):
+            cls.delete_resource_group(cls.resource_group_name)
+
+        cls.delete_source(cls.collector_id, cls.sumo_source_id)
+        cls.delete_collector(cls.collector_id)
+        cls.sumologic_cli.session.close()
+
+    @classmethod
+    def resource_group_exists(cls, group_name):
         # grp: name,id,properties
 
-        for grp in self.resource_client.resource_groups.list():
+        for grp in cls.resource_client.resource_groups.list():
             if grp.name == group_name:
                 if grp.properties.provisioning_state == "Succeeded":
                     return True
-                else:
-                    print("Error", getattr(grp.properties, 'error', None))
 
         return False
 
-    def delete_resource_group(self):
-        resource_group_params = {'location': self.location}
-        resp = self.resource_client.resource_groups.delete(
-            self.RESOURCE_GROUP_NAME, resource_group_params)
+    @classmethod
+    def create_resource_group(cls, location, resource_group_name):
+        resp = cls.resource_client.resource_groups.create_or_update(
+            resource_group_name, {'location': location})
+        cls.logger.info('created ResourceGroup: {}, state: {}'.format(
+            resp.name, resp.properties.provisioning_state))
+        
+    def get_resource(self, restype):
+        for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
+            if (item.type == restype):
+                return item
+        raise Exception("%s Resource Not Found" % (restype))
+
+    def get_resource_name(self, resprefix, restype):
+        for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
+            if (item.name.startswith(resprefix) and item.type == restype):
+                return item.name
+        raise Exception("%s Resource Not Found" % (resprefix))
+    
+    def get_resources(self, resource_group_name):
+        return self.resource_client.resources.list_by_resource_group(resource_group_name)
+
+    def get_Workspace_Id(self):
+        workspace = self.get_resource(
+            'microsoft.operationalinsights/workspaces')
+        client = LogAnalyticsManagementClient(
+            credential=self.azure_credential,
+            subscription_id=self.subscription_id,
+        )
+
+        response = client.workspaces.get(
+            resource_group_name=self.resource_group_name,
+            workspace_name=workspace.name,
+        )
+        return response.customer_id
+
+    @classmethod
+    def delete_resource_group(cls, resource_group_name):
+        resp = cls.resource_client.resource_groups.begin_delete(
+            resource_group_name)
         resp.wait()
-        print('Deleting {}'.format(self.RESOURCE_GROUP_NAME), resp.status())
-
-    def create_resource_group(self):
-        resource_group_params = {'location': self.location}
-
-        resp = self.resource_client.resource_groups.create_or_update(
-            self.RESOURCE_GROUP_NAME, resource_group_params)
-        print('Creating {}'.format(
-            self.RESOURCE_GROUP_NAME),
-            resp.properties.provisioning_state)
+        cls.logger.info('deleted ResourceGroup:{}, status: {}'.format(
+            resource_group_name, resp.status()))
 
     def deploy_template(self):
-        print("Deploying template")
-        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime(
-            "%d-%m-%y-%H-%M-%S"), self.RESOURCE_GROUP_NAME)
+        self.logger.info("deploying template")
+        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.resource_group_name)
         template_data = self._parse_template()
+
         deployment_properties = {
-            'mode': DeploymentMode.incremental,
+            'mode': DeploymentMode.INCREMENTAL,
             'template': template_data
         }
 
-        deployresp = self.resource_client.deployments.create_or_update(
-            self.RESOURCE_GROUP_NAME,
+        deployment = Deployment(properties=deployment_properties)
+
+        deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
+            self.resource_group_name,
             deployment_name,
-            deployment_properties
+            deployment
         )
-        deployresp.wait()
-        print("ARM Template deployed", deployresp.status())
-
-    def get_git_info(self):
+        
+        deployment_result = deployment_operation_poller.result()
+        self.logger.info(
+            f"ARM Template deployment completed with result: {deployment_result}")
+    
+    @classmethod
+    def get_git_info(cls):
         repo_slug = "SumoLogic/sumologic-azure-function"
-        if os.environ.get("TRAVIS_EVENT_TYPE") == "pull_request":
-            branch_name = os.environ["TRAVIS_PULL_REQUEST_BRANCH"]
-            repo_slug = os.environ["TRAVIS_PULL_REQUEST_SLUG"]
-        elif os.environ.get("TRAVIS_EVENT_TYPE") == "push":
-            branch_name = os.environ["TRAVIS_BRANCH"]
-            repo_slug = os.environ["TRAVIS_REPO_SLUG"]
-        else:
-            git_cmd = "git rev-parse --abbrev-ref HEAD" # will not work in detached state
-            branch_name = subprocess.Popen(git_cmd, shell=True, stdout=subprocess.PIPE).stdout.read().strip()
+        try:
+            branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
+            branch_name = branch_name.decode("utf-8").strip()
+        
+        except Exception:
+            branch_name = os.environ["SOURCE_BRANCH"]
+            
+        if not branch_name or branch_name == "undefined":
+            raise Exception("Error getting branch name")
 
-        repo_name = "https://github.com/%s" % (repo_slug)
-        if not branch_name or branch_name == "undefined" or not repo_name:
-            raise Exception("No branch Found")
-        print("Testing for repo %s in branch %s" % (repo_name, branch_name))
-
-        if isinstance(branch_name, bytes):
-            branch_name = branch_name.decode()
+        repo_name = f"https://github.com/{repo_slug}"
+        
+        cls.logger.info(
+            f"Testing for repo {repo_name} in branch {branch_name}")
 
         return repo_name, branch_name
+
+    @classmethod
+    def api_endpoint(cls, sumo_deployment):
+        if sumo_deployment == "us1":
+            return "https://api.sumologic.com/api"
+        elif sumo_deployment in ["ca", "au", "de", "eu", "jp", "us2", "fed", "in"]:
+            return "https://api.%s.sumologic.com/api" % sumo_deployment
+        else:
+            return 'https://%s-api.sumologic.net/api' % sumo_deployment
+        
+    @classmethod
+    def create_collector(cls, collector_name):
+        cls.logger.info("creating collector")
+        collector_id = None
+        collector = {
+                    'collector': {
+                        'collectorType': 'Hosted',
+                        'name': collector_name,
+                        'description': "",
+                        'category': None
+                    }
+                }
+        try:
+            resp = cls.sumologic_cli.create_collector(collector, headers=None)
+            collector_id = json.loads(resp.text)['collector']['id']
+            cls.logger.info("created collector {}".format(collector_name))
+        except Exception as e:
+            raise Exception(e)
+
+        return collector_id
+    
+    @classmethod
+    def delete_collector(cls, collector_id):
+        sources = cls.sumologic_cli.sources(collector_id, limit=10)
+        if len(sources) == 0:
+            cls.sumologic_cli.delete_collector(
+                {"collector": {"id": collector_id}})
+            cls.logger.info("deleted collector")
+
+    @classmethod
+    def create_source(cls, collector_id, source_name):
+        cls.logger.info("creating source")
+        endpoint = source_id = None
+        params = {
+            "sourceType": "HTTP",
+            "name": source_name,
+            "messagePerRequest": False,
+            "multilineProcessingEnabled": True,
+            "category": "AZURE/UnitTest/logs"
+        }
+
+        try:
+            resp = cls.sumologic_cli.create_source(collector_id, {"source": params})
+            data = resp.json()['source']
+            source_id = data["id"]
+            endpoint = data["url"]
+            cls.logger.info("created source {}".format(source_name))
+        except Exception as e:
+            raise Exception(e)
+        return source_id, endpoint
+    
+    @classmethod
+    def delete_source(cls, collector_id, source_id):
+        cls.sumologic_cli.delete_source(
+            collector_id, {"source": {"id": source_id}})
+        cls.logger.info("deleted source")
+
+    def fetchlogs(self, app_insights):
+        result = []
+        try:
+            client = LogsQueryClient(self.azure_credential)
+            query = f"app('{app_insights}').traces | where operation_Name == '{self.function_name}' | project operation_Id, timestamp, message, severityLevel"
+            response = client.query_workspace(
+                self.get_Workspace_Id(), query, timespan=timedelta(hours=1))
+
+            if response.status == LogsQueryStatus.FAILURE:
+                raise Exception(f"LogsQueryError: {response.message}")
+            elif response.status == LogsQueryStatus.PARTIAL:
+                data = response.partial_data
+                error = response.partial_error
+                self.logger.error("partial_error: {}".format(error))
+            elif response.status == LogsQueryStatus.SUCCESS:
+                data = response.tables
+
+            for table in data:
+                for row in table.rows:
+                    row_dict = {str(col): str(item)
+                                for col, item in zip(table.columns, row)}
+                    result.append(row_dict)
+        except Exception as e:
+            self.logger.error("Exception in fetch logs: {}".format(e))
+
+        return result
+
+    def filter_logs(self, logs, key, value):
+        return value in [d.get(key) for d in logs]
+
+    def check_resource_count(self, expected_resource_count):
+        resource_count = len(
+            list(self.get_resources(self.resource_group_name)))
+        self.assertTrue(resource_count == expected_resource_count,
+                        f"resource count of resource group {self.resource_group_name} differs from expected count : {resource_count}")

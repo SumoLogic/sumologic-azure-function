@@ -416,7 +416,8 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
                 context.log(`No chunks to send ${serviceBusTask.rowKey}`);
             } else if (numChunksSent === dataChunks.length) {
                 if (numChunksSent === dataChunks.length) {
-                    context.log(`All chunks successfully sent to sumo, Blob: ${serviceBusTask.rowKey}, Prefix: ${ignoredprefixLen}, Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
+                    context.log(`All chunks successfully sent to sumo.`);
+                    context.log(`Blob: ${serviceBusTask.rowKey}, Prefix: ${ignoredprefixLen}, Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
                 }
             }
             resolve(dataLenSent + ignoredprefixLen);
@@ -436,7 +437,8 @@ function errorHandler(err, serviceBusTask, context) {
         discardError = true;
     } else if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
         // here in case of appendblob data may not exists after startByte
-        context.log("Offset is already at the end, startbyte: %d of blob: %s. Exit now!", serviceBusTask.startByte, serviceBusTask.rowKey);
+        context.log(`byte: ${serviceBusTask.startByte} of blob: ${serviceBusTask.rowKey}`);
+        context.log("Offset is already at the end, Exit now!");
         discardError = true;
     } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
         context.log.verbose("Error in appendBlobStreamMessageHandlerv2 Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);

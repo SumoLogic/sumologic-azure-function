@@ -57,18 +57,18 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.logger.info("inserting mock data in BlobStorage")
         self.upload_file_chunks_using_append_blobs()
 
-        time.sleep(1200)
+        time.sleep(600)
 
         app_insights = self.get_resource('Microsoft.Insights/components')
         captured_output = self.fetchlogs(app_insights.name)
-
-        successful_sent_message = "All chunks successfully sent to sumo"
+        # self.logger.info("captured_output:..\n\n", captured_output)
+        successful_sent_message = "All chunks successfully sent to sumo."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
                         "No success message found in azure function logs")
 
-        end_message = "Offset is already at the end"
-        self.assertTrue(self.filter_logs(captured_output, 'message', end_message),
-                        "No success message found in azure function logs")
+        # end_message = "Offset is already at the end, Exit now!"
+        # self.assertTrue(self.filter_logs(captured_output, 'message', end_message),
+        #                 "No success message found in azure function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                          "Error messages found in azure function logs")

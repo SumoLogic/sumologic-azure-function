@@ -4,12 +4,12 @@ import time
 import unittest
 import json
 import uuid
-from time import sleep
 from baseblockblobtest import BaseBlockBlobTest
 from azure.storage.blob import BlockBlobService
 from azure.storage.blob.models import BlobBlock
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
+
 
 class TestBlobReaderFlow(BaseBlockBlobTest):
 
@@ -29,7 +29,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.test_container_name = "testcontainer-%s" % (datetime_value)
         self.test_filename = "testblob"
         self.event_subscription_name = "SUMOBRSubscription"
-        
+
         self.create_storage_account(self.test_storageAccountRegion,
                                     self.test_storage_res_group, self.test_storageaccount_name)
         self.block_blob_service = self.get_blockblob_service(
@@ -38,7 +38,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
         # resource group
         self.resource_group_name = "TBL-%s" % (datetime_value)
-        self.template_name = 'blobreaderdeploy.json'
+        self.template_name = os.environ.get("TEMPLATE_NAME", "blobreaderdeploy.json")
         self.offsetmap_table_name = "FileOffsetMap"
         self.function_name = "BlobTaskConsumer"
 
@@ -62,7 +62,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             self.insert_mock_logs_in_BlobStorage(log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
-        
+
         time.sleep(300)
         app_insights = self.get_resource('Microsoft.Insights/components')
         captured_output = self.fetchlogs(app_insights.name)

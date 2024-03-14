@@ -335,6 +335,7 @@
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
+                    "alwaysOn": true,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -387,7 +388,10 @@
                             "name": "TaskQueueConnectionString",
                             "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-10-01-preview').primaryConnectionString]"
                         }
-                    ]
+                    ],
+                    "cors": {
+                        "allowedOrigins": ["https://portal.azure.com"]
+                    }
                 }
             },
             "resources": [
@@ -476,7 +480,10 @@
                             "name": "FUNCTION_APP_EDIT_MODE",
                             "value": "readwrite"
                         }
-                    ]
+                    ],
+                    "cors": {
+                        "allowedOrigins": ["https://portal.azure.com"]
+                    }
                 }
             },
             "resources": [
@@ -568,7 +575,10 @@
                             "name": "WEBSITE_CONTENTSHARE",
                             "value": "[toLower(parameters('sites_DLQProcessor_name'))]"
                         }
-                    ]
+                    ],
+                    "cors": {
+                        "allowedOrigins": ["https://portal.azure.com"]
+                    }
                 }
             },
             "resources": [

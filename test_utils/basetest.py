@@ -13,8 +13,9 @@ from azure.mgmt.loganalytics import LogAnalyticsManagementClient
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
+
 class BaseTest(unittest.TestCase):
-    
+
     @classmethod
     def setUpClass(cls):
         cls.logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ class BaseTest(unittest.TestCase):
             resource_group_name, {'location': location})
         cls.logger.info('created ResourceGroup: {}, state: {}'.format(
             resp.name, resp.properties.provisioning_state))
-        
+
     def get_resource(self, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
             if (item.type == restype):
@@ -82,7 +83,7 @@ class BaseTest(unittest.TestCase):
             if (item.name.startswith(resprefix) and item.type == restype):
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
-    
+
     def get_resources(self, resource_group_name):
         return self.resource_client.resources.list_by_resource_group(resource_group_name)
 
@@ -125,26 +126,26 @@ class BaseTest(unittest.TestCase):
             deployment_name,
             deployment
         )
-        
+
         deployment_result = deployment_operation_poller.result()
         self.logger.info(
             f"ARM Template deployment completed with result: {deployment_result}")
-    
+
     @classmethod
     def get_git_info(cls):
         repo_slug = "SumoLogic/sumologic-azure-function"
         try:
             branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
             branch_name = branch_name.decode("utf-8").strip()
-        
+
         except Exception:
             branch_name = os.environ["SOURCE_BRANCH"]
-            
+
         if not branch_name or branch_name == "undefined":
             raise Exception("Error getting branch name")
 
         repo_name = f"https://github.com/{repo_slug}"
-        
+
         cls.logger.info(
             f"Testing for repo {repo_name} in branch {branch_name}")
 
@@ -158,19 +159,19 @@ class BaseTest(unittest.TestCase):
             return "https://api.%s.sumologic.com/api" % sumo_deployment
         else:
             return 'https://%s-api.sumologic.net/api' % sumo_deployment
-        
+
     @classmethod
     def create_collector(cls, collector_name):
         cls.logger.info("creating collector")
         collector_id = None
         collector = {
-                    'collector': {
-                        'collectorType': 'Hosted',
-                        'name': collector_name,
-                        'description': "",
-                        'category': None
-                    }
-                }
+            'collector': {
+                'collectorType': 'Hosted',
+                'name': collector_name,
+                'description': "",
+                'category': None
+            }
+        }
         try:
             resp = cls.sumologic_cli.create_collector(collector, headers=None)
             collector_id = json.loads(resp.text)['collector']['id']
@@ -179,7 +180,7 @@ class BaseTest(unittest.TestCase):
             raise Exception(e)
 
         return collector_id
-    
+
     @classmethod
     def delete_collector(cls, collector_id):
         sources = cls.sumologic_cli.sources(collector_id, limit=10)
@@ -209,7 +210,7 @@ class BaseTest(unittest.TestCase):
         except Exception as e:
             raise Exception(e)
         return source_id, endpoint
-    
+
     @classmethod
     def delete_source(cls, collector_id, source_id):
         cls.sumologic_cli.delete_source(

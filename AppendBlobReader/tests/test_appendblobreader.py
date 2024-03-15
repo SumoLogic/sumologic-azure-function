@@ -29,7 +29,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.test_storageAccountRegion = "Central US"
         self.test_container_name = "testcontainer-%s" % (datetime_value)
         self.test_filename = "testblob"
-        self.event_subscription_name = "SUMOBRSubscription"
+        # self.event_subscription_name = "SUMOBRSubscription"
         
         self.create_storage_account(self.test_storageAccountRegion, self.test_storage_res_group, self.test_storageaccount_name)
         self.block_blob_service = self.get_blockblob_service( self.test_storage_res_group, self.test_storageaccount_name)
@@ -39,7 +39,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.resource_group_name = "TABR-%s" % (datetime_value)
         self.template_name = 'appendblobreader.json'
         self.offsetmap_table_name = "FileOffsetMap"
-        self.function_name = "BlobTaskConsumer"
 
         self.create_resource_group(self.resourcegroup_location, self.resource_group_name)
 
@@ -54,28 +53,95 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.check_resource_count(expected_resource_count)
     
     def test_03_insert_chunks(self):
+        
         self.logger.info("inserting mock data in BlobStorage")
         self.upload_file_chunks_using_append_blobs()
 
         time.sleep(600)
 
         app_insights = self.get_resource('Microsoft.Insights/components')
-        captured_output = self.fetchlogs(app_insights.name)
-        # self.logger.info("captured_output:..\n\n", captured_output)
-        successful_sent_message = "All chunks successfully sent to sumo."
-        self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
-                        "No success message found in azure function logs")
 
-        # end_message = "Offset is already at the end, Exit now!"
-        # self.assertTrue(self.filter_logs(captured_output, 'message', end_message),
-        #                 "No success message found in azure function logs")
+        # Azure function: BlobTaskProducer
+        azurefunction = "BlobTaskProducer"
+        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+
+        message = "Append blob scenario create just an entry RowKey:"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No success '{message}' message found in '{azurefunction}' function logs")
+        
+        expected_count = 1
+        record_count = self.filter_log_Count(captured_output, 'message', message)
+        self.assertTrue(record_count == expected_count,
+                        f"'{azurefunction}' log '{message}' count {record_count} differs from expected count {expected_count}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         "Error messages found in azure function logs")
+                         f"Error messages found in '{azurefunction}' logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         "Warning messages found in azure function logs")
-    
+                         f"Warning messages found in '{azurefunction}' logs")
+
+        # Azure function: AppendBlobTaskProducer
+        azurefunction = "AppendBlobTaskProducer"
+        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+        
+        message = "New File Tasks created: 1 AppendBlob Archived Files: 0"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No success '{message}' message found in '{azurefunction}' function logs")
+        
+        expected_count = 12
+        record_count = self.filter_log_Count(
+            captured_output, 'message', message)
+        self.assertTrue(record_count == expected_count,
+                        f"'{azurefunction}' log '{message}' count {record_count} differs from expected count {expected_count}")
+        
+        message = "BatchUpdateResults -  [ [ { status: 'success' } ], [] ]"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No success '{message}' message found in '{azurefunction}' function logs")
+
+        expected_count = 0
+        message = "BatchUpdateResults -  [ [ { status: 'fail' } ], [] ]"
+        record_count = self.filter_log_Count(
+            captured_output, 'message', message)
+        self.assertTrue(record_count == expected_count,
+                        f"'{azurefunction}' log '{message}' count {record_count} differs from expected count {expected_count}")
+
+        self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
+                         f"Error messages found in '{azurefunction}' logs")
+
+        self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
+                         f"Warning messages found in '{azurefunction}' logs")
+
+        # Azure function: BlobTaskConsumer
+        azurefunction = "BlobTaskConsumer"
+        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+
+        message = "All chunks successfully sent to sumo"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No success '{message}' message found in '{azurefunction}' function logs")
+
+        message = "Update offset result"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No success '{message}' message found in '{azurefunction}' function logs")
+        
+        message = "Offset is already at the end"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No success '{message}' message found in '{azurefunction}' function logs")
+
+        self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
+                         f"Error messages found in '{azurefunction}' logs")
+
+        self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
+                         f"Warning messages found in '{azurefunction}' logs")
+
+    def test_04_sumo_query_record_count(self):
+        self.logger.info("inserting mock data in BlobStorage")
+        query = '_sourceCategory="azure_br_logs" | count'
+        relative_time_in_hours = 1
+        expected_record_count = 32768
+        record_count = self.sumo_query_count(query, relative_time_in_hours)
+        self.assertTrue(int(record_count) == expected_record_count,
+                        f"append blob file's sumo record count {record_count} differs from expected count{expected_record_count}")
+        
     @classmethod
     def get_blockblob_service(cls, resource_group, account_name):
         storage_client = StorageManagementClient(cls.azure_credential,
@@ -123,23 +189,16 @@ class TestAppendBlobReader(BaseAppendBlobTest):
     def upload_file_chunks_using_append_blobs(self):
 
         max_file_size = 4*1024*1024
-        if not self.block_blob_service.exists(self.test_container_name, self.test_filename):
-            self.logger.info(f"blob not exists in container {self.test_container_name} {self.test_filename}")
-            self.block_blob_service.create_blob(self.test_container_name, self.test_filename)
-            current_file_size = 0
-            self.logger.info(
-                f"Creating new file storage: {self.test_storageaccount_name} container: {self.test_container_name} blob: {self.test_filename} ")
-            log_line_num = 0
-        else:
-            current_file_size = self.block_blob_service.get_blob_properties(
-                self.test_container_name, self.test_filename).properties.content_length
-            log_line_num = self.getLastLogLineNumber(current_file_size)
-
+        current_file_size = 0
+        log_line_num = 0
+        self.block_blob_service.create_blob(
+            self.test_container_name, self.test_filename)
         self.logger.info(
-            f"current_file_size (in MB): {current_file_size/(1024*1024)} log_line_num: {log_line_num} storage: {self.test_storageaccount_name} container: {self.test_container_name} blob: {self.test_filename} ")
+            f"Creating new file storage: {self.test_storageaccount_name}, container: {self.test_container_name}, blob: {self.test_filename}, current_file_size (in MB): 0, log_line_num: 0")
+
         logline = '''{ "time": "TIMESTAMP", "resourceId": "/SUBSCRIPTIONS/C088AD2A/RESOURCEGROUPS/SUMOAUDITCOLLECTION/PROVIDERS/MICROSOFT.WEB/SITES/HIMTEST", "operationName": "Microsoft.Web/sites/log", "category": "AppServiceConsoleLogs", "resultDescription": "000000000 WARNING:root:testing warn level\\n\\n", "level": "Error", "EventStampType": "Stamp", "EventPrimaryStampName": "waws-prod-blu-161", "EventStampName": "waws-prod-blu-161h", "Host": "RD501AC57BA3D4", "LineNo": LINENUM}'''
 
-        while current_file_size < max_file_size:
+        for i in range(4):
             # since (4*1024*1024)/512(size of logline) = 8192
             msg = []
             for idx in range(8192):
@@ -153,9 +212,9 @@ class TestAppendBlobReader(BaseAppendBlobTest):
             cur_size = len(chunk.encode('utf-8')) 
             current_file_size += cur_size
             self.logger.info(
-                f"current_chunk_size (in MB): {cur_size/(1024*1024)} log_line_num: {log_line_num} current_file_size: {current_file_size/(1024*1024)} storage: {self.test_storageaccount_name} container: {self.test_container_name} blob: {self.test_filename} ")
+                f"current_chunk_size (in MB): {cur_size/(1024*1024)} log_line_num: {log_line_num} current_file_size: {current_file_size/(1024*1024)}")
             self.block_blob_service.append_blob_from_text(self.test_container_name, self.test_filename, chunk, encoding='utf-8')
-                # time.sleep(20)
+            time.sleep(120)
 
         self.logger.info(
             f"Finished uploading current_file_size (in MB): {current_file_size/(1024*1024)} last_log_line_num: {log_line_num} storage: {self.test_storageaccount_name} container: {self.test_container_name} blob: {self.test_filename} ")

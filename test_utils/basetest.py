@@ -1,11 +1,11 @@
 import unittest
 import os
 import json
-import datetime
+import time
 import subprocess
 import logging
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from sumologic import SumoLogic
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient
@@ -110,7 +110,7 @@ class BaseTest(unittest.TestCase):
 
     def deploy_template(self):
         self.logger.info("deploying template")
-        deployment_name = "%s-Test-%s" % (datetime.datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.resource_group_name)
+        deployment_name = "%s-Test-%s" % (datetime.now().strftime("%d-%m-%y-%H-%M-%S"), self.resource_group_name)
         template_data = self._parse_template()
 
         deployment_properties = {
@@ -216,11 +216,11 @@ class BaseTest(unittest.TestCase):
             collector_id, {"source": {"id": source_id}})
         cls.logger.info("deleted source")
 
-    def fetchlogs(self, app_insights):
+    def fetchlogs(self, app_insights, function_name):
         result = []
         try:
             client = LogsQueryClient(self.azure_credential)
-            query = f"app('{app_insights}').traces | where operation_Name == '{self.function_name}' | project operation_Id, timestamp, message, severityLevel"
+            query = f"app('{app_insights}').traces | where operation_Name == '{function_name}' | project operation_Id, timestamp, message, severityLevel"
             response = client.query_workspace(
                 self.get_Workspace_Id(), query, timespan=timedelta(hours=1))
 
@@ -244,10 +244,47 @@ class BaseTest(unittest.TestCase):
         return result
 
     def filter_logs(self, logs, key, value):
-        return value in [d.get(key) for d in logs]
+        return [d.get(key) for d in logs if value in d.get(key, '')]
+    
+    def filter_log_Count(self, logs, key, value):
+        return sum(1 for log in logs if value in log[key])
 
     def check_resource_count(self, expected_resource_count):
         resource_count = len(
             list(self.get_resources(self.resource_group_name)))
         self.assertTrue(resource_count == expected_resource_count,
                         f"resource count of resource group {self.resource_group_name} differs from expected count : {resource_count}")
+
+    @classmethod
+    def sumo_query_count(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_hours=1):
+        
+        toTime = datetime.utcnow()
+        fromTime = toTime + timedelta(hours=-1*relative_time_in_hours)
+        
+        cls.logger.info(
+            f"fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
+
+        delay = 5
+        LIMIT = 10000
+
+        search_job = cls.sumologic_cli.search_job(
+            query, fromTime.isoformat(timespec="seconds"), toTime.isoformat(
+                timespec="seconds"), timeZone='UTC', byReceiptTime=True, autoParsingMode='Manual')
+
+
+        status = cls.sumologic_cli.search_job_status(search_job)
+        while status['state'] != 'DONE GATHERING RESULTS':
+            if status['state'] == 'CANCELLED':
+                break
+            time.sleep(delay)
+            status = cls.sumologic_cli.search_job_status(search_job)
+
+        count = 0
+        if status['state'] == 'DONE GATHERING RESULTS':
+            count = status['recordCount']
+            limit = count if count < LIMIT and count != 0 else LIMIT  # compensate bad limit check
+            result = cls.sumologic_cli.search_job_records(search_job, limit=limit)
+            count = result['records'][0]['map']['_count']
+        return count
+
+    

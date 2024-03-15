@@ -614,8 +614,12 @@ module.exports = async function (context, triggerData) {
     //     "startByte": 0,
     //     "batchSize": 104857600
     // }
-
     context.log("Inside blob task consumer:", triggerData.rowKey);
-    await appendBlobStreamMessageHandlerv2(context, triggerData);
 
+    if (triggerData.blobType == 'AppendBlob'){
+        await appendBlobStreamMessageHandlerv2(context, triggerData);
+    }
+    else{
+        context.log(`triggerData blobType is ${triggerData.blobType}, Exit now!`);
+    }
 };

@@ -209,7 +209,7 @@ async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
             context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
-            context.log.verbose("Update Result: ", updateResult)
+            context.log("Update offset result: ", updateResult)
             resolve();
         } catch (error) {
             reject(error)

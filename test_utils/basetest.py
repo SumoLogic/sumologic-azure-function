@@ -197,7 +197,7 @@ class BaseTest(unittest.TestCase):
             "name": source_name,
             "messagePerRequest": False,
             "multilineProcessingEnabled": True,
-            "category": "AZURE/UnitTest/logs"
+            "category": cls.source_category
         }
 
         try:
@@ -262,7 +262,7 @@ class BaseTest(unittest.TestCase):
         fromTime = toTime + timedelta(hours=-1*relative_time_in_hours)
         
         cls.logger.info(
-            f"fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
+            f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
 
         delay = 5
         LIMIT = 10000
@@ -284,7 +284,8 @@ class BaseTest(unittest.TestCase):
             count = status['recordCount']
             limit = count if count < LIMIT and count != 0 else LIMIT  # compensate bad limit check
             result = cls.sumologic_cli.search_job_records(search_job, limit=limit)
-            count = result['records'][0]['map']['_count']
-        return count
+            cls.logger.info(f"source result: {result}")
+            return result
+        return
 
     

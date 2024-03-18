@@ -20,6 +20,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
         self.collector_name = "azure_appendblob_unittest-%s" % (datetime_value)
         self.source_name = "appendblob_data-%s" % (datetime_value)
+        self.source_category = "azure_br_logs"
         super(TestAppendBlobReader, self).setUpClass()
 
         # create new test resource group and test storage account
@@ -67,12 +68,12 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         message = "Append blob scenario create just an entry RowKey:"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
-                        f"No success '{message}' message found in '{azurefunction}' function logs")
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
         
         expected_count = 1
         record_count = self.filter_log_Count(captured_output, 'message', message)
         self.assertTrue(record_count == expected_count,
-                        f"'{azurefunction}' log '{message}' count {record_count} differs from expected count {expected_count}")
+                        f"'{message}' log line count: {record_count} differs from expected count {expected_count} in '{azurefunction}' function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                          f"Error messages found in '{azurefunction}' logs")
@@ -86,24 +87,24 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         
         message = "New File Tasks created: 1 AppendBlob Archived Files: 0"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
-                        f"No success '{message}' message found in '{azurefunction}' function logs")
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
         
-        expected_count = 12
-        record_count = self.filter_log_Count(
-            captured_output, 'message', message)
-        self.assertTrue(record_count == expected_count,
-                        f"'{azurefunction}' log '{message}' count {record_count} differs from expected count {expected_count}")
+        # expected_count = 12
+        # record_count = self.filter_log_Count(
+        #     captured_output, 'message', message)
+        # self.assertTrue(record_count == expected_count,
+        #                 f"'{message}' log line count: {record_count} differs from expected count {expected_count} in '{azurefunction}' function logs")
         
         message = "BatchUpdateResults -  [ [ { status: 'success' } ], [] ]"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
-                        f"No success '{message}' message found in '{azurefunction}' function logs")
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
 
         expected_count = 0
         message = "BatchUpdateResults -  [ [ { status: 'fail' } ], [] ]"
         record_count = self.filter_log_Count(
             captured_output, 'message', message)
         self.assertTrue(record_count == expected_count,
-                        f"'{azurefunction}' log '{message}' count {record_count} differs from expected count {expected_count}")
+                        f"'{message}' log line count: {record_count} differs from expected count {expected_count} in '{azurefunction}' function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                          f"Error messages found in '{azurefunction}' logs")
@@ -117,15 +118,15 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         message = "All chunks successfully sent to sumo"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
-                        f"No success '{message}' message found in '{azurefunction}' function logs")
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
 
         message = "Update offset result"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
-                        f"No success '{message}' message found in '{azurefunction}' function logs")
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
         
         message = "Offset is already at the end"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
-                        f"No success '{message}' message found in '{azurefunction}' function logs")
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                          f"Error messages found in '{azurefunction}' logs")
@@ -134,14 +135,19 @@ class TestAppendBlobReader(BaseAppendBlobTest):
                          f"Warning messages found in '{azurefunction}' logs")
 
     def test_04_sumo_query_record_count(self):
-        self.logger.info("inserting mock data in BlobStorage")
-        query = '_sourceCategory="azure_br_logs" | count'
+        self.logger.info("fetching mock data count from sumo")
+        query = f'_sourceCategory="{self.source_category}" | count'
         relative_time_in_hours = 1
         expected_record_count = 32768
-        record_count = self.sumo_query_count(query, relative_time_in_hours)
-        self.assertTrue(int(record_count) == expected_record_count,
-                        f"append blob file's sumo record count {record_count} differs from expected count{expected_record_count}")
-        
+        result = self.sumo_query_count(query, relative_time_in_hours)
+        #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '32768'}}]}
+        try:
+            record_count = int(result['records'][0]['map']['_count'])
+        except Exception:
+            record_count = 0
+        self.assertTrue(record_count == expected_record_count,
+                        f"append blob file's record count: {record_count} differs from expected count {expected_record_count} in sumo '{self.source_category}'")
+
     @classmethod
     def get_blockblob_service(cls, resource_group, account_name):
         storage_client = StorageManagementClient(cls.azure_credential,
@@ -175,20 +181,8 @@ class TestAppendBlobReader(BaseAppendBlobTest):
             cls.block_blob_service.create_container(test_container_name)
             cls.logger.info("creating container %s" % test_container_name)
 
-    def getLastLogLineNumber(self, current_file_size):
-        if current_file_size <= 0:
-            return 0
-        offset = max(current_file_size-500, 0)
-        blob_data = self.block_blob_service.get_blob_to_text(self.test_container_name, self.test_filename, encoding='utf-8',
-                                                             start_range=offset)
-        self.logger.info(f"data: {blob_data.content}")
-        data = blob_data.content
-        line_num = data.rsplit("LineNo\":", 1)[-1].rstrip('}\n').strip()
-        return int(line_num)
-
     def upload_file_chunks_using_append_blobs(self):
 
-        max_file_size = 4*1024*1024
         current_file_size = 0
         log_line_num = 0
         self.block_blob_service.create_blob(

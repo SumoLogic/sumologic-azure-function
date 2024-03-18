@@ -614,6 +614,7 @@ module.exports = async function (context, triggerData) {
     //     "startByte": 0,
     //     "batchSize": 104857600
     // }
+    
     context.log("Inside blob task consumer:", triggerData.rowKey);
 
     if (triggerData.blobType == 'AppendBlob'){
@@ -621,5 +622,6 @@ module.exports = async function (context, triggerData) {
     }
     else{
         context.log(`triggerData blobType is ${triggerData.blobType}, Exit now!`);
+        context.done()
     }
 };

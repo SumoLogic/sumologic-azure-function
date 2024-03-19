@@ -201,11 +201,10 @@ async function updateAppendBlobPointerMap(entity) {
     return await azureTableClient.updateEntity(entity, "Merge");
 }
 
-async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
+async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
     return new Promise(async (resolve, reject) => {
         try {
             // Todo: this should be atomic update if other request decreases offset it shouldn't allow
-            var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
             context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
@@ -219,12 +218,15 @@ async function setAppendBlobOffset(context, serviceBusTask, dataLenSent) {
 
 async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     var curdataLenSent = dataLenSent || contentDownloaded;
-    if (serviceBusTask.blobType === "AppendBlob") {
-        return await setAppendBlobOffset(context, serviceBusTask, curdataLenSent).catch(function (error) {
+    var newOffset = parseInt(serviceBusTask.startByte, 10) + curdataLenSent;
+
+    if (newOffset > serviceBusTask.startByte) {
+        return await setAppendBlobOffset(context, serviceBusTask, newOffset).catch(function (error) {
             // not failing with error because log will automatically released by appendblob
             context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
         });
     } else {
+        context.log.verbose("Skipping to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
         return new Promise(function (resolve, reject) { resolve(); });
     }
 }
@@ -432,21 +434,21 @@ function errorHandler(err, serviceBusTask, context) {
     let discardError = false;
     let errMsg = (err !== undefined ? err.toString() : "");
     if (typeof errMsg === 'string' && (errMsg.indexOf("MSIAppServiceTokenCredentials.parseTokenResponse") >= 0 || errMsg.indexOf("SyntaxError: Unexpected end of JSON input") >= 0)) {
-        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 MSI Toke Error ignored: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.error("Error in appendBlobStreamMessageHandlerv2 MSI Toke Error ignored: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
     } else if (err !== undefined && err.statusCode === 416 && err.code === "InvalidRange") {
         // here in case of appendblob data may not exists after startByte
         context.log(`Offset is already at the end, byte: ${serviceBusTask.startByte} of blob: ${serviceBusTask.rowKey}. Exit now!.`);
         discardError = true;
     } else if (err !== undefined && (err.statusCode === 503 || err.statusCode === 500 || err.statusCode == 429)) {
-        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.error("Error in appendBlobStreamMessageHandlerv2 Potential throttling scenario: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
     } else if (err !== undefined && (err.code === "ContainerNotFound" || err.code === "BlobNotFound" || err.statusCode == 404)) {
         // sometimes it may happen that the file/container gets deleted
-        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.error("Error in appendBlobStreamMessageHandlerv2 File location doesn't exists:  blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
     } else if (err !== undefined && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET" || err.code === "ETIMEDOUT")) {
-        context.log.verbose("Error in appendBlobStreamMessageHandlerv2 Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
+        context.log.error("Error in appendBlobStreamMessageHandlerv2 Connection Refused Error: blob %s %d %d %d %s Exit now!", serviceBusTask.rowKey, serviceBusTask.startByte, serviceBusTask.endByte, err.statusCode, err.code);
         discardError = true;
 
     } else {
@@ -540,7 +542,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                 });
             },
             async function (error) {
-                context.log.verbose("Failed to download data");
+                context.log.error("Failed to download data in streamToBuffer");
                 let discardError = errorHandler(error, serviceBusTask, context);
                 if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
                     // delete the entry from table storage
@@ -560,7 +562,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log(`RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
 
     } catch (error) {
-        context.log.verbose("Error while downloading and sending to sumo", error);
+        context.log.error("Error while downloading and sending to sumo", error);
         let discardError = errorHandler(error, serviceBusTask, context);
         return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {

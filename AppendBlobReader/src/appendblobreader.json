@@ -474,6 +474,9 @@
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
                     "alwaysOn": true,
+                    "cors": {
+                        "allowedOrigins": [ "https://portal.azure.com" ]
+                    },
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -567,6 +570,9 @@
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
                     "alwaysOn": true,
+                    "cors": {
+                        "allowedOrigins": [ "https://portal.azure.com" ]
+                    },
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -664,6 +670,9 @@
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
                     "alwaysOn": true,
+                    "cors": {
+                        "allowedOrigins": [ "https://portal.azure.com" ]
+                    },
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",

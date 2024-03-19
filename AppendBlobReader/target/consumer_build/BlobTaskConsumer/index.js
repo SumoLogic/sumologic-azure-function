@@ -458,8 +458,14 @@ function errorHandler(err, serviceBusTask, context) {
 }
 
 async function archiveIngestedFile(serviceBusTask, context) {
-    await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
-    context.done("Entity deleted")
+    try {
+        await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
+        context.done("Entity deleted");
+    } catch (error) {
+        context.log.error(`failed to archive Ingested File : ${error}`);
+        context.done();
+    }
+    
 }
 
 async function streamToBuffer(context, readableStream, serviceBusTask) {
@@ -542,7 +548,6 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                 });
             },
             async function (error) {
-                context.log.error("Failed to download data in streamToBuffer");
                 let discardError = errorHandler(error, serviceBusTask, context);
                 if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
                     // delete the entry from table storage
@@ -552,6 +557,8 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                         if (discardError) {
                             context.done();
                         } else {
+                            context.log.error("Failed to download data in streamToBuffer");
+
                             // after 1 hr lock automatically releases
                             context.done(err);
                         }
@@ -562,12 +569,12 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log(`RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
 
     } catch (error) {
-        context.log.error("Error while downloading and sending to sumo", error);
         let discardError = errorHandler(error, serviceBusTask, context);
         return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
             if (discardError) {
                 context.done();
             } else {
+                context.log.error("Error while downloading and sending to sumo", error);
                 // after 1 hr lock automatically releases
                 context.done(err);
             }

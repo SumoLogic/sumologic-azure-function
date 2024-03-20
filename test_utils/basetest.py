@@ -13,8 +13,12 @@ from azure.mgmt.loganalytics import LogAnalyticsManagementClient
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
+
 class BaseTest(unittest.TestCase):
-    
+
+    global testResult
+    testResult = None
+
     @classmethod
     def setUpClass(cls):
         cls.logger = logging.getLogger(__name__)
@@ -46,12 +50,18 @@ class BaseTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if cls.resource_group_exists(cls.resource_group_name):
-            cls.delete_resource_group(cls.resource_group_name)
+        ok = self.testResult.wasSuccessful()
+        if ok:
+            if cls.resource_group_exists(cls.resource_group_name):
+                cls.delete_resource_group(cls.resource_group_name)
 
-        cls.delete_source(cls.collector_id, cls.sumo_source_id)
-        cls.delete_collector(cls.collector_id)
+            cls.delete_source(cls.collector_id, cls.sumo_source_id)
+            cls.delete_collector(cls.collector_id)
         cls.sumologic_cli.session.close()
+
+    def run(self, result=None):
+        self.testResult = result
+        unittest.TestCase.run(self, result)
 
     @classmethod
     def resource_group_exists(cls, group_name):

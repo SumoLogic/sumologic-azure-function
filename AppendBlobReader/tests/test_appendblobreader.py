@@ -11,37 +11,37 @@ from azure.storage.blob.models import BlobBlock
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
 
+
 class TestAppendBlobReader(BaseAppendBlobTest):
-    
-    
+
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         current_time = datetime.now()
         datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
-        self.collector_name = "azure_appendblob_unittest-%s" % (datetime_value)
-        self.source_name = "appendblob_data-%s" % (datetime_value)
-        self.source_category = "azure_br_logs"
-        super(TestAppendBlobReader, self).setUpClass()
+        cls.collector_name = "azure_appendblob_unittest-%s" % (datetime_value)
+        cls.source_name = "appendblob_data-%s" % (datetime_value)
+        cls.source_category = "azure_br_logs"
+        super(TestAppendBlobReader, cls).setUpClass()
 
         # create new test resource group and test storage account
         test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
-        self.test_storage_res_group = "testsumosa%s" % (test_datetime_value)
-        self.test_storageaccount_name = "testsa%s" % (test_datetime_value)
-        self.test_storageAccountRegion = "Central US"
-        self.test_container_name = "testcontainer-%s" % (datetime_value)
-        self.test_filename = "testblob"
-        self.event_subscription_name = "SUMOBRSubscription"
-        
-        self.create_storage_account(self.test_storageAccountRegion, self.test_storage_res_group, self.test_storageaccount_name)
-        self.block_blob_service = self.get_blockblob_service( self.test_storage_res_group, self.test_storageaccount_name)
-        self.create_container(self.test_container_name)
+        cls.test_storage_res_group = "testsumosa%s" % (test_datetime_value)
+        cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
+        cls.test_storageAccountRegion = "Central US"
+        cls.test_container_name = "testcontainer-%s" % (datetime_value)
+        cls.test_filename = "testblob"
+        cls.event_subscription_name = "SUMOBRSubscription"
+
+        cls.create_storage_account(cls.test_storageAccountRegion, cls.test_storage_res_group, cls.test_storageaccount_name)
+        cls.block_blob_service = cls.get_blockblob_service( cls.test_storage_res_group, cls.test_storageaccount_name)
+        cls.create_container(cls.test_container_name)
 
         # resource group
-        self.resource_group_name = "TABR-%s" % (datetime_value)
-        self.template_name = 'appendblobreader.json'
-        self.offsetmap_table_name = "FileOffsetMap"
+        cls.resource_group_name = "TABR-%s" % (datetime_value)
+        cls.template_name = 'appendblobreader.json'
+        cls.offsetmap_table_name = "FileOffsetMap"
 
-        self.create_resource_group(self.resourcegroup_location, self.resource_group_name)
+        cls.create_resource_group(cls.resourcegroup_location, cls.resource_group_name)
 
     def test_01_pipeline(self):
         self.deploy_template()
@@ -50,11 +50,10 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.create_offset_table(self.offsetmap_table_name)
 
     def test_02_resource_count(self):
-        expected_resource_count = 12 # 10 + 2(microsoft.insights/autoscalesettings)
+        expected_resource_count = 12  # 10 + 2(microsoft.insights/autoscalesettings)
         self.check_resource_count(expected_resource_count)
-    
+
     def test_03_insert_chunks(self):
-        
         self.logger.info("inserting mock data in BlobStorage")
         self.upload_file_chunks_using_append_blobs()
 
@@ -69,7 +68,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         message = "Append blob scenario create just an entry RowKey:"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
-        
         expected_count = 1
         record_count = self.filter_log_Count(captured_output, 'message', message)
         self.assertTrue(record_count == expected_count,
@@ -84,11 +82,10 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         # Azure function: AppendBlobTaskProducer
         azurefunction = "AppendBlobTaskProducer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
-        
+
         message = "New File Tasks created: 1 AppendBlob Archived Files: 0"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
-        
         message = "BatchUpdateResults -  [ [ { status: 'success' } ], [] ]"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
@@ -117,11 +114,11 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         message = "Update offset result"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
-        
+
         message = "Offset is already at the end"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
-        
+
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                         f"Error messages found in '{azurefunction}' logs: {captured_output}")
 
@@ -168,7 +165,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
     def create_offset_table(self, offsetmap_table_name):
         self.logger.info("creating FileOffsetMap table")
         self.table_service.create_table(offsetmap_table_name)
-    
+
     @classmethod
     def create_container(cls, test_container_name):
         if not cls.block_blob_service.exists(test_container_name):

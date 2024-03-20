@@ -29,7 +29,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
         cls.test_storageAccountRegion = "Central US"
         cls.test_container_name = "testcontainer-%s" % (datetime_value)
-        cls.test_filename = "testblob"
+        cls.test_filename = "test.blob"
         cls.event_subscription_name = "SUMOBRSubscription"
 
         cls.create_storage_account(cls.test_storageAccountRegion, cls.test_storage_res_group, cls.test_storageaccount_name)
@@ -164,7 +164,9 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
     def create_offset_table(self, offsetmap_table_name):
         self.logger.info("creating FileOffsetMap table")
-        self.table_service.create_table(offsetmap_table_name)
+        table_created = self.table_service.create_table(offsetmap_table_name)
+        sleep(10)
+        self.assertTrue(table_created, "Failed to create table")
 
     @classmethod
     def create_container(cls, test_container_name):
@@ -194,7 +196,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
                 msg.append(cur_msg)
 
             chunk = "\n".join(msg) + "\n"
-            cur_size = len(chunk.encode('utf-8')) 
+            cur_size = len(chunk.encode('utf-8'))
             current_file_size += cur_size
             self.logger.info(
                 f"current_chunk_size (in MB): {cur_size/(1024*1024)} log_line_num: {log_line_num} current_file_size: {current_file_size/(1024*1024)}")

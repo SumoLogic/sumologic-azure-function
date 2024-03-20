@@ -16,11 +16,9 @@ from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
 class BaseTest(unittest.TestCase):
 
-    global testResult
-    testResult = None
-
     @classmethod
     def setUpClass(cls):
+        cls.testResult = None
         cls.logger = logging.getLogger(__name__)
         cls.logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
         LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(filename)s | %(message)s"
@@ -50,7 +48,7 @@ class BaseTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        ok = self.testResult.wasSuccessful()
+        ok = cls.testResult.wasSuccessful()
         if ok:
             if cls.resource_group_exists(cls.resource_group_name):
                 cls.delete_resource_group(cls.resource_group_name)
@@ -62,8 +60,7 @@ class BaseTest(unittest.TestCase):
         cls.sumologic_cli.session.close()
 
     def run(self, result=None):
-        self.testResult = result
-        unittest.TestCase.run(self, result)
+        self.testResult = super(BaseTest, self).run()
 
     @classmethod
     def resource_group_exists(cls, group_name):
@@ -82,7 +79,7 @@ class BaseTest(unittest.TestCase):
             resource_group_name, {'location': location})
         cls.logger.info('created ResourceGroup: {}, state: {}'.format(
             resp.name, resp.properties.provisioning_state))
-        
+
     def get_resource(self, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
             if (item.type == restype):
@@ -94,7 +91,7 @@ class BaseTest(unittest.TestCase):
             if (item.name.startswith(resprefix) and item.type == restype):
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
-    
+
     def get_resources(self, resource_group_name):
         return self.resource_client.resources.list_by_resource_group(resource_group_name)
 
@@ -137,27 +134,30 @@ class BaseTest(unittest.TestCase):
             deployment_name,
             deployment
         )
-        
+
         deployment_result = deployment_operation_poller.result()
+
+        if not deployment_operation_poller.done():
+            self.logger.warning("Deployment process incomplete")
 
         self.logger.info(
             f"ARM Template deployment completed with result: {deployment_result}")
-    
+
     @classmethod
     def get_git_info(cls):
         repo_slug = "SumoLogic/sumologic-azure-function"
         try:
             branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
             branch_name = branch_name.decode("utf-8").strip()
-        
+
         except Exception:
             branch_name = os.environ["SOURCE_BRANCH"]
-            
+
         if not branch_name or branch_name == "undefined":
             raise Exception("Error getting branch name")
 
         repo_name = f"https://github.com/{repo_slug}"
-        
+
         cls.logger.info(
             f"Testing for repo {repo_name} in branch {branch_name}")
 
@@ -171,7 +171,7 @@ class BaseTest(unittest.TestCase):
             return "https://api.%s.sumologic.com/api" % sumo_deployment
         else:
             return 'https://%s-api.sumologic.net/api' % sumo_deployment
-        
+
     @classmethod
     def create_collector(cls, collector_name):
         cls.logger.info("creating collector")
@@ -192,7 +192,7 @@ class BaseTest(unittest.TestCase):
             raise Exception(e)
 
         return collector_id
-    
+
     @classmethod
     def delete_collector(cls, collector_id):
         sources = cls.sumologic_cli.sources(collector_id, limit=10)
@@ -222,7 +222,7 @@ class BaseTest(unittest.TestCase):
         except Exception as e:
             raise Exception(e)
         return source_id, endpoint
-    
+
     @classmethod
     def delete_source(cls, collector_id, source_id):
         cls.sumologic_cli.delete_source(
@@ -258,7 +258,7 @@ class BaseTest(unittest.TestCase):
 
     def filter_logs(self, logs, key, value):
         return [d.get(key) for d in logs if value in d.get(key, '')]
-    
+
     def filter_log_Count(self, logs, key, value):
         return sum(1 for log in logs if value in log[key])
 
@@ -266,14 +266,14 @@ class BaseTest(unittest.TestCase):
         resource_count = len(
             list(self.get_resources(self.resource_group_name)))
         self.assertTrue(resource_count == expected_resource_count,
-                        f"resource count of resource group {self.resource_group_name} differs from expected count : {resource_count}")
+                        f"resource count: {resource_count}  of resource group {self.resource_group_name} differs from expected count : {expected_resource_count}")
 
     @classmethod
     def sumo_query_count(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_hours=1):
-        
+
         toTime = datetime.utcnow()
         fromTime = toTime + timedelta(hours=-1*relative_time_in_hours)
-        
+
         cls.logger.info(
             f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
 
@@ -301,4 +301,4 @@ class BaseTest(unittest.TestCase):
             return result
         return
 
-    
+

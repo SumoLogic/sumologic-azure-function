@@ -25,7 +25,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         # create new test resource group and test storage account
         test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
-        cls.test_storage_res_group = "testsumosa%s" % (test_datetime_value)
+        cls.test_storage_res_group = "testsumosarg%s" % (test_datetime_value)
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
         cls.test_storageAccountRegion = "Central US"
         cls.test_container_name = "testcontainer-%s" % (datetime_value)

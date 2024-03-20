@@ -6,7 +6,7 @@
   "devDependencies": {},
   "scripts": {
     "test": "",
-    "build": "cp producer.js ../target/producer_build/BlobTaskProducer/index.js && cp appendblobproducer.js ../target/appendblob_producer_build/AppendBlobTaskProducer/index.js && cp ../../sumo-function-utils/lib/*.js ../target/consumer_build/BlobTaskConsumer/ && cp consumer.js ../target/consumer_build/BlobTaskConsumer/index.js"
+    "build": "cp producer.js ../target/producer_build/AppendBlobFileTracker/index.js && cp appendblobproducer.js ../target/appendblob_producer_build/AppendBlobTaskProducer/index.js && cp ../../sumo-function-utils/lib/*.js ../target/consumer_build/AppendBlobTaskConsumer/ && cp consumer.js ../target/consumer_build/AppendBlobTaskConsumer/index.js"
   },
   "author": "Himanshu Pal",
   "license": "Apache-2.0"

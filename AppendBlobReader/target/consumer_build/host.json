@@ -11,7 +11,7 @@
       "autoComplete": true
     },
     "functionTimeout": "00:10:00",
-    "functions": ["BlobTaskConsumer"],
+    "functions": ["AppendBlobTaskConsumer"],
     "applicationInsights": {
         "sampling": {
           "isEnabled": false,

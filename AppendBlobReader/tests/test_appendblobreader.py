@@ -30,7 +30,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.test_storageAccountRegion = "Central US"
         self.test_container_name = "testcontainer-%s" % (datetime_value)
         self.test_filename = "testblob"
-        # self.event_subscription_name = "SUMOBRSubscription"
+        self.event_subscription_name = "SUMOBRSubscription"
         
         self.create_storage_account(self.test_storageAccountRegion, self.test_storage_res_group, self.test_storageaccount_name)
         self.block_blob_service = self.get_blockblob_service( self.test_storage_res_group, self.test_storageaccount_name)
@@ -62,8 +62,8 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         app_insights = self.get_resource('Microsoft.Insights/components')
 
-        # Azure function: BlobTaskProducer
-        azurefunction = "BlobTaskProducer"
+        # Azure function: AppendBlobFileTracker
+        azurefunction = "AppendBlobFileTracker"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
         message = "Append blob scenario create just an entry RowKey:"
@@ -76,10 +76,10 @@ class TestAppendBlobReader(BaseAppendBlobTest):
                         f"'{message}' log line count: {record_count} differs from expected count {expected_count} in '{azurefunction}' function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         f"Error messages found in '{azurefunction}' logs")
+                        f"Error messages found in '{azurefunction}' logs: {captured_output}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         f"Warning messages found in '{azurefunction}' logs")
+                        f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
         # Azure function: AppendBlobTaskProducer
         azurefunction = "AppendBlobTaskProducer"
@@ -88,12 +88,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         message = "New File Tasks created: 1 AppendBlob Archived Files: 0"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
-        
-        # expected_count = 12
-        # record_count = self.filter_log_Count(
-        #     captured_output, 'message', message)
-        # self.assertTrue(record_count == expected_count,
-        #                 f"'{message}' log line count: {record_count} differs from expected count {expected_count} in '{azurefunction}' function logs")
         
         message = "BatchUpdateResults -  [ [ { status: 'success' } ], [] ]"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
@@ -107,13 +101,13 @@ class TestAppendBlobReader(BaseAppendBlobTest):
                         f"'{message}' log line count: {record_count} differs from expected count {expected_count} in '{azurefunction}' function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         f"Error messages found in '{azurefunction}' logs")
+                        f"Error messages found in '{azurefunction}' logs: {captured_output}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         f"Warning messages found in '{azurefunction}' logs")
+                        f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-        # Azure function: BlobTaskConsumer
-        azurefunction = "BlobTaskConsumer"
+        # Azure function: AppendBlobTaskConsumer
+        azurefunction = "AppendBlobTaskConsumer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
         message = "All chunks successfully sent to sumo"
@@ -127,12 +121,12 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         message = "Offset is already at the end"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
-
+        
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         f"Error messages found in '{azurefunction}' logs")
+                        f"Error messages found in '{azurefunction}' logs: {captured_output}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         f"Warning messages found in '{azurefunction}' logs")
+                        f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
     def test_04_sumo_query_record_count(self):
         self.logger.info("fetching mock data count from sumo")

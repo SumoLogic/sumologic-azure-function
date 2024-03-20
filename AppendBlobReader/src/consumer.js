@@ -511,7 +511,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         MaxAttempts: MaxAttempts,
         RetryInterval: 3000,
         compress_data: true,
-        clientHeader: "blobreader-azure-function"
+        clientHeader: "appendblobreader-azure-function"
     };
     setSourceCategory(serviceBusTask, sendOptions);
 

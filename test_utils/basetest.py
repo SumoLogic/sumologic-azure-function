@@ -57,6 +57,8 @@ class BaseTest(unittest.TestCase):
 
             cls.delete_source(cls.collector_id, cls.sumo_source_id)
             cls.delete_collector(cls.collector_id)
+        else:
+            cls.logger.info("Skipping resource group and sumo resource deletion")
         cls.sumologic_cli.session.close()
 
     def run(self, result=None):
@@ -137,6 +139,7 @@ class BaseTest(unittest.TestCase):
         )
         
         deployment_result = deployment_operation_poller.result()
+
         self.logger.info(
             f"ARM Template deployment completed with result: {deployment_result}")
     

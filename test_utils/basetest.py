@@ -48,7 +48,6 @@ class BaseTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-
         if BaseTest.allTestsPassed:
             if cls.resource_group_exists(cls.resource_group_name):
                 cls.delete_resource_group(cls.resource_group_name)
@@ -59,10 +58,10 @@ class BaseTest(unittest.TestCase):
             cls.logger.info("Skipping resource group and sumo resource deletion")
         cls.sumologic_cli.session.close()
 
-    def run(self, result=None):
-        testResult = super(BaseTest, self).run()
+    def run(self, *args, **kwargs):
+        testResult = super(BaseTest, self).run(*args, **kwargs)
         BaseTest.allTestsPassed = BaseTest.allTestsPassed and testResult.wasSuccessful()
-        return testResult;
+        return testResult
 
     @classmethod
     def resource_group_exists(cls, group_name):
@@ -265,7 +264,7 @@ class BaseTest(unittest.TestCase):
         return sum(1 for log in logs if value in log[key])
 
     def check_resource_count(self, expected_resource_count):
-        resouces = filter(lambda x: not x.name.startswith("Failure Anomalies"), list(self.get_resources(self.resource_group_name)))
+        resouces = list(filter(lambda x: not x.name.startswith("Failure Anomalies"), list(self.get_resources(self.resource_group_name))))
         resource_count = len(resouces)
         self.assertTrue(resource_count == expected_resource_count,
                         f"resource count: {resource_count}  of resource group {self.resource_group_name} differs from expected count : {expected_resource_count}")

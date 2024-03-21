@@ -38,7 +38,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         # resource group
         cls.resource_group_name = "TABR-%s" % (datetime_value)
-        cls.template_name = 'appendblobreader.json'
+        cls.template_name = 'appendblobreaderdeploy.json'
         cls.offsetmap_table_name = "FileOffsetMap"
 
         cls.create_resource_group(cls.resourcegroup_location, cls.resource_group_name)
@@ -154,7 +154,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         storage_client = StorageManagementClient(self.azure_credential,
                                                  self.subscription_id)
         STORAGE_ACCOUNT_NAME = self.get_resource_name(
-            "sumobrlogs", "Microsoft.Storage/storageAccounts")
+            "sumoablogs", "Microsoft.Storage/storageAccounts")
         storage_keys = storage_client.storage_accounts.list_keys(
             self.resource_group_name, STORAGE_ACCOUNT_NAME)
         acckey = storage_keys.keys[0].value

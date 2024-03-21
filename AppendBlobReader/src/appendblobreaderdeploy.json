@@ -23,7 +23,7 @@
             "type": "String"
         },
         "storageAccounts_blobreaderaea3_name": {
-            "defaultValue": "[concat('sumobrlogs', uniqueString(resourceGroup().id))]",
+            "defaultValue": "[concat('sumoablogs', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "namespaces_BlobReaderNamespace_name": {

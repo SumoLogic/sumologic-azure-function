@@ -245,6 +245,8 @@ module.exports = async function (context, eventHubMessages) {
     //         }
     //     ]
     // ]
+    context.log("appendblobfiletracker message received: ", eventHubMessages.length);
+    context.log.verbose("appendblobfiletracker messages: ", JSON.stringify(eventHubMessages));
     try {
         eventHubMessages = [].concat.apply([], eventHubMessages);
         var metadatamap = {};

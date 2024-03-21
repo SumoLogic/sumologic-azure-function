@@ -13,10 +13,12 @@ from azure.mgmt.loganalytics import LogAnalyticsManagementClient
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 from azure.mgmt.resource.resources.models import Deployment, DeploymentMode
 
+
 class BaseTest(unittest.TestCase):
-    
+
     @classmethod
     def setUpClass(cls):
+        BaseTest.allTestsPassed = True
         cls.logger = logging.getLogger(__name__)
         cls.logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
         LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(filename)s | %(message)s"
@@ -46,12 +48,20 @@ class BaseTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if cls.resource_group_exists(cls.resource_group_name):
-            cls.delete_resource_group(cls.resource_group_name)
+        if BaseTest.allTestsPassed:
+            if cls.resource_group_exists(cls.resource_group_name):
+                cls.delete_resource_group(cls.resource_group_name)
 
-        cls.delete_source(cls.collector_id, cls.sumo_source_id)
-        cls.delete_collector(cls.collector_id)
+            cls.delete_source(cls.collector_id, cls.sumo_source_id)
+            cls.delete_collector(cls.collector_id)
+        else:
+            cls.logger.info("Skipping resource group and sumo resource deletion")
         cls.sumologic_cli.session.close()
+
+    def run(self, *args, **kwargs):
+        testResult = super(BaseTest, self).run(*args, **kwargs)
+        BaseTest.allTestsPassed = BaseTest.allTestsPassed and testResult.wasSuccessful()
+        return testResult
 
     @classmethod
     def resource_group_exists(cls, group_name):
@@ -70,7 +80,7 @@ class BaseTest(unittest.TestCase):
             resource_group_name, {'location': location})
         cls.logger.info('created ResourceGroup: {}, state: {}'.format(
             resp.name, resp.properties.provisioning_state))
-        
+
     def get_resource(self, restype):
         for item in self.resource_client.resources.list_by_resource_group(self.resource_group_name):
             if (item.type == restype):
@@ -82,7 +92,7 @@ class BaseTest(unittest.TestCase):
             if (item.name.startswith(resprefix) and item.type == restype):
                 return item.name
         raise Exception("%s Resource Not Found" % (resprefix))
-    
+
     def get_resources(self, resource_group_name):
         return self.resource_client.resources.list_by_resource_group(resource_group_name)
 
@@ -125,26 +135,30 @@ class BaseTest(unittest.TestCase):
             deployment_name,
             deployment
         )
-        
+
         deployment_result = deployment_operation_poller.result()
+
+        if not deployment_operation_poller.done():
+            self.logger.warning("Deployment process incomplete")
+
         self.logger.info(
             f"ARM Template deployment completed with result: {deployment_result}")
-    
+
     @classmethod
     def get_git_info(cls):
         repo_slug = "SumoLogic/sumologic-azure-function"
         try:
             branch_name = subprocess.check_output("git branch --show-current", stderr=subprocess.STDOUT, shell=True)
             branch_name = branch_name.decode("utf-8").strip()
-        
+
         except Exception:
             branch_name = os.environ["SOURCE_BRANCH"]
-            
+
         if not branch_name or branch_name == "undefined":
             raise Exception("Error getting branch name")
 
         repo_name = f"https://github.com/{repo_slug}"
-        
+
         cls.logger.info(
             f"Testing for repo {repo_name} in branch {branch_name}")
 
@@ -158,7 +172,7 @@ class BaseTest(unittest.TestCase):
             return "https://api.%s.sumologic.com/api" % sumo_deployment
         else:
             return 'https://%s-api.sumologic.net/api' % sumo_deployment
-        
+
     @classmethod
     def create_collector(cls, collector_name):
         cls.logger.info("creating collector")
@@ -179,7 +193,7 @@ class BaseTest(unittest.TestCase):
             raise Exception(e)
 
         return collector_id
-    
+
     @classmethod
     def delete_collector(cls, collector_id):
         sources = cls.sumologic_cli.sources(collector_id, limit=10)
@@ -209,7 +223,7 @@ class BaseTest(unittest.TestCase):
         except Exception as e:
             raise Exception(e)
         return source_id, endpoint
-    
+
     @classmethod
     def delete_source(cls, collector_id, source_id):
         cls.sumologic_cli.delete_source(
@@ -245,22 +259,22 @@ class BaseTest(unittest.TestCase):
 
     def filter_logs(self, logs, key, value):
         return [d.get(key) for d in logs if value in d.get(key, '')]
-    
+
     def filter_log_Count(self, logs, key, value):
         return sum(1 for log in logs if value in log[key])
 
     def check_resource_count(self, expected_resource_count):
-        resource_count = len(
-            list(self.get_resources(self.resource_group_name)))
+        resouces = list(filter(lambda x: not x.name.startswith("Failure Anomalies"), list(self.get_resources(self.resource_group_name))))
+        resource_count = len(resouces)
         self.assertTrue(resource_count == expected_resource_count,
-                        f"resource count of resource group {self.resource_group_name} differs from expected count : {resource_count}")
+                        f"resource count: {resource_count}  of resource group {self.resource_group_name} differs from expected count : {expected_resource_count}")
 
     @classmethod
-    def sumo_query_count(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_hours=1):
-        
+    def fetch_sumo_query_results(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_minutes=15):
+
         toTime = datetime.utcnow()
-        fromTime = toTime + timedelta(hours=-1*relative_time_in_hours)
-        
+        fromTime = toTime + timedelta(minutes=-1*relative_time_in_minutes)
+
         cls.logger.info(
             f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
 
@@ -288,4 +302,4 @@ class BaseTest(unittest.TestCase):
             return result
         return
 
-    
+

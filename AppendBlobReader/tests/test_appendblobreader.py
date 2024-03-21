@@ -20,7 +20,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
         cls.collector_name = "azure_appendblob_unittest-%s" % (datetime_value)
         cls.source_name = "appendblob_data-%s" % (datetime_value)
-        cls.source_category = "azure_br_logs"
+        cls.source_category = "azure_br_logs-%s" % (datetime_value)
         super(TestAppendBlobReader, cls).setUpClass()
 
         # create new test resource group and test storage account
@@ -128,9 +128,9 @@ class TestAppendBlobReader(BaseAppendBlobTest):
     def test_04_sumo_query_record_count(self):
         self.logger.info("fetching mock data count from sumo")
         query = f'_sourceCategory="{self.source_category}" | count'
-        relative_time_in_hours = 1
+        relative_time_in_minutes = 30
         expected_record_count = 32768
-        result = self.sumo_query_count(query, relative_time_in_hours)
+        result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
         #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '32768'}}]}
         try:
             record_count = int(result['records'][0]['map']['_count'])

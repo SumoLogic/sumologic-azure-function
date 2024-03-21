@@ -62,6 +62,7 @@ class BaseTest(unittest.TestCase):
     def run(self, result=None):
         testResult = super(BaseTest, self).run()
         BaseTest.allTestsPassed = BaseTest.allTestsPassed and testResult.wasSuccessful()
+        return testResult;
 
     @classmethod
     def resource_group_exists(cls, group_name):
@@ -264,16 +265,16 @@ class BaseTest(unittest.TestCase):
         return sum(1 for log in logs if value in log[key])
 
     def check_resource_count(self, expected_resource_count):
-        resource_count = len(
-            list(self.get_resources(self.resource_group_name)))
+        resouces = filter(lambda x: not x.name.startswith("Failure Anomalies"), list(self.get_resources(self.resource_group_name)))
+        resource_count = len(resouces)
         self.assertTrue(resource_count == expected_resource_count,
                         f"resource count: {resource_count}  of resource group {self.resource_group_name} differs from expected count : {expected_resource_count}")
 
     @classmethod
-    def sumo_query_count(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_hours=1):
+    def fetch_sumo_query_results(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_minutes=15):
 
         toTime = datetime.utcnow()
-        fromTime = toTime + timedelta(hours=-1*relative_time_in_hours)
+        fromTime = toTime + timedelta(minutes=-1*relative_time_in_minutes)
 
         cls.logger.info(
             f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")

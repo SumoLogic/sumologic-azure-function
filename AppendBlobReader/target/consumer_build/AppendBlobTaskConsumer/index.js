@@ -592,9 +592,9 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
  * metadata.sourceCategory attribute sets the source category
  */
 function setSourceCategory(serviceBusTask, options) {
-    options.metadata = options.metadata || {}; let customFields = { "containername": serviceBusTask.containerName, "storagename": serviceBusTask.storageName };
-    let sourcecategory = "azure_br_logs";
-    //var source = "azure_blobstorage"
+    options.metadata = options.metadata || {};
+    // make sure to add custom fileds in HTTP source in sumologic portal: https://help.sumologic.com/docs/manage/fields/#collector-and-source-fields, otherwise these fileds will be dropped.
+    let customFields = {}; // { "containername": serviceBusTask.containerName, "storagename": serviceBusTask.storageName };
     if (customFields) {
         let customFieldsArr = []
         Object.keys(customFields).map(function (key, index) {
@@ -602,9 +602,9 @@ function setSourceCategory(serviceBusTask, options) {
         });
         options.metadata["sourceFields"] = customFieldsArr.join();
     }
-    //options.metadata["sourceHost"] = source
-    //context.log(sourcecategory,serviceBusTask.blobName,serviceBusTask.storageName,serviceBusTask.containerName);
-    options.metadata["sourceCategory"] = sourcecategory;
+    options.metadata["sourceHost"] = `${serviceBusTask.storageName}/${serviceBusTask.containerName}`
+    // context.log(serviceBusTask.blobName, serviceBusTask.storageName,serviceBusTask.containerName);
+    // options.metadata["sourceCategory"] = "custom_source_category";
     options.metadata["sourceName"] = serviceBusTask.blobName;
 }
 

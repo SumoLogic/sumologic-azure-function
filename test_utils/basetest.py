@@ -18,7 +18,7 @@ class BaseTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.testResult = None
+        BaseTest.allTestsPassed = True
         cls.logger = logging.getLogger(__name__)
         cls.logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
         LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(filename)s | %(message)s"
@@ -48,8 +48,8 @@ class BaseTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        ok = cls.testResult.wasSuccessful()
-        if ok:
+
+        if BaseTest.allTestsPassed:
             if cls.resource_group_exists(cls.resource_group_name):
                 cls.delete_resource_group(cls.resource_group_name)
 
@@ -60,7 +60,8 @@ class BaseTest(unittest.TestCase):
         cls.sumologic_cli.session.close()
 
     def run(self, result=None):
-        self.testResult = super(BaseTest, self).run()
+        testResult = super(BaseTest, self).run()
+        BaseTest.allTestsPassed = BaseTest.allTestsPassed and testResult.wasSuccessful()
 
     @classmethod
     def resource_group_exists(cls, group_name):

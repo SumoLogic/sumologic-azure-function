@@ -164,7 +164,7 @@ module.exports = async function (context, eventHubMessages) {
             var sortedcontentlengths = allcontentlengths[rowKey].sort(); // ensuring increasing order of contentlengths
             var metadata = metadatamap[rowKey];
             var partitionKey = metadata.containerName;
-            allRowPromises.push(sumoutils.p_retryMax(createTasksForBlob,MaxAttempts,RetryInterval,[partitionKey, rowKey, sortedcontentlengths, context, metadata]).catch((err) => err));
+            allRowPromises.push(sumoutils.p_retryMax(createTasksForBlob,MaxAttempts,RetryInterval,[partitionKey, rowKey, sortedcontentlengths, context, metadata], self.context).catch((err) => err));
         }
         await Promise.all(allRowPromises).then((responseValues) => {
                 //creating duplicate task for file causing an error when update condition is not satisfied in mutiple read and write scenarios for same row key in fileOffSetMap table

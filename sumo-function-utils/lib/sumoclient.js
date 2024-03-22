@@ -8,9 +8,10 @@ var url = require('node:url');
 
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
+var httpAgent = new https.Agent();
+httpAgent.maxSockets = 200;
 
-
-var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
+var metadataMap  = {"sourceCategory":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host", "sourceFields": "X-Sumo-Fields"};
 /**
  * Class to receive messages and send to a designated Sumo endpoint. Each client is best used independently with a batch of messages so one can track the number
  * of messages sent successfully to Sumo and develop their own failure handling for those failed to be sent (out of this batch). It is of course
@@ -41,7 +42,7 @@ function SumoClient(options, context, flush_failure_callback, success_callback) 
     this.dataMap = new Map();
     this.context = context || console;
     this.generateBucketKey = options.generateBucketKey || this.generateLogBucketKey ;
-    this.MaxAttempts = this.options.MaxAttempts || 3 ;
+    this.MaxAttempts = (this.options.MaxAttempts === undefined ? 3 : this.options.MaxAttempts);
     this.RetryInterval = this.options.RetryInterval || 3000; // 3 secs
     this.failure_callback = flush_failure_callback;
     this.success_callback = success_callback;
@@ -76,10 +77,11 @@ SumoClient.prototype.disableTimer = function() {
  * @param message input message
  */
 SumoClient.prototype.generateHeaders = function(message, delete_metadata) {
-    let sourceCategory = (this.options.metadata)? (this.options.metadata.category || '') :'';
-    let sourceName = (this.options.metadata)? (this.options.metadata.name || ''):'' ;
-    let sourceHost = (this.options.metadata)? (this.options.metadata.host || ''):'';
-    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': this.options.clientHeader || 'eventhublogs-azure-function'};
+    let sourceCategory = (this.options.metadata)? (this.options.metadata.sourceCategory || '') :'';
+    let sourceName = (this.options.metadata)? (this.options.metadata.sourceName || ''):'' ;
+    let sourceHost = (this.options.metadata)? (this.options.metadata.sourceHost || ''):'';
+    let sourceFields = (this.options.metadata)? (this.options.metadata.sourceFields || ''):'';
+    let headerObj = {'X-Sumo-Name':sourceName, 'X-Sumo-Fields':sourceFields, 'X-Sumo-Category':sourceCategory, 'X-Sumo-Host':sourceHost, 'X-Sumo-Client': this.options.clientHeader || 'eventhublogs-azure-function'};
 
     if (message.hasOwnProperty('_sumo_metadata')) {
         let metadataOverride = message._sumo_metadata;
@@ -96,6 +98,7 @@ SumoClient.prototype.generateHeaders = function(message, delete_metadata) {
     return headerObj;
 };
 
+
 /**
  * Default method to generate the bucket key for the input message. For log messages, we'll use 3 metadata fields as the key
  * @param message input message
@@ -110,7 +113,6 @@ SumoClient.prototype.emptyBufferToSumo = function(metaKey) {
     if (targetBuffer) {
         let message;
         while ((message = targetBuffer.pop())) {
-            this.context.log(metaKey+'='+JSON.stringify(message));
         }
     }
 };
@@ -123,7 +125,7 @@ SumoClient.prototype.emptyBufferToSumo = function(metaKey) {
 SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     let targetBuffer = this.dataMap.get(metaKey);
     var self = this;
-    let curOptions = Object.assign({},this.options);
+    let curOptions = Object.assign({agent: httpAgent},this.options);
 
     this.context.log.verbose("Flush buffer for metaKey:"+metaKey);
 
@@ -142,7 +144,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         resolve(body);
                         // TODO: anything here?
                     } else {
-                        reject({'error':"statusCode: " + res.statusCode + " body: " + body,'res':null});
+                        reject({'error':"statusCode: " + res.statusCode + + " statusMessage: " + res.statusMessage + " body: " + body,'res':null});
                     }
                     // TODO: finalizeContext();
                 });
@@ -173,21 +175,21 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
 
-            return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
-                if (!e)  {
+            return zlib.gzip(msgArray.join('\n'),function(gziperr, compressed_data){
+                if (!gziperr)  {
                     self.context.log.verbose("gzip successful");
-                    return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
-                            .then(()=> {
+                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context).then(()=> {
                         self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
-                        self.success_callback(self.context);}
-                        )
-                    .catch((err) => {
+                        self.success_callback(self.context);
+                    }).catch((err) => {
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
-                        self.context.log.error("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                        self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " error: " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                         self.failure_callback(msgArray,self.context);
                     });
+
                 } else {
+                    self.context.log("Failed to gzip data gziperr: ", gziperr);
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
                     self.context.log.error("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
@@ -195,13 +197,12 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                 }
             });
         }  else {
-            //self.context.log('Send raw data to Sumo');
-            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
-                    .then(()=> { self.success_callback(self.context);})
-            .catch((err) => {
+            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')], self.context).then(()=> {
+              self.success_callback(self.context);
+            }).catch((err) => {
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
-                self.context.log.error("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                 self.failure_callback(msgArray,self.context);
             });
         }

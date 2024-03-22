@@ -2,15 +2,13 @@
 /**
  * Created by duc on 6/30/17. This is a client for metric
  */
-var https = require('https');
-var zlib= require('zlib');
-var url = require('url');
+var https = require('node:https');
+var zlib = require('node:zlib');
+var url = require('node:url');
 
 var sumoclient = require('./sumoclient');
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
-
-
 
 var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
 /**
@@ -119,7 +117,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
     var self = this;
     let curOptions = Object.assign({},this.options);
 
-    this.context.log("Flush METRIC buffer for metaKey:"+metaKey);
+    this.context.log.verbose("Flush METRIC buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
 
@@ -139,7 +137,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                             resolve(body);
                             // TODO: anything here?
                         } else {
-                            reject({'error':"statusCode: " + res.statusCode + " body: " + body,'res':null});
+                            reject({'error':"statusCode: " + res.statusCode + " statusMessage: " + res.statusMessage + " body: " + body,'res':null});
                         }
                         // TODO: finalizeContext();
                     });
@@ -170,35 +168,36 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
 
-            zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
+            return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
-                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
+                    self.context.log.verbose("gzip successful");
+                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context)
                         .then(()=> {
-                        //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
+                        self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
                 )
                 .catch((err) => {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
-                    self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                    self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 });
                 } else {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
-                    self.context.log("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                    self.context.log.error("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 }
             });
         }  else {
             //self.context.log('Send raw data to Sumo');
-            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
+            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')], self.context)
                 .then(()=> { self.success_callback(self.context);})
-        .catch((err) => {
-            self.messagesFailed += msgArray.length;
-            self.messagesAttempted += msgArray.length;
-            self.context.log("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
-            self.failure_callback(msgArray,self.context);
+            .catch((err) => {
+                self.messagesFailed += msgArray.length;
+                self.messagesAttempted += msgArray.length;
+                self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                self.failure_callback(msgArray,self.context);
         });
         }
     }
@@ -216,7 +215,7 @@ function FlushFailureHandler (messageArray,ctx) {
 };
 
 /**
- * Default built-in callback function to handle successful sents. It simply logs a success message
+ * Default built-in callback function to handle successful sent. It simply logs a success message
  * @param ctx is a context variable that supports a log method
  * @constructor
  */
@@ -229,4 +228,3 @@ module.exports = {
     FlushFailureHandler:FlushFailureHandler,
     DefaultSuccessHandler:DefaultSuccessHandler
 }
-

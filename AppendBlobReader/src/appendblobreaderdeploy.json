@@ -160,7 +160,7 @@
                             "scope": "[variables('roleScope')]",
                             "properties": {
                                 "roleDefinitionId": "[variables('roleDefinitionId')]",
-                                "principalId": "[reference(resourceId(variables('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2022-03-01', 'Full').Identity.principalId]"
+                                "principalId": "[reference(resourceId(variables('resourceGroupName'),'Microsoft.Web/sites', parameters('sites_blobreaderconsumer_name')), '2022-09-01', 'Full').Identity.principalId]"
                             }
                         },
                         {

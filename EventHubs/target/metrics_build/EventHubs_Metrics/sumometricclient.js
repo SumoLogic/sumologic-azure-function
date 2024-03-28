@@ -9,7 +9,8 @@ var url = require('node:url');
 var sumoclient = require('./sumoclient');
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
-
+var httpAgent = new https.Agent();
+httpAgent.maxSockets = 200;
 var metadataMap  = {"sourceCategory":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
 /**
  * Class to receive metrics to a designated Sumo endpoint. Similar to the Log client is best used independently with a batch of messages so one can track the number

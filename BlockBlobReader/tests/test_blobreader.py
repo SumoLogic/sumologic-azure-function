@@ -65,7 +65,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
         time.sleep(300)
         app_insights = self.get_resource('Microsoft.Insights/components')
-        captured_output = self.fetchlogs(app_insights.name)
+        captured_output = self.fetchlogs(app_insights.name, self.function_name)
 
         successful_sent_message = "Successfully sent to Sumo, Exiting now."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
@@ -77,20 +77,25 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                          "Warning messages found in azure function logs")
 
-    # def check_both_storage_accounts_present():
-    #     pass
-
-    # def check_sorted_task_range():
-    #     pass
-
-    # def check_offset_in_range():
-    #     pass
-
-    # def extract_tasks_from_logs():
-    #     pass
-
-    # def check_one_to_one_task_mapping():
-    #     pass
+    def test_04_sumo_query_record_count(self):
+        self.logger.info("fetching mock data count from sumo")
+        log_type = os.environ.get("LOG_TYPE", "log")
+        query = f'_sourceCategory="{self.source_category}" | count'
+        relative_time_in_minutes = 30
+        expected_record_count = {
+            "blob": 15,
+            "log": 10,
+            "json": 10,
+            "csv": 12
+        }
+        result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
+        #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '10'}}]}
+        try:
+            record_count = int(result['records'][0]['map']['_count'])
+        except Exception:
+            record_count = 0
+        self.assertTrue(record_count == expected_record_count.get(log_type),
+                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(log_type)} in sumo '{self.source_category}'")
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())

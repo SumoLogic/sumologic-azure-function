@@ -13,7 +13,7 @@ class BaseAppendBlobTest(BaseTest):
     @classmethod
     def tearDownClass(cls):
         super(BaseAppendBlobTest, cls).tearDownClass()
-        if cls.resource_group_exists(cls.test_storage_res_group):
+        if cls.resource_group_exists(cls.test_storage_res_group) and BaseTest.allTestsPassed:
             cls.delete_resource_group(cls.test_storage_res_group)
 
     def _parse_template(self):

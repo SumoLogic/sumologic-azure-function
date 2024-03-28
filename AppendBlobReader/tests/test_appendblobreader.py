@@ -38,7 +38,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         # resource group
         cls.resource_group_name = "TABR-%s" % (datetime_value)
-        cls.template_name = 'appendblobreaderdeploy.json'
+        cls.template_name = os.environ.get("TEMPLATE_NAME", "appendblobreaderdeploy.json")
         cls.offsetmap_table_name = "FileOffsetMap"
 
         cls.create_resource_group(cls.resourcegroup_location, cls.resource_group_name)
@@ -53,7 +53,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         expected_resource_count = 12  # 10 + 2(microsoft.insights/autoscalesettings)
         self.check_resource_count(expected_resource_count)
 
-    def test_03_insert_chunks(self):
+    def test_03_func_logs(self):
         self.logger.info("inserting mock data in BlobStorage")
         self.upload_file_chunks_using_append_blobs()
 

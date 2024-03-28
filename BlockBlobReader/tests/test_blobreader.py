@@ -19,6 +19,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
         self.collector_name = "azure_blob_unittest-%s" % (datetime_value)
         self.source_name = "blob_data-%s" % (datetime_value)
+        self.source_category = "azure_blob_logs-%s" % (datetime_value)
         super(TestBlobReaderFlow, self).setUpClass()
 
         # create new test resource group and test storage account

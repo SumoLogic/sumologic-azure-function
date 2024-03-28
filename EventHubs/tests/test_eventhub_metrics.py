@@ -13,6 +13,8 @@ class TestEventHubMetrics(BaseEventHubTest):
         datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
         self.collector_name = "azure_metric_unittest-%s" % (datetime_value)
         self.source_name = "metric_data-%s" % (datetime_value)
+        self.source_category = "azure_metric_logs-%s" % (datetime_value)
+
         super(TestEventHubMetrics, self).setUpClass()
         
         # resource group

@@ -10,6 +10,9 @@ jobs:
           - dir: 'BlockBlobReader/target/consumer_build'
           - dir: 'BlockBlobReader/target/dlqprocessor_build'
           - dir: 'BlockBlobReader/target/producer_build'
+          - dir: 'AppendBlobReader/target/producer_build'
+          - dir: 'AppendBlobReader/target/appendblob_producer_build'
+          - dir: 'AppendBlobReader/target/consumer_build'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {
+      "name": "task",
+      "type": "serviceBusTrigger",
+      "direction": "in",
+      "queueName": "blobrangetaskqueue",
+      "connection": "TaskQueueConnectionString",
+      "accessRights": "Manage"
+    }
+  ],
+  "disabled": false
+}

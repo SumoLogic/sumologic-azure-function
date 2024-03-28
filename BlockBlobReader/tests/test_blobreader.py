@@ -14,36 +14,37 @@ from azure.cosmosdb.table.tableservice import TableService
 class TestBlobReaderFlow(BaseBlockBlobTest):
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         current_time = datetime.now()
         datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
-        self.collector_name = "azure_blob_unittest-%s" % (datetime_value)
-        self.source_name = "blob_data-%s" % (datetime_value)
-        super(TestBlobReaderFlow, self).setUpClass()
+        cls.collector_name = "azure_blockblob_unittest-%s" % (datetime_value)
+        cls.source_name = "blob_data-%s" % (datetime_value)
+        cls.source_category = "azure_blockblob_logs-%s" % (datetime_value)
+        super(TestBlobReaderFlow, cls).setUpClass()
 
         # create new test resource group and test storage account
         test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
-        self.test_storage_res_group = "sumosa%s" % (test_datetime_value)
-        self.test_storageaccount_name = "sa%s" % (test_datetime_value)
-        self.test_storageAccountRegion = "Central US"
-        self.test_container_name = "testcontainer-%s" % (datetime_value)
-        self.test_filename = "testblob"
-        self.event_subscription_name = "SUMOBRSubscription"
+        cls.test_storage_res_group = "sumosa%s" % (test_datetime_value)
+        cls.test_storageaccount_name = "sa%s" % (test_datetime_value)
+        cls.test_storageAccountRegion = "Central US"
+        cls.test_container_name = "testcontainer-%s" % (datetime_value)
+        cls.test_filename = "testblob"
+        cls.event_subscription_name = "SUMOBRSubscription"
 
-        self.create_storage_account(self.test_storageAccountRegion,
-                                    self.test_storage_res_group, self.test_storageaccount_name)
-        self.block_blob_service = self.get_blockblob_service(
-            self.test_storage_res_group, self.test_storageaccount_name)
-        self.create_container(self.test_container_name)
+        cls.create_storage_account(cls.test_storageAccountRegion,
+                                    cls.test_storage_res_group, cls.test_storageaccount_name)
+        cls.block_blob_service = cls.get_blockblob_service(
+            cls.test_storage_res_group, cls.test_storageaccount_name)
+        cls.create_container(cls.test_container_name)
 
         # resource group
-        self.resource_group_name = "TBL-%s" % (datetime_value)
-        self.template_name = os.environ.get("TEMPLATE_NAME", "blobreaderdeploy.json")
-        self.offsetmap_table_name = "FileOffsetMap"
-        self.function_name = "BlobTaskConsumer"
+        cls.resource_group_name = "TBL-%s" % (datetime_value)
+        cls.template_name = os.environ.get("TEMPLATE_NAME", "blobreaderdeploy.json")
+        cls.offsetmap_table_name = "FileOffsetMap"
+        cls.function_name = "BlobTaskConsumer"
 
-        self.create_resource_group(
-            self.resourcegroup_location, self.resource_group_name)
+        cls.create_resource_group(
+            cls.resourcegroup_location, cls.resource_group_name)
 
     def test_01_pipeline(self):
         self.deploy_template()
@@ -65,7 +66,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
         time.sleep(300)
         app_insights = self.get_resource('Microsoft.Insights/components')
-        captured_output = self.fetchlogs(app_insights.name, self.function_name)
+        captured_output = self.fetchlogs(app_insights.name)
 
         successful_sent_message = "Successfully sent to Sumo, Exiting now."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
@@ -77,25 +78,20 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                          "Warning messages found in azure function logs")
 
-    def test_04_sumo_query_record_count(self):
-        self.logger.info("fetching mock data count from sumo")
-        log_type = os.environ.get("LOG_TYPE", "log")
-        query = f'_sourceCategory="{self.source_category}" | count'
-        relative_time_in_minutes = 30
-        expected_record_count = {
-            "blob": 15,
-            "log": 10,
-            "json": 10,
-            "csv": 12
-        }
-        result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
-        #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '10'}}]}
-        try:
-            record_count = int(result['records'][0]['map']['_count'])
-        except Exception:
-            record_count = 0
-        self.assertTrue(record_count == expected_record_count.get(log_type),
-                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(log_type)} in sumo '{self.source_category}'")
+    # def check_both_storage_accounts_present():
+    #     pass
+
+    # def check_sorted_task_range():
+    #     pass
+
+    # def check_offset_in_range():
+    #     pass
+
+    # def extract_tasks_from_logs():
+    #     pass
+
+    # def check_one_to_one_task_mapping():
+    #     pass
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())

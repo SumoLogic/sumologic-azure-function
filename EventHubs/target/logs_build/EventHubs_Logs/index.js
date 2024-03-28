@@ -8,7 +8,7 @@ var sumoClient;
 
 function setSourceCategory(context, msg) {
     // msg._sumo_metadata = {
-    //     "category": "new_source_category"
+    //     "sourceCategory": "new_source_category"
     // }
 }
 
@@ -30,7 +30,7 @@ module.exports = function (context, eventHubMessages) {
 
 
         function failureHandler(msgArray,ctx) {
-            ctx.log("Failed to send to Sumo, backup to storageaccount now" + ' messagesAttempted: ' + this.messagesAttempted  + ' messagesReceived: ' + this.
+            ctx.log.error("Failed to send to Sumo, backup to storageaccount now" + ' messagesAttempted: ' + this.messagesAttempted  + ' messagesReceived: ' + this.
 messagesReceived);
             if (this.messagesAttempted === this.messagesReceived) {
                 context.bindings.outputBlob = messageArray.map(function(x) { return JSON.stringify(x);}).join("\n");

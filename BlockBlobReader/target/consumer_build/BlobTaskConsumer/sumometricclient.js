@@ -10,7 +10,7 @@ var sumoclient = require('./sumoclient');
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
 
-var metadataMap  = {"category":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
+var metadataMap  = {"sourceCategory":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host"};
 /**
  * Class to receive metrics to a designated Sumo endpoint. Similar to the Log client is best used independently with a batch of messages so one can track the number
  * of messages sent successfully to Sumo and develop their own failure handling for those failed to be sent (out of this batch). It is of course
@@ -115,7 +115,7 @@ SumoMetricClient.prototype.addData = function(data) {
 SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
     let targetBuffer = this.dataMap.get(metaKey);
     var self = this;
-    let curOptions = Object.assign({},this.options);
+    let curOptions = Object.assign({agent: httpAgent},this.options);
 
     this.context.log.verbose("Flush METRIC buffer for metaKey:"+metaKey);
 
@@ -137,7 +137,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                             resolve(body);
                             // TODO: anything here?
                         } else {
-                            reject({'error':"statusCode: " + res.statusCode + " body: " + body,'res':null});
+                            reject({'error':"statusCode: " + res.statusCode + " statusMessage: " + res.statusMessage + " body: " + body,'res':null});
                         }
                         // TODO: finalizeContext();
                     });
@@ -171,7 +171,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
             return zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
                 if (!e)  {
                     self.context.log.verbose("gzip successful");
-                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
+                    return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context)
                         .then(()=> {
                         self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);}
@@ -179,7 +179,7 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
                 .catch((err) => {
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
-                    self.context.log.error("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                    self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 });
                 } else {
@@ -191,12 +191,12 @@ SumoMetricClient.prototype.flushBucketToSumo = function(metaKey) {
             });
         }  else {
             //self.context.log('Send raw data to Sumo');
-            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
+            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')], self.context)
                 .then(()=> { self.success_callback(self.context);})
             .catch((err) => {
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
-                self.context.log.error("Failed to send after retries: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                 self.failure_callback(msgArray,self.context);
         });
         }

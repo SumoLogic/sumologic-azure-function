@@ -178,7 +178,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             return zlib.gzip(msgArray.join('\n'),function(gziperr, compressed_data){
                 if (!gziperr)  {
                     self.context.log.verbose("gzip successful");
-                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context).then(()=> {
+                    return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context).then(()=> {
                         self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
                         self.success_callback(self.context);
                     }).catch((err) => {

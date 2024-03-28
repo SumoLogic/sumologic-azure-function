@@ -8,7 +8,7 @@ var sumoClient;
 
 function setSourceCategory(context, msg) {
     // msg._sumo_metadata = {
-    //     "category": "new_source_category"
+    //     "sourceCategory": "new_source_category"
     // }
 }
 

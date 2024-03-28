@@ -200,6 +200,9 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "cors": {
+                        "allowedOrigins": [ "https://portal.azure.com" ]
+                    },
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",

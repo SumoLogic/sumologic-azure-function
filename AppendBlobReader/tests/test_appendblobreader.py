@@ -20,7 +20,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         datetime_value = current_time.strftime("%d-%m-%y-%H-%M-%S")
         cls.collector_name = "azure_appendblob_unittest-%s" % (datetime_value)
         cls.source_name = "appendblob_data-%s" % (datetime_value)
-        cls.source_category = "azure_br_logs-%s" % (datetime_value)
+        cls.source_category = "azure_appendblob_logs-%s" % (datetime_value)
         super(TestAppendBlobReader, cls).setUpClass()
 
         # create new test resource group and test storage account

@@ -284,6 +284,7 @@ class BaseTest(unittest.TestCase):
             query, fromTime.isoformat(timespec="seconds"), toTime.isoformat(
                 timespec="seconds"), timeZone='UTC', byReceiptTime=True, autoParsingMode='Manual')
 
+
         status = cls.sumologic_cli.search_job_status(search_job)
         while status['state'] != 'DONE GATHERING RESULTS':
             if status['state'] == 'CANCELLED':

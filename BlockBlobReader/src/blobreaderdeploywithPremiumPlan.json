@@ -286,7 +286,7 @@
                 "tier": "Standard",
                 "size": "S1",
                 "family": "S",
-                "capacity": 2
+                "capacity": 1
             },
             "kind": "app",
             "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
@@ -304,25 +304,21 @@
             "comments": "Generalized from resource: 'Microsoft.Web/serverfarms/ConsumerPlan'.",
             "type": "Microsoft.Web/serverfarms",
             "sku": {
-                "name": "Y1",
-                "tier": "Dynamic",
-                "size": "Y1",
-                "family": "Y",
-                "capacity": 0
+                "name": "EP1",
+                "tier": "ElasticPremium",
+                "family": "EP"
             },
-            "kind": "functionapp",
+            "kind": "elastic",
             "name": "[parameters('serverfarms_ConsumerPlan_name')]",
             "apiVersion": "2022-09-01",
             "location": "[parameters('location')]",
             "properties": {
                 "name": "[parameters('serverfarms_ConsumerPlan_name')]",
-                "perSiteScaling": false,
-                "reserved": false,
-                "targetWorkerCount": 0,
-                "targetWorkerSizeId": 0
+                "maximumElasticWorkerCount": 30
             }
         },
         {
+            "comments": "Generalized from resource: 'Microsoft.Web/sites/BlobReader'.",
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_BlobReader_name')]",

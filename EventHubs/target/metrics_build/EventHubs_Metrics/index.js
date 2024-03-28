@@ -36,7 +36,7 @@ module.exports = function (context, eventHubMessages) {
     //var options ={ 'urlString':process.env.APPSETTING_SumoSelfEventHubBadEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true};
     var options ={ 'urlString':process.env.APPSETTING_SumoLabsMetricEndpoint,'metadata':{}, 'MaxAttempts':3, 'RetryInterval':3000,'compress_data':true, 'metric_type':'carbon20'};
 
-    sumoMetricClient = new sumoMetricHttp.SumoMetricClient(options,context,failureHandler,successHandler);
+
     var transformer = new dataTransformer.Transformer();
     var messageArray = transformer.azureAudit(eventHubMessages);
     var azureMetricArray = [];
@@ -53,26 +53,33 @@ module.exports = function (context, eventHubMessages) {
 
     // generate metric array from the raw Azure metric data
     var metricObjectArray = transformer.generateMetricObjectsFromAzureRawData(azureMetricArray,selectStatsForMetric,'carbon20');
-    sumoMetricClient.addData(metricObjectArray);
+    if (metricObjectArray.length !== 0) {
+        sumoMetricClient = new sumoMetricHttp.SumoMetricClient(options,context,failureHandler,successHandler);
+        sumoMetricClient.addData(metricObjectArray);
+        context.log("Sending: " + metricObjectArray.length);
 
-    context.log(metricObjectArray.map(function(x) { return JSON.stringify(x);}).join("\n"));
 
-    // handlers for success and failures
-    function failureHandler(msgArray,ctx) {
-        ctx.log("Failed to send metrics to Sumo");
-        if (sumoMetricClient.messagesAttempted === sumoMetricClient.messagesReceived) {
-            context.bindings.outputBlob = messageArray.map(function(x) { return JSON.stringify(x);}).join("\n");
-            context.done();
+        // handlers for success and failures
+        function failureHandler(msgArray,ctx) {
+            ctx.log.error("Failed to send metrics to Sumo");
+            if (this.messagesAttempted === this.messagesReceived) {
+                context.bindings.outputBlob = messageArray.map(function(x) { return JSON.stringify(x);}).join("\n");
+                context.done();
+            }
         }
-    }
-    function successHandler(ctx) {
-        ctx.log('Successfully sent to Sumo');
-        if (sumoMetricClient.messagesAttempted === sumoMetricClient.messagesReceived) {
-            ctx.log('Sent all metric data to Sumo. Exit now.');
-            context.done();
+        function successHandler(ctx) {
+            ctx.log('Successfully sent chunk to Sumo');
+            if (this.messagesAttempted === this.messagesReceived) {
+                ctx.log('Sent all metric data to Sumo. Exit now.');
+                context.done();
+            }
         }
-    }
 
-    context.log("Flushing the rest of the buffers:");
-    sumoMetricClient.flushAll();
+        context.log("Flushing the rest of the buffers:");
+        sumoMetricClient.flushAll();
+    } else {
+        context.log("No messages to send");
+        context.log(eventHubMessages);
+        context.done();
+    }
 };

@@ -1,4 +1,4 @@
-Sumo Logic Azure Functions [![Build Status](https://travis-ci.org/SumoLogic/sumologic-azure-function.svg?branch=master)](https://travis-ci.org/SumoLogic/sumologic-azure-function)
+Sumo Logic Azure Functions ![Build Status](https://github.com/SumoLogic/sumologic-azure-function/actions/workflows/arm-template-test.yml/badge.svg)
 ==============================
 
 # Introduction
@@ -8,8 +8,9 @@ Following integrations are present. For more info look at their respective ReadM
 
 | FunctionName | Description | Collection Use Cases | Setup Documentation
 | -------------| ----------- | -------------- | ------------------- |
-|[Sumo Logic Azure Event Hub Integration](EventHubs)| This [solution](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Monitoring) creates a data pipeline for collecting logs/metrics from Eventhub.It includes separate ARM Templates for Metrics and Logs.| [Azure Audit App](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure-Audit/Azure-Audit-App-Dashboards) [Azure Active Directory App](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure_Active_Directory/Install_the_Azure_Active_Directory_App_and_View_the_Dashboards) [Azure SQL App](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure_SQL/Install_the_Azure_SQL_App_and_View_the_Dashboards)| [Docs for Logs](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure-Audit/02Collect-Logs-for-Azure-Audit-from-Event-Hub) <br/> [Docs for Metrics](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure-Audit/02Collect-Logs-for-Azure-Audit-from-Event-Hub)|
-|[Sumo Logic Azure Blob Storage Integration](BlockBlobReader) | This [solution](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Blob_Storage) event-based pipeline for shipping monitoring data from Azure Blob Storage to an HTTP source on Sumo Logic.| [Azure Web Apps](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure-Web-Apps/Azure-Web-Apps-Dashboards) | [Docs for Logs](https://help.sumologic.com/Send-Data/Applications-and-Other-Data-Sources/Azure-Web-Apps/01Collect-Logs-for-Azure-Web-Apps) |
+|[Sumo Logic Azure Event Hub Integration for Metrics](EventHubs)| This solution creates a data pipeline for collecting metrics from Eventhub.|  [Azure SQL App](https://help.sumologic.com/docs/integrations/microsoft-azure/sql/#collect-metrics-from-azure-monitor-by-streaming-to-eventhub)| [Collect Metrics from Azure Monitor](https://help.sumologic.com/docs/send-data/collect-from-other-data-sources/azure-monitoring/collect-metrics-azure-monitor/) 
+|[Sumo Logic Azure Event Hub Integration for Logs](EventHubs)| This solution creates a data pipeline for collecting logs from Eventhub.| This is no longer recommended mechanism, use [Azure Event Hubs Source](https://help.sumologic.com/docs/send-data/hosted-collectors/cloud-to-cloud-integration-framework/azure-event-hubs-source/)  | [Collect Logs from Azure Monitor](https://help.sumologic.com/docs/send-data/collect-from-other-data-sources/azure-monitoring/collect-logs-azure-monitor/) 
+|[Sumo Logic Azure Blob Storage Integration](BlockBlobReader) | This [solution](https://help.sumologic.com/docs/send-data/collect-from-other-data-sources/azure-blob-storage/) event-based pipeline for shipping monitoring data from Azure Blob Storage to an HTTP source on Sumo Logic.| This is used for apps which do not support exporting to Eventhub. [Azure Network Watcher](https://help.sumologic.com/docs/integrations/microsoft-azure/network-watcher/#collecting-logs-for-the-azure-network-watcher-app) | [Collect Logs from Azure Blob Storage (Block Blobs)](https://help.sumologic.com/docs/send-data/collect-from-other-data-sources/azure-blob-storage/collect-logs-azure-blob-storage/) |
 
 
 ## For Developers
@@ -17,6 +18,17 @@ Each integration is structured in three folders
 * src/     - contains actual source files
 * target/  - directory used by azure's github integration to fetch source code
 * tests/   - contains integration tests
+
+## Release
+
+### Releasing appdev package
+  The new zip package gets released automatically after the tags are pushed using Github actions(Refer tagged-release in https://github.com/marvinpinto/action-automatic-releases).
+
+  Run below commands to create and push tags
+  
+     git tag -a v<major.minor.patch> <commit_id>
+ 
+     git push origin v<major.minor.patch>
 
 
 ### TLS 1.2 Requirement

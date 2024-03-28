@@ -1,11 +1,30 @@
 {
-  "eventHub": {
-    "maxBatchSize": 400,
-    "prefetchCount": 800,
-    "batchCheckpointFrequency": 1
+  "version": "2.0",
+  "extensionBundle": {
+      "id": "Microsoft.Azure.Functions.ExtensionBundle",
+      "version": "[4.0.0, 5.0.0)"
+  },
+  "eventHubs": {
+    "maxEventBatchSize" : 400,
+    "maxWaitTime" : "00:05:00",            
+    "batchCheckpointFrequency" : 1,
+    "prefetchCount" : 800
+  },
+  "logging": {
+    "applicationInsights": {
+          "samplingSettings": {
+              "isEnabled": false
+          }
+      },
+      "logLevel": {
+        "default": "Warning",
+        "Host.Aggregator": "Trace",
+        "Host.Results": "Information",
+        "Function": "Information"
+      }
   },
   "functions": [
     "EventHubs_Metrics"
   ],
-  "functionTimeout": "00:05:00"
+  "functionTimeout": "00:10:00"
 }

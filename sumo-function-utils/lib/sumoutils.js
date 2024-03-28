@@ -13,9 +13,8 @@
  */
 
 Promise.retryMax = function(fn,retry,interval,fnParams, context) {
-    // context.log("Retry attempts left: %d", retry);
     return fn.apply(this,fnParams).catch( err => {
-        context.log("Retry error: ", err)
+        if (context && err) { context.log("Retry error: ", err); }
         return (retry>1? Promise.wait(interval).then(()=> Promise.retryMax(fn,retry-1,interval, fnParams, context)):Promise.reject(err));
     });
 }

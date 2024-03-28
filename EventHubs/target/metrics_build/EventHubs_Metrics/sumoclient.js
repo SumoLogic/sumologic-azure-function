@@ -2,13 +2,14 @@
 /**
  * Created by duc on 6/30/17.
  */
-var https = require('https');
-var zlib= require('zlib');
-var url = require('url');
+var https = require('node:https');
+var zlib = require('node:zlib');
+var url = require('node:url');
 
 var bucket = require('./messagebucket');
 var sumoutils = require('./sumoutils.js');
-
+var httpAgent = new https.Agent();
+httpAgent.maxSockets = 200;
 
 var metadataMap  = {"sourceCategory":"X-Sumo-Category","sourceName":"X-Sumo-Name","sourceHost":"X-Sumo-Host", "sourceFields": "X-Sumo-Fields"};
 /**
@@ -22,7 +23,7 @@ var metadataMap  = {"sourceCategory":"X-Sumo-Category","sourceName":"X-Sumo-Name
  * has been attempted to sent to Sumo (either successfully or over max retries).
  * @constructor
  */
-function SumoClient(options, context, flush_failure_callback,success_callback) {
+function SumoClient(options, context, flush_failure_callback, success_callback) {
     let myOptions = options || {};
     if (myOptions.urlString) {
         let urlObj = url.parse(options.urlString);
@@ -41,7 +42,7 @@ function SumoClient(options, context, flush_failure_callback,success_callback) {
     this.dataMap = new Map();
     this.context = context || console;
     this.generateBucketKey = options.generateBucketKey || this.generateLogBucketKey ;
-    this.MaxAttempts = this.options.MaxAttempts || 3 ;
+    this.MaxAttempts = (this.options.MaxAttempts === undefined ? 3 : this.options.MaxAttempts);
     this.RetryInterval = this.options.RetryInterval || 3000; // 3 secs
     this.failure_callback = flush_failure_callback;
     this.success_callback = success_callback;
@@ -112,7 +113,6 @@ SumoClient.prototype.emptyBufferToSumo = function(metaKey) {
     if (targetBuffer) {
         let message;
         while ((message = targetBuffer.pop())) {
-            this.context.log(metaKey+'='+JSON.stringify(message));
         }
     }
 };
@@ -125,9 +125,8 @@ SumoClient.prototype.emptyBufferToSumo = function(metaKey) {
 SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     let targetBuffer = this.dataMap.get(metaKey);
     var self = this;
-    let curOptions = Object.assign({},this.options);
-
-    this.context.log("Flush buffer for metaKey:"+metaKey);
+    let curOptions = Object.assign({agent: httpAgent},this.options);
+    this.context.log.verbose("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
         return new Promise( (resolve,reject) => {
@@ -144,7 +143,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         resolve(body);
                         // TODO: anything here?
                     } else {
-                        reject({'error':null,'res':res});
+                        reject({'error':"statusCode: " + res.statusCode + + " statusMessage: " + res.statusMessage + " body: " + body,'res':null});
                     }
                     // TODO: finalizeContext();
                 });
@@ -174,33 +173,34 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
-
-            zlib.gzip(msgArray.join('\n'),function(e,compressed_data){
-                if (!e)  {
-                    sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data])
-                            .then(()=> {
-                        //self.context.log("Succesfully sent to Sumo after "+self.MaxAttempts);
-                        self.success_callback(self.context);}
-                        )
-                    .catch((e) => {
-                        self.context.log("Failed to send to Sumo after attempts: "+ self.MaxAttempts + " Error: " + JSON.stringify(e));
+            return zlib.gzip(msgArray.join('\n'),function(gziperr, compressed_data){
+                if (!gziperr)  {
+                    self.context.log.verbose("gzip successful");
+                    return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,compressed_data], self.context).then(()=> {
+                        self.context.log.verbose("Successfully sent to Sumo after "+self.MaxAttempts);
+                        self.success_callback(self.context);
+                    }).catch((err) => {
                         self.messagesFailed += msgArray.length;
                         self.messagesAttempted += msgArray.length;
+                        self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " error: " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                         self.failure_callback(msgArray,self.context);
                     });
+
                 } else {
+                    self.context.log("Failed to gzip data gziperr: ", gziperr);
                     self.messagesFailed += msgArray.length;
                     self.messagesAttempted += msgArray.length;
+                    self.context.log.error("Failed to gzip: " + JSON.stringify(e) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                     self.failure_callback(msgArray,self.context);
                 }
             });
         }  else {
-            //self.context.log('Send raw data to Sumo');
-            sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')])
-                    .then(()=> { self.success_callback(self.context);})
-            .catch(() => {
+            return sumoutils.p_retryMax(httpSend,self.MaxAttempts,self.RetryInterval,[msgArray,msgArray.join('\n')], self.context).then(()=> {
+              self.success_callback(self.context);
+            }).catch((err) => {
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
+                self.context.log.error("Failed to send to Sumo after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                 self.failure_callback(msgArray,self.context);
             });
         }
@@ -251,7 +251,7 @@ function FlushFailureHandler (messageArray,ctx) {
 };
 
 /**
- * Default built-in callback function to handle successful sents. It simply logs a success message
+ * Default built-in callback function to handle successful sent. It simply logs a success message
  * @param ctx is a context variable that supports a log method
  * @constructor
  */
@@ -264,4 +264,3 @@ module.exports = {
     FlushFailureHandler:FlushFailureHandler,
     DefaultSuccessHandler:DefaultSuccessHandler
 }
-

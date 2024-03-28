@@ -31,6 +31,8 @@ export AZURE_SUBSCRIPTION_ID=########-d##2-####-####-9a####28####
 export SUMO_DEPLOYMENT=us1
 export SUMO_ACCESS_ID=##########
 export SUMO_ACCESS_KEY=##################
+export access_id=##########
+export access_key=##################
 
 Execute below command under `AppendBlobReader/tests` directory
 `python test_appendblobreader.py`

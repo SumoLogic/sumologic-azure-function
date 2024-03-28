@@ -126,7 +126,6 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
     let targetBuffer = this.dataMap.get(metaKey);
     var self = this;
     let curOptions = Object.assign({agent: httpAgent},this.options);
-
     this.context.log.verbose("Flush buffer for metaKey:"+metaKey);
 
     function httpSend(messageArray,data) {
@@ -174,7 +173,6 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
 
         if (curOptions.compress_data) {
             curOptions.headers['Content-Encoding'] = 'gzip';
-
             return zlib.gzip(msgArray.join('\n'),function(gziperr, compressed_data){
                 if (!gziperr)  {
                     self.context.log.verbose("gzip successful");
@@ -202,7 +200,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
             }).catch((err) => {
                 self.messagesFailed += msgArray.length;
                 self.messagesAttempted += msgArray.length;
-                self.context.log.error("Failed to send after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
+                self.context.log.error("Failed to send to Sumo after maxattempts: " + self.MaxAttempts + " " + JSON.stringify(err) + ' messagesAttempted: ' + self.messagesAttempted  + ' messagesReceived: ' + self.messagesReceived);
                 self.failure_callback(msgArray,self.context);
             });
         }

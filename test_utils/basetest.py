@@ -137,7 +137,6 @@ class BaseTest(unittest.TestCase):
         )
 
         deployment_result = deployment_operation_poller.result()
-
         if not deployment_operation_poller.done():
             self.logger.warning("Deployment process incomplete")
 
@@ -178,13 +177,13 @@ class BaseTest(unittest.TestCase):
         cls.logger.info("creating collector")
         collector_id = None
         collector = {
-                    'collector': {
-                        'collectorType': 'Hosted',
-                        'name': collector_name,
-                        'description': "",
-                        'category': None
-                    }
-                }
+            'collector': {
+                'collectorType': 'Hosted',
+                'name': collector_name,
+                'description': "",
+                'category': None
+            }
+        }
         try:
             resp = cls.sumologic_cli.create_collector(collector, headers=None)
             collector_id = json.loads(resp.text)['collector']['id']
@@ -285,7 +284,6 @@ class BaseTest(unittest.TestCase):
             query, fromTime.isoformat(timespec="seconds"), toTime.isoformat(
                 timespec="seconds"), timeZone='UTC', byReceiptTime=True, autoParsingMode='Manual')
 
-
         status = cls.sumologic_cli.search_job_status(search_job)
         while status['state'] != 'DONE GATHERING RESULTS':
             if status['state'] == 'CANCELLED':
@@ -301,5 +299,3 @@ class BaseTest(unittest.TestCase):
             cls.logger.info(f"source result: {result}")
             return result
         return
-
-

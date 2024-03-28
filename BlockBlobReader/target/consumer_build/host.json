@@ -1,14 +1,27 @@
 {
-    "serviceBus": {
-      "maxConcurrentCalls": 50,
-      "prefetchCount": 100,
+  "version": "2.0",
+  "extensionBundle": {
+        "id": "Microsoft.Azure.Functions.ExtensionBundle",
+        "version": "[4.0.0, 5.0.0)"
+  },
+  "serviceBus": {
+      "maxConcurrentCalls": 30,
+      "prefetchCount": 400,
       "autoRenewTimeout": "00:10:00"
     },
-    "functionTimeout": "00:10:00",
-    "functions": ["BlobTaskConsumer"],
-    "applicationInsights": {
-        "sampling": {
-          "isEnabled": true
+    "logging": {
+      "applicationInsights": {
+        "samplingSettings": {
+          "isEnabled": false
         }
-    }
+      },
+      "logLevel": {
+        "default": "Warning",
+        "Host.Aggregator": "Trace",
+        "Host.Results": "Information",
+        "Function": "Information"
+      }
+    },
+  "functionTimeout": "00:10:00",
+  "functions": ["BlobTaskConsumer"]
 }

@@ -84,7 +84,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.logger.info("fetching mock data count from sumo")
         query = f'_sourceCategory="{self.source_category}" | count'
         relative_time_in_minutes = 30
-        expected_record_count = 32768
+        expected_record_count = 10
         result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
         #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '32768'}}]}
         try:

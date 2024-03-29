@@ -22,7 +22,6 @@ class TestEventHubMetrics(BaseEventHubTest):
         cls.template_name = os.environ.get("TEMPLATE_NAME", "azuredeploy_metrics.json")
         cls.event_hub_namespace_prefix = "SMNamespace"
         cls.eventhub_name = "insights-metrics-pt1m"
-        cls.function_name = "EventHubs_Metrics"
 
     def test_01_pipeline(self):
         self.create_resource_group(
@@ -36,22 +35,23 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.check_resource_count(expected_resource_count)
 
     def test_03_func_logs(self):
-        successful_sent_message = 'Sent all metric data to Sumo. Exit now.'
-
+        
+        function_name = "EventHubs_Metrics"
         self.insert_mock_metrics_in_EventHub('metrics_fixtures.json')
         time.sleep(300)
         app_insights = self.get_resource('Microsoft.Insights/components')
-        captured_output = self.fetchlogs(app_insights.name, self.function_name)
-
-        self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
-                        "No success message found in azure function logs")
-
+        captured_output = self.fetchlogs(app_insights.name, function_name)
+        
+        message = "Sent all metric data to Sumo. Exit now."
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No '{message}' log line found in '{function_name}' function logs")
+        
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         "Error messages found in azure function logs")
+                        f"Error messages found in '{function_name}' logs: {captured_output}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         "Warning messages found in azure function logs")
-
+                        f"Warning messages found in '{function_name}' logs: {captured_output}")
+    
     def insert_mock_metrics_in_EventHub(self, filename):
         self.logger.info("inserting fake metrics in EventHub")
 

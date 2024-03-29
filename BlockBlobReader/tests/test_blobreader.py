@@ -42,7 +42,6 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         cls.resource_group_name = "TBL-%s" % (datetime_value)
         cls.template_name = os.environ.get("TEMPLATE_NAME", "blobreaderdeploy.json")
         cls.offsetmap_table_name = "FileOffsetMap"
-        cls.function_name = "BlobTaskConsumer"
 
         cls.create_resource_group(
             cls.resourcegroup_location, cls.resource_group_name)
@@ -66,18 +65,34 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             self.insert_mock_json_in_BlobStorage()
 
         time.sleep(300)
+        function_name = "BlobTaskConsumer"
         app_insights = self.get_resource('Microsoft.Insights/components')
-        captured_output = self.fetchlogs(app_insights.name)
-
-        successful_sent_message = "Successfully sent to Sumo, Exiting now."
-        self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
-                        "No success message found in azure function logs")
-
+        
+        captured_output = self.fetchlogs(app_insights.name, function_name)
+        
+        message = "Successfully sent to Sumo, Exiting now."
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No '{message}' log line found in '{function_name}' function logs")
+        
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         "Error messages found in azure function logs")
+                        f"Error messages found in '{function_name}' logs: {captured_output}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         "Warning messages found in azure function logs")
+                        f"Warning messages found in '{function_name}' logs: {captured_output}")
+    
+    def test_04_sumo_query_record_count(self):
+        self.logger.info("fetching mock data count from sumo")
+        query = f'_sourceCategory="{self.source_category}" | count'
+        relative_time_in_minutes = 30
+        expected_record_count = 32768
+        result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
+        #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '32768'}}]}
+        try:
+            record_count = int(result['records'][0]['map']['_count'])
+        except Exception:
+            record_count = 0
+        self.assertTrue(record_count == expected_record_count,
+                        f"append blob file's record count: {record_count} differs from expected count {expected_record_count} in sumo '{self.source_category}'")
 
     # def check_both_storage_accounts_present():
     #     pass
@@ -222,3 +237,4 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
 if __name__ == '__main__':
     unittest.main()
+

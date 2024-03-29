@@ -1,38 +1,45 @@
 # Sumo Logic Azure Blob Storage Integration for AppendBlobs
-This contains the function to read from an Azure Blob Storage, then forward data to a Sumo Logic.
+This contains the function to read append blob files from an Azure Storage Account and ingest to SumoLogic.
 
 ## About the Configuration Process
 Sumo provides an Azure Resource Management (ARM) template to build most of the components in the pipeline. The template creates:
 
-An event hub to which Azure Event Grid routes create append blobs events.
-A Service Bus for storing tasks.
-Three Azure functions—AppendBlobFileTracker, AppendBlobTaskProducer, and AppendBlobTaskConsumer—that are responsible for sending monitoring data to Sumo.
-A storage account to which the Azure functions write their log messages about successful and failed transmissions.
-You download the Sumo-provided ARM template, upload the template to the Azure Portal, set the parameters that identify the URL of your Sumo HTTP source and and the connection string of for the Azure Storage Account (where Azure services export their logs), and deploythe template. After deployment, you create an Event Grid subscription with a Azure Storage Account as publisher and the event hub created by the ARM template as the subscriber.
+* An event hub to which Azure Event Grid routes create append blobs events.
+* A Service Bus for storing tasks.
+* Three Azure functions—AppendBlobFileTracker, AppendBlobTaskProducer, and AppendBlobTaskConsumer—that are responsible for sending monitoring data to Sumo.
+* A storage account to which the Azure functions write their log messages about successful and failed transmissions.
 
-For more details checkout the [documentation](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Blob_Storage/Collect_Logs_from_Azure_Blob_Storage)
+For more details checkout the [documentation](https://help.sumologic.com/Send-Data/Collect-from-Other-Data-Sources/Azure_Blob_Storage/Collect_Logs_from_Azure_AppendBlob_Storage)
 
-![Blob Storage Data Collection Pipeline](https://s3.amazonaws.com/appdev-cloudformation-templates/AppendBlobReader.png)
-
-## Building the function
-Currently ARM template is integrated with github and for each functions
-* AppendBlobReader/target/producer_build/AppendBlobFileTracker - Function for Creating tasks(json object with start and end bytes).
-* AppendBlobReader/target/consumer_build/AppendBlobTaskConsumer - Function for Downloading Append blobs and ingesting to Sumo
-* AppendBlobReader/target/dlqprocessor_build/AppendBlobTaskConsumer -  Function for retrying failed tasks.
+![Append Blob Storage Data Collection Pipeline](https://s3.amazonaws.com/appdev-cloudformation-templates/AppendBlobReader.png)
 
 ## For Developers
+
+### Code structure
+Currently ARM template is integrated with github and for each functions build folder is present in `AppendBlobReader/target` directory
+* AppendBlobReader/target/producer_build/AppendBlobFileTracker - Function for Creating file metadata in file `FileOffsetMap` table in storage account.
+* AppendBlobReader/target/consumer_build/AppendBlobTaskConsumer - Function for Downloading Append blobs and ingesting to SumoLogic
+* AppendBlobReader/target/appendblob_producer_build/AppendBlobTaskProducer -  Function for periodically polling `FileOffsetMap` table and creating tasks in Service Bus to be consumed by consumer function
+
+### Updating target directory
+Make all the code changes in `AppendBlobReader/src` directory, once all the changes are completed, run below command to update target directory.
 `npm run build`
-This command copies required files in AppendBlobReader/target/ directory
+This command copies required files in `AppendBlobReader/target` directory
 
-Integrations tests are in AppendBlobReader/tests folder and unit tests are in sumo-function-utils/tests folder
+### Run Unit Test
+Integrations tests are in `AppendBlobReader/tests` folder and unit tests are in sumo-`function-utils/tests` folder
+```console
 
-export AZURE_DEFAULT_REGION=eastus
-export AZURE_SUBSCRIPTION_ID=########-d##2-####-####-9a####28####
-export SUMO_DEPLOYMENT=us1
-export SUMO_ACCESS_ID=##########
-export SUMO_ACCESS_KEY=##################
-export access_id=##########
-export access_key=##################
+export AZURE_SUBSCRIPTION_ID=`<Your azure subscription id, to obtain it refer docs https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-azure-subscription>`
+export AZURE_CLIENT_ID=`Your application id which you can get after registering application. Refer https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#register-an-application`
+export AZURE_CLIENT_SECRET=`Generate client secret by referring docs https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-credentials`
+export AZURE_TENANT_ID=`You tenant id, to obtain it refer docs https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-microsoft-entra-tenant`
+export AZURE_DEFAULT_REGION=`eastus`
+export SUMO_ACCESS_ID=`<Generate access id and access key https://help.sumologic.com/docs/manage/security/access-keys/#create-your-access-key>`
+export SUMO_ACCESS_KEY=`<Generate access id and access key https://help.sumologic.com/docs/manage/security/access-keys/#create-your-access-key>`
+export SUMO_DEPLOYMENT=`Enter one of the allowed values au, ca, de, eu, fed, in, jp, us1 or us2. Visit https://help.sumologic.com/APIs/General-API-Information/Sumo-Logic-Endpoints-and-Firewall-Security`
+
+```
 
 Execute below command under `AppendBlobReader/tests` directory
 `python test_appendblobreader.py`

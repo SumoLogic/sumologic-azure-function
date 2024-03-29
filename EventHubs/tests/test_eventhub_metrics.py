@@ -1,33 +1,33 @@
 import unittest
 import time
 import json
+import os
 from datetime import datetime
 from baseeventhubtest import BaseEventHubTest
 from azure.eventhub import EventData
 
 
 class TestEventHubMetrics(BaseEventHubTest):
-    
-    @classmethod
-    def setUpClass(self):
-        datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
-        self.collector_name = "azure_metric_unittest-%s" % (datetime_value)
-        self.source_name = "metric_data-%s" % (datetime_value)
-        self.source_category = "azure_metric_logs-%s" % (datetime_value)
 
-        super(TestEventHubMetrics, self).setUpClass()
+    @classmethod
+    def setUpClass(cls):
+        datetime_value = datetime.now().strftime("%d-%m-%y-%H-%M-%S")
+        cls.collector_name = "azure_metric_unittest-%s" % (datetime_value)
+        cls.source_name = "metric_data-%s" % (datetime_value)
+        cls.source_category = "azure_metrics-%s" % (datetime_value)
+        super(TestEventHubMetrics, cls).setUpClass()
         
         # resource group
-        self.resource_group_name = "EventHubMetrics-%s" % (datetime_value)
-        self.template_name = "azuredeploy_metrics.json"
-        self.event_hub_namespace_prefix = "SMNamespace"
-        self.eventhub_name = "insights-metrics-pt1m"
-        self.function_name = "EventHubs_Metrics"
-        
+        cls.resource_group_name = "EventHubMetrics-%s" % (datetime_value)
+        cls.template_name = os.environ.get("TEMPLATE_NAME", "azuredeploy_metrics.json")
+        cls.event_hub_namespace_prefix = "SMNamespace"
+        cls.eventhub_name = "insights-metrics-pt1m"
+        cls.function_name = "EventHubs_Metrics"
+
     def test_01_pipeline(self):
         self.create_resource_group(
             self.resourcegroup_location, self.resource_group_name)
-        
+
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.resource_group_name))
 
@@ -41,20 +41,20 @@ class TestEventHubMetrics(BaseEventHubTest):
         self.insert_mock_metrics_in_EventHub('metrics_fixtures.json')
         time.sleep(300)
         app_insights = self.get_resource('Microsoft.Insights/components')
-        captured_output = self.fetchlogs(app_insights.name)
-        
+        captured_output = self.fetchlogs(app_insights.name, self.function_name)
+
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
                         "No success message found in azure function logs")
-        
+
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                          "Error messages found in azure function logs")
-        
+
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                          "Warning messages found in azure function logs")
-    
+
     def insert_mock_metrics_in_EventHub(self, filename):
         self.logger.info("inserting fake metrics in EventHub")
-        
+
         with open(filename, 'r') as template_file_fd:
             mock_logs = json.load(template_file_fd)
             mock_logs = json.dumps(mock_logs)

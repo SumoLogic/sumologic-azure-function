@@ -235,7 +235,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
     if (!(file_ext in msghandler)) {
         context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
-        context.done(); 
+        context.done();
         return;
     }
     if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {

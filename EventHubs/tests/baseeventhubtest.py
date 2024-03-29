@@ -26,19 +26,19 @@ class BaseEventHubTest(BaseTest):
         template_data["parameters"]["location"]["defaultValue"] = self.resourcegroup_location
 
         return template_data
-    
+
     def send_event_data_list(self, event_hub_namespace_prefix, event_hub_name, event_data_list):
-        
+
         defaultauthorule_name = "RootManageSharedAccessKey"
         namespace_name = self.get_resource_name(event_hub_namespace_prefix, "Microsoft.EventHub/namespaces")
         eventhub_client = EventHubManagementClient(self.azure_credential, self.subscription_id)
         eventhub_keys = eventhub_client.namespaces.list_keys(self.resource_group_name, namespace_name, defaultauthorule_name)
-       
+
         producer = EventHubProducerClient.from_connection_string(
             conn_str=eventhub_keys.primary_connection_string,
             eventhub_name=event_hub_name
         )
-        
+
         with producer:
             try:
                 producer.send_batch(event_data_list)

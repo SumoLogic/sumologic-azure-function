@@ -38,8 +38,8 @@
             "defaultValue": "[concat('SUMOABSubscription', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "eventGridSystemTopicName": {
-            "defaultValue": "[concat('SUMOABEventGridSystemTopic', uniqueString(resourceGroup().id))]",
+        "eventGridTopicName": {
+            "defaultValue": "[concat('SUMOABEventGridCustomTopic', uniqueString(resourceGroup().id))]",
             "type": "String"
         },
         "filterPrefix": {
@@ -164,19 +164,16 @@
                             }
                         },
                         {
-                            "type": "Microsoft.EventGrid/systemTopics",
-                            "apiVersion": "2022-06-15",
-                            "name": "[parameters('eventGridSystemTopicName')]",
-                            "location": "[parameters('StorageAccountRegion')]",
-                            "properties": {
-                                "source": "[variables('roleScope')]",
-                                "topicType": "Microsoft.Storage.StorageAccounts"
-                            }
+                            "type": "Microsoft.EventGrid/topics",
+                            "apiVersion": "2023-12-15-preview",
+                            "name": "[parameters('eventGridTopicName')]",
+                            "location": "[parameters('StorageAccountRegion')]"
                         },
                         {
-                            "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
-                            "apiVersion": "2022-06-15",
-                            "name": "[concat(parameters('eventGridSystemTopicName'), '/', parameters('eventgridsubscription_name'))]",
+                            "type": "Microsoft.Storage/storageAccounts/providers/eventSubscriptions",
+                            "apiVersion": "2018-01-01",
+                            "name": "[concat(parameters('StorageAccountName'), '/Microsoft.EventGrid/', parameters('eventgridsubscription_name'))]",
+                            "location": "[parameters('StorageAccountRegion')]",
                             
                             "properties": {
                                 "destination": {
@@ -190,17 +187,15 @@
                                     "isSubjectCaseSensitive": false,
                                     "includedEventTypes": [
                                         "Microsoft.Storage.BlobCreated"
-                                    ],
-                                    "enableAdvancedFilteringOnArrays": true
+                                    ]
                                 },
-                                "eventDeliverySchema": "EventGridSchema",
                                 "retryPolicy": {
                                     "maxDeliveryAttempts": 30,
                                     "eventTimeToLiveInMinutes": 1440
                                 }
                             },
                             "dependsOn": [
-                                "[resourceId(parameters('StorageAccountResourceGroupName'),'Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
+                                "[parameters('eventGridTopicName')]"
                             ]
                         }
                     ]

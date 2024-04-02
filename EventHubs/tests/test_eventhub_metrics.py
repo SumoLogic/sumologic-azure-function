@@ -54,7 +54,6 @@ class TestEventHubMetrics(BaseEventHubTest):
 
     def test_04_sumo_query_record_count(self):
         self.logger.info("fetching metrix data count from sumo")
-        log_type = os.environ.get("LOG_TYPE", "log")
         query = f'_sourceCategory="{self.source_category}" | count'
         relative_time_in_minutes = 30
         expected_record_count = 10

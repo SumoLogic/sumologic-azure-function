@@ -127,25 +127,21 @@ class BaseTest(unittest.TestCase):
             'mode': DeploymentMode.INCREMENTAL,
             'template': template_data
         }
-        
-        try:
-            branch_name = os.environ["SOURCE_BRANCH"]
-            deployment = Deployment(properties=deployment_properties)
 
-            deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
-                self.resource_group_name,
-                deployment_name,
-                deployment
-            )
+        deployment = Deployment(properties=deployment_properties)
 
-            deployment_result = deployment_operation_poller.result()
-            if not deployment_operation_poller.done():
-                self.logger.warning("Poller done and deployment process incomplete")
+        deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
+            self.resource_group_name,
+            deployment_name,
+            deployment
+        )
 
-            self.logger.info(
-                f"ARM Template deployment completed with result: {deployment_result}")
-        except Exception:
+        deployment_result = deployment_operation_poller.result()
+        if not deployment_operation_poller.done():
             self.logger.warning("Deployment process incomplete")
+
+        self.logger.info(
+            f"ARM Template deployment completed with result: {deployment_result}")
 
     @classmethod
     def get_git_info(cls):
@@ -315,8 +311,6 @@ class BaseTest(unittest.TestCase):
             f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
 
         # def search_metrics(self, query, fromTime=None, toTime=None, requestedDataPoints=600, maxDataPoints=800)
-        search_result = cls.sumologic_cli.search_metrics(
-            query, fromTime.isoformat(timespec="seconds"), toTime.isoformat(
-                timespec="seconds"))
-        
+        search_result = cls.sumologic_cli.search_metrics(query, fromTime, toTime)
+        cls.logger.info(f"source result: {search_result}")
         return search_result

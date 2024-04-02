@@ -68,7 +68,7 @@ class TestEventHubMetrics(BaseEventHubTest):
         except Exception:
             record_count = 0
         self.assertTrue(record_count == expected_record_count,
-                        f"Metrix record count: {record_count} differs from expected count {expected_record_count.get(log_type)} in sumo '{self.source_category}'")
+                        f"Metrix record count: {record_count} differs from expected count {expected_record_count} in sumo '{self.source_category}'")
 
 
     def insert_mock_metrics_in_EventHub(self, filename):

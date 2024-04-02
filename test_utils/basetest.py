@@ -127,21 +127,25 @@ class BaseTest(unittest.TestCase):
             'mode': DeploymentMode.INCREMENTAL,
             'template': template_data
         }
+        
+        try:
+            branch_name = os.environ["SOURCE_BRANCH"]
+            deployment = Deployment(properties=deployment_properties)
 
-        deployment = Deployment(properties=deployment_properties)
+            deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
+                self.resource_group_name,
+                deployment_name,
+                deployment
+            )
 
-        deployment_operation_poller = self.resource_client.deployments.begin_create_or_update(
-            self.resource_group_name,
-            deployment_name,
-            deployment
-        )
+            deployment_result = deployment_operation_poller.result()
+            if not deployment_operation_poller.done():
+                self.logger.warning("Poller done and deployment process incomplete")
 
-        deployment_result = deployment_operation_poller.result()
-        if not deployment_operation_poller.done():
+            self.logger.info(
+                f"ARM Template deployment completed with result: {deployment_result}")
+        except Exception:
             self.logger.warning("Deployment process incomplete")
-
-        self.logger.info(
-            f"ARM Template deployment completed with result: {deployment_result}")
 
     @classmethod
     def get_git_info(cls):
@@ -300,3 +304,19 @@ class BaseTest(unittest.TestCase):
             cls.logger.info(f"source result: {result}")
             return result
         return
+
+    @classmethod
+    def fetch_sumo_MetrixQuery_results(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_minutes=15):
+
+        toTime = datetime.utcnow()
+        fromTime = toTime + timedelta(minutes=-1*relative_time_in_minutes)
+
+        cls.logger.info(
+            f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
+
+        # def search_metrics(self, query, fromTime=None, toTime=None, requestedDataPoints=600, maxDataPoints=800)
+        search_result = cls.sumologic_cli.search_metrics(
+            query, fromTime.isoformat(timespec="seconds"), toTime.isoformat(
+                timespec="seconds"))
+        
+        return search_result

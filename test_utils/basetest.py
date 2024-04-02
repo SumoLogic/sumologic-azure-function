@@ -304,13 +304,12 @@ class BaseTest(unittest.TestCase):
     @classmethod
     def fetch_sumo_MetrixQuery_results(cls, query='_sourceCategory="azure_br_logs" | count', relative_time_in_minutes=15):
 
-        toTime = datetime.utcnow()
+        toTime = datetime.now()
         fromTime = toTime + timedelta(minutes=-1*relative_time_in_minutes)
 
         cls.logger.info(
             f"query: {query}, fromTime: {fromTime.isoformat(timespec='seconds')}, toTime: {toTime.isoformat(timespec='seconds')}")
 
-        # def search_metrics(self, query, fromTime=None, toTime=None, requestedDataPoints=600, maxDataPoints=800)
-        search_result = cls.sumologic_cli.search_metrics(query, fromTime, toTime)
+        search_result = cls.sumologic_cli.search_metrics(query, int(fromTime.timestamp())*1000, int(toTime.timestamp())*1000)
         cls.logger.info(f"source result: {search_result}")
         return search_result

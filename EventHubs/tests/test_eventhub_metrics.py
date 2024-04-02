@@ -60,11 +60,13 @@ class TestEventHubMetrics(BaseEventHubTest):
         expected_record_count = 10
         result = self.fetch_sumo_MetrixQuery_results(query, relative_time_in_minutes)
         #sample: {"error":false,"errorMessage":null,"errorInstanceId":null,"errorKey":null,"keyedErrors":[],"response":[{"rowId":"A","results":[{"metric":{"dimensions":[{"key":"metric","value":"count"}],"algoId":1},"horAggs":{"min":1.0,"max":17.0,"avg":2.0,"sum":32.0,"count":16,"latest":1.0},"datapoints":{"timestamp":[],"value":[],"outlierParams":[],"max":[],"min":[],"avg":[],"count":[],"isFilled":[]}}]}],"queryInfo":{"startTime":1711710360000,"endTime":1711710460000,"desiredQuantizationInSecs":{"empty":false,"defined":true},"actualQuantizationInSecs":1,"sessionIdStr":""}}
+        self.assertFalse(result['error'],
+                        f"Metrix sumo query failed with error message {result['errorMessage']}")
         try:
             if result['error']:
                 record_count = 0
             else:
-                record_count = len(result['response'][0]['results'][0]['datapoints']['value'])
+                record_count = result['response'][0]['results'][0]['datapoints']['value'][0]
         except Exception:
             record_count = 0
         self.assertTrue(record_count == expected_record_count,

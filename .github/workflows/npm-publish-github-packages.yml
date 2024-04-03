@@ -9,11 +9,82 @@ on:
       - "v*"
 
 jobs:
+  build-blockblobreader:
+    name: Build BlockBlobReader 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: "npm"
+          node-version: 18
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Create packages
+        run: |
+          cd BlockBlobReader/target
+
+          echo "Installing npm modules for BlobTaskConsumer..."
+          cd consumer_build
+          npm install
+          cd ..
+
+          echo "Installing npm modules for DLQConsumer..."
+          cd dlqprocessor_build
+          npm install
+          cd ..
+
+          echo "Installing npm modules for BlobTaskConsumer..."
+          cd producer_build
+          npm install
+          cd ..
+
+          cd ../src
+          echo "Running npm build..."
+          npm run build
+
+          echo "Preparing target_zip directory..."
+          rm -rf ../target_zip
+          cp -r ../target ../target_zip
+
+          cd ../target_zip
+
+          rm -f .DS_Store
+
+          echo "Creating consumer_build zip package..."
+          cd consumer_build;
+          zip -r ../BlockBlobReaderConsumer.zip ./* ;
+          cd ..;
+
+          echo "Creating dlqprocessor_build zip package..."
+          cd dlqprocessor_build;
+          zip -r ../BlockBlobReaderDLQProcessor.zip ./* ;
+          cd ..;
+
+          echo "Creating producer_build zip package..."
+          cd producer_build;
+          zip -r ../BlockBlobReaderProducer.zip ./* ;
+          cd ..;
+
+      - name: Upload BlockBlobReader artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockblobreader_${{ github.ref_name }}
+          if-no-files-found: error
+          path: ./BlockBlobReader/target_zip/*.zip
+
   tagged-release:
     name: "Tagged Release"
     runs-on: ubuntu-latest
+    needs: build-blockblobreader
     steps:
+      - name: Download BlockBlobReader artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: blockblobreader_${{ github.ref_name }}
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: false
+          files: ./*.zip
+          

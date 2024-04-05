@@ -38,10 +38,6 @@
             "defaultValue": "[concat('SUMOBRSubscription', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "eventGridSystemTopicName": {
-            "defaultValue": "[concat('SUMOBREventGridSystemTopic', uniqueString(resourceGroup().id))]",
-            "type": "String"
-        },
         "filterPrefix": {
             "defaultValue": "",
             "type": "String"
@@ -82,6 +78,24 @@
             "type": "String",
             "metadata": {
                 "description": "Enter the SUMO source endpoint"
+            }
+        },
+        "deployingAgainForSameStorageAccount": {
+            "type": "string",
+            "defaultValue": "yes",
+            "allowedValues": [
+                "yes",
+                "no"
+            ],
+            "metadata": {
+                "description": "Choose yes if you are deploying in this subscription for the first time, else choose no."
+            }
+        },
+        "eventGridSystemTopicName": {
+            "defaultValue": "[concat('SUMOBREventGridSystemTopic', uniqueString(resourceGroup().id))]",
+            "type": "String",
+            "metadata": {
+                "description": "If you are deploying template again for same storage account then provide the existing System Topic Name for the StorageAccount "
             }
         },
         "StorageAccountName": {
@@ -169,6 +183,7 @@
                         {
                             "type": "Microsoft.EventGrid/systemTopics",
                             "apiVersion": "2022-06-15",
+                            "condition": "[equals(parameters('deployingAgainForSameStorageAccount'), 'no')]",
                             "name": "[parameters('eventGridSystemTopicName')]",
                             "location": "[parameters('StorageAccountRegion')]",
                             "properties": {

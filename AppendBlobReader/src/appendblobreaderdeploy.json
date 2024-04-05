@@ -2,6 +2,14 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "new_or_existing_deployment": {
+            "type": "string",
+            "defaultValue": "new",
+            "allowedValues": [
+                "new",
+                "existing"
+            ]
+        },
         "sites_blobReader_name": {
             "defaultValue": "[concat('SUMOABFileTracker', uniqueString(resourceGroup().id))]",
             "type": "String"
@@ -38,9 +46,12 @@
             "defaultValue": "[concat('SUMOABSubscription', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "eventGridTopicName": {
-            "defaultValue": "[concat('SUMOABEventGridCustomTopic', uniqueString(resourceGroup().id))]",
-            "type": "String"
+        "eventGridSystemTopicName": {
+            "defaultValue": "[if(equals(parameters('new_or_existing_deployment'), 'existing'),'',concat('SUMOABEventGridSystemTopic', uniqueString(resourceGroup().id)))]",
+            "type": "String",
+            "metadata": {
+                "description": "If deployment is existing, enter the EventGridSystemTopic name from existing storage account resource group."
+            }
         },
         "filterPrefix": {
             "defaultValue": "",
@@ -140,7 +151,8 @@
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]",
         "appInsightsResourceType": "[concat('microsoft.insights/components/', parameters('appInsightsName'))]"
     },
-    "resources": [{
+    "resources": [
+        {
             "apiVersion": "2022-09-01",
             "name": "[concat('nestedTemplate', resourceGroup().name)]",
             "type": "Microsoft.Resources/deployments",
@@ -153,7 +165,8 @@
                 "template": {
                     "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
                     "contentVersion": "1.0.0.0",
-                    "resources": [{
+                    "resources": [
+                        {
                             "type": "Microsoft.Authorization/roleAssignments",
                             "apiVersion": "2022-04-01",
                             "name": "[variables('consumer_roleGuid')]",
@@ -164,17 +177,21 @@
                             }
                         },
                         {
-                            "type": "Microsoft.EventGrid/topics",
-                            "apiVersion": "2023-12-15-preview",
-                            "name": "[parameters('eventGridTopicName')]",
-                            "location": "[parameters('StorageAccountRegion')]"
+                            "condition": "[equals(parameters('new_or_existing_deployment'), 'new')]",
+                            "type": "Microsoft.EventGrid/systemTopics",
+                            "apiVersion": "2022-06-15",
+                            "name": "[parameters('eventGridSystemTopicName')]",
+                            "location": "[parameters('StorageAccountRegion')]",
+                            "properties": {
+                                "source": "[variables('roleScope')]",
+                                "topicType": "Microsoft.Storage.StorageAccounts"
+                            }
                         },
                         {
-                            "type": "Microsoft.Storage/storageAccounts/providers/eventSubscriptions",
-                            "apiVersion": "2018-01-01",
-                            "name": "[concat(parameters('StorageAccountName'), '/Microsoft.EventGrid/', parameters('eventgridsubscription_name'))]",
-                            "location": "[parameters('StorageAccountRegion')]",
-                            
+                            "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
+                            "apiVersion": "2022-06-15",
+                            "name": "[concat(parameters('eventGridSystemTopicName'), '/', parameters('eventgridsubscription_name'))]",
+
                             "properties": {
                                 "destination": {
                                     "properties": {
@@ -187,15 +204,17 @@
                                     "isSubjectCaseSensitive": false,
                                     "includedEventTypes": [
                                         "Microsoft.Storage.BlobCreated"
-                                    ]
+                                    ],
+                                    "enableAdvancedFilteringOnArrays": true
                                 },
+                                "eventDeliverySchema": "EventGridSchema",
                                 "retryPolicy": {
                                     "maxDeliveryAttempts": 30,
                                     "eventTimeToLiveInMinutes": 1440
                                 }
                             },
                             "dependsOn": [
-                                "[parameters('eventGridTopicName')]"
+                                "[if(equals(parameters('new_or_existing_deployment'), 'existing'),'',resourceId(parameters('StorageAccountResourceGroupName'),'Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName')))]"
                             ]
                         }
                     ]
@@ -280,55 +299,58 @@
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]"
             ],
             "properties": {
-                "profiles": [{
-                    "name": "Auto created scale condition",
-                    "capacity": {
-                        "minimum": "2",
-                        "maximum": "10",
-                        "default": "2"
-                    },
-                    "rules": [{
-                            "scaleAction": {
-                                "direction": "Increase",
-                                "type": "ChangeCount",
-                                "value": "1",
-                                "cooldown": "PT5M"
-                            },
-                            "metricTrigger": {
-                                "metricName": "CpuPercentage",
-                                "metricNamespace": "microsoft.web/serverfarms",
-                                "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
-                                "operator": "GreaterThanOrEqual",
-                                "statistic": "Max",
-                                "threshold": 70,
-                                "timeAggregation": "Maximum",
-                                "timeGrain": "PT1M",
-                                "timeWindow": "PT10M",
-                                "dividePerInstance": true
-                            }
+                "profiles": [
+                    {
+                        "name": "Auto created scale condition",
+                        "capacity": {
+                            "minimum": "2",
+                            "maximum": "10",
+                            "default": "2"
                         },
-                        {
-                            "scaleAction": {
-                                "direction": "Decrease",
-                                "type": "ChangeCount",
-                                "value": "1",
-                                "cooldown": "PT5M"
+                        "rules": [
+                            {
+                                "scaleAction": {
+                                    "direction": "Increase",
+                                    "type": "ChangeCount",
+                                    "value": "1",
+                                    "cooldown": "PT5M"
+                                },
+                                "metricTrigger": {
+                                    "metricName": "CpuPercentage",
+                                    "metricNamespace": "microsoft.web/serverfarms",
+                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
+                                    "operator": "GreaterThanOrEqual",
+                                    "statistic": "Max",
+                                    "threshold": 70,
+                                    "timeAggregation": "Maximum",
+                                    "timeGrain": "PT1M",
+                                    "timeWindow": "PT10M",
+                                    "dividePerInstance": true
+                                }
                             },
-                            "metricTrigger": {
-                                "metricName": "CpuPercentage",
-                                "metricNamespace": "microsoft.web/serverfarms",
-                                "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
-                                "operator": "LessThanOrEqual",
-                                "statistic": "Max",
-                                "threshold": 30,
-                                "timeAggregation": "Maximum",
-                                "timeGrain": "PT1M",
-                                "timeWindow": "PT10M",
-                                "dividePerInstance": true
+                            {
+                                "scaleAction": {
+                                    "direction": "Decrease",
+                                    "type": "ChangeCount",
+                                    "value": "1",
+                                    "cooldown": "PT5M"
+                                },
+                                "metricTrigger": {
+                                    "metricName": "CpuPercentage",
+                                    "metricNamespace": "microsoft.web/serverfarms",
+                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
+                                    "operator": "LessThanOrEqual",
+                                    "statistic": "Max",
+                                    "threshold": 30,
+                                    "timeAggregation": "Maximum",
+                                    "timeGrain": "PT1M",
+                                    "timeWindow": "PT10M",
+                                    "dividePerInstance": true
+                                }
                             }
-                        }
-                    ]
-                }],
+                        ]
+                    }
+                ],
                 "targetResourceLocation": "[parameters('location')]",
                 "enabled": true,
                 "name": "[concat(parameters('serverfarms_BlobReaderPlan_name'), 'Autoscale')]",
@@ -344,55 +366,58 @@
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
             ],
             "properties": {
-                "profiles": [{
-                    "name": "Auto created scale condition",
-                    "capacity": {
-                        "minimum": "2",
-                        "maximum": "10",
-                        "default": "2"
-                    },
-                    "rules": [{
-                            "scaleAction": {
-                                "direction": "Increase",
-                                "type": "ChangeCount",
-                                "value": "1",
-                                "cooldown": "PT5M"
-                            },
-                            "metricTrigger": {
-                                "metricName": "CpuPercentage",
-                                "metricNamespace": "microsoft.web/serverfarms",
-                                "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
-                                "operator": "GreaterThanOrEqual",
-                                "statistic": "Max",
-                                "threshold": 70,
-                                "timeAggregation": "Maximum",
-                                "timeGrain": "PT1M",
-                                "timeWindow": "PT10M",
-                                "dividePerInstance": true
-                            }
+                "profiles": [
+                    {
+                        "name": "Auto created scale condition",
+                        "capacity": {
+                            "minimum": "2",
+                            "maximum": "10",
+                            "default": "2"
                         },
-                        {
-                            "scaleAction": {
-                                "direction": "Decrease",
-                                "type": "ChangeCount",
-                                "value": "1",
-                                "cooldown": "PT5M"
+                        "rules": [
+                            {
+                                "scaleAction": {
+                                    "direction": "Increase",
+                                    "type": "ChangeCount",
+                                    "value": "1",
+                                    "cooldown": "PT5M"
+                                },
+                                "metricTrigger": {
+                                    "metricName": "CpuPercentage",
+                                    "metricNamespace": "microsoft.web/serverfarms",
+                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
+                                    "operator": "GreaterThanOrEqual",
+                                    "statistic": "Max",
+                                    "threshold": 70,
+                                    "timeAggregation": "Maximum",
+                                    "timeGrain": "PT1M",
+                                    "timeWindow": "PT10M",
+                                    "dividePerInstance": true
+                                }
                             },
-                            "metricTrigger": {
-                                "metricName": "CpuPercentage",
-                                "metricNamespace": "microsoft.web/serverfarms",
-                                "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
-                                "operator": "LessThanOrEqual",
-                                "statistic": "Max",
-                                "threshold": 30,
-                                "timeAggregation": "Maximum",
-                                "timeGrain": "PT1M",
-                                "timeWindow": "PT10M",
-                                "dividePerInstance": true
+                            {
+                                "scaleAction": {
+                                    "direction": "Decrease",
+                                    "type": "ChangeCount",
+                                    "value": "1",
+                                    "cooldown": "PT5M"
+                                },
+                                "metricTrigger": {
+                                    "metricName": "CpuPercentage",
+                                    "metricNamespace": "microsoft.web/serverfarms",
+                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
+                                    "operator": "LessThanOrEqual",
+                                    "statistic": "Max",
+                                    "threshold": 30,
+                                    "timeAggregation": "Maximum",
+                                    "timeGrain": "PT1M",
+                                    "timeWindow": "PT10M",
+                                    "dividePerInstance": true
+                                }
                             }
-                        }
-                    ]
-                }],
+                        ]
+                    }
+                ],
                 "targetResourceLocation": "[parameters('location')]",
                 "enabled": true,
                 "name": "[concat(parameters('serverfarms_ConsumerPlan_name'), 'Autoscale')]",

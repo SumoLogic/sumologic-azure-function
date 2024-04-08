@@ -2,13 +2,16 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "new_or_existing_deployment": {
+        "deployingAgainForSameStorageAccount": {
             "type": "string",
-            "defaultValue": "new",
+            "defaultValue": "yes",
             "allowedValues": [
-                "new",
-                "existing"
-            ]
+                "yes",
+                "no"
+            ],
+            "metadata": {
+                "description": "Choose 'no' if you are deploying in this subscription for the first time, else choose 'yes'."
+            }
         },
         "sites_blobReader_name": {
             "defaultValue": "[concat('SUMOABFileTracker', uniqueString(resourceGroup().id))]",
@@ -47,10 +50,10 @@
             "type": "String"
         },
         "eventGridSystemTopicName": {
-            "defaultValue": "[if(equals(parameters('new_or_existing_deployment'), 'existing'),'',concat('SUMOABEventGridSystemTopic', uniqueString(resourceGroup().id)))]",
+            "defaultValue": "[concat('SUMOABEventGridSystemTopic', uniqueString(resourceGroup().id))]",
             "type": "String",
             "metadata": {
-                "description": "If deployment is existing, enter the EventGridSystemTopic name from existing storage account resource group."
+                "description": "If you are deploying template again for same storage account then provide the existing System Topic Name for the StorageAccount "
             }
         },
         "filterPrefix": {
@@ -177,7 +180,7 @@
                             }
                         },
                         {
-                            "condition": "[equals(parameters('new_or_existing_deployment'), 'new')]",
+                            "condition": "[equals(parameters('deployingAgainForSameStorageAccount'), 'no')]",
                             "type": "Microsoft.EventGrid/systemTopics",
                             "apiVersion": "2022-06-15",
                             "name": "[parameters('eventGridSystemTopicName')]",
@@ -214,7 +217,7 @@
                                 }
                             },
                             "dependsOn": [
-                                "[if(equals(parameters('new_or_existing_deployment'), 'existing'),'',resourceId(parameters('StorageAccountResourceGroupName'),'Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName')))]"
+                                "[resourceId(parameters('StorageAccountResourceGroupName'),'Microsoft.EventGrid/systemTopics', parameters('eventGridSystemTopicName'))]"
                             ]
                         }
                     ]

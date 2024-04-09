@@ -354,7 +354,7 @@
                         { "name": "TaskQueueConnectionString", "value": "[listkeys(resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', parameters('namespaces_blobreadertaskqueue_name'),parameters('AuthorizationRules_RootManageSharedAccessKey_TaskQueue_name')), '2022-10-01-preview').primaryConnectionString]" },
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~18" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" },
-                        { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskproducer1.0.0.zip"},
+                        { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://github.com/SumoLogic/sumologic-azure-function/releases/download/v4.1.0-rc/BlockBlobReaderProducer.zip"},
                         { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node" }
                     ],
                     "cors": {
@@ -362,22 +362,6 @@
                     }
                 }
             },
-            "resources": [
-                {
-                    "apiVersion": "2022-09-01",
-                    "name": "web",
-                    "type": "sourcecontrols",
-                    "location": "[parameters('location')]",
-                    "dependsOn": [
-                        "[variables('BlobReader_resourceId')]"
-                    ],
-                    "properties": {
-                        "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
-                        "branch": "[parameters('sourceCodeBranch')]",
-                        "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
-                    }
-                }
-            ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
@@ -413,29 +397,13 @@
                         { "name": "WEBSITE_NODE_DEFAULT_VERSION", "value": "~18" },
                         { "name": "FUNCTION_APP_EDIT_MODE", "value": "readwrite" },
                         { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node" },
-                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskconsumer1.0.0.zip"}
+                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://github.com/SumoLogic/sumologic-azure-function/releases/download/v4.1.0-rc/BlockBlobReaderConsumer.zip"}
                     ],
                     "cors": {
                         "allowedOrigins": [ "https://portal.azure.com" ]
                     }
                 }
             },
-            "resources": [
-                {
-                    "apiVersion": "2022-09-01",
-                    "name": "web",
-                    "type": "sourcecontrols",
-                    "location": "[parameters('location')]",
-                    "dependsOn": [
-                        "[variables('blobreaderconsumer_respurceId')]"
-                    ],
-                    "properties": {
-                        "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
-                        "branch": "[parameters('sourceCodeBranch')]",
-                        "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
-                    }
-                }
-            ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
@@ -473,29 +441,13 @@
                         { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccounts_blobreaderaea3_name'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')), '2022-05-01').keys[0].value)]" },
                         { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(parameters('sites_DLQProcessor_name'))]" },
                         { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "node" },
-                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/dlqprocessor1.0.0.zip"}
+                        {"name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://github.com/SumoLogic/sumologic-azure-function/releases/download/v4.1.0-rc/BlockBlobReaderDLQProcessor.zip"}
                     ],
                     "cors": {
                         "allowedOrigins": [ "https://portal.azure.com" ]
                     }
                 }
             },
-            "resources": [
-                {
-                    "apiVersion": "2022-09-01",
-                    "name": "web",
-                    "type": "sourcecontrols",
-                    "location": "[parameters('location')]",
-                    "dependsOn": [
-                        "[variables('DLQProcessor_resourceId')]"
-                    ],
-                    "properties": {
-                        "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
-                        "branch": "[parameters('sourceCodeBranch')]",
-                        "IsManualIntegration": "[parameters('sourceCodeManualIntegration')]"
-                    }
-                }
-            ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",

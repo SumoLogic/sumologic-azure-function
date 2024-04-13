@@ -33,7 +33,7 @@ function getLockedEntity(entity) {
         blobName: entity.blobName,
         containerName: entity.containerName,
         storageName: entity.storageName,
-        offset: entity.offset,
+        offset: { type: "Int64", value: String(entity.offset) },
         blobType: entity.blobType,
         resourceGroupName: entity.resourceGroupName,
         subscriptionId: entity.subscriptionId
@@ -62,7 +62,7 @@ function getunLockedEntity(entity) {
         blobName: entity.blobName,
         containerName: entity.containerName,
         storageName: entity.storageName,
-        offset: entity.offset,
+        offset: { type: "Int64", value: String(entity.offset) },
         blobType: entity.blobType,
         resourceGroupName: entity.resourceGroupName,
         subscriptionId: entity.subscriptionId

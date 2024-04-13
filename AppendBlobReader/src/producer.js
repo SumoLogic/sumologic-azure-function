@@ -220,6 +220,16 @@ function getNewTask(currentoffset, sortedcontentlengths, metadata) {
     return [tasks, lastoffset];
 }
 
+function filterAppendBlob(eventHubMessages) {
+    // Use Array.prototype.map to extract the messages with AppendBlob
+    return eventHubMessages.map(messages => {
+        // Use Array.prototype.filter to filter messages for AppendBlob
+        return messages.filter(message => {
+            return message.data.blobType === 'AppendBlob';
+        });
+    });
+}
+
 module.exports = async function (context, eventHubMessages) {
     // eventHubMessages = [
     //     [
@@ -245,13 +255,14 @@ module.exports = async function (context, eventHubMessages) {
     //         }
     //     ]
     // ]
-    context.log("appendblobfiletracker message received: ", eventHubMessages.length);
-    context.log.verbose("appendblobfiletracker messages: ", JSON.stringify(eventHubMessages));
+    var appendBlobMessages = filterAppendBlob(eventHubMessages);
+    context.log("appendblobfiletracker message received: ", appendBlobMessages.length);
+    context.log.verbose("appendblobfiletracker messages: ", JSON.stringify(appendBlobMessages));
     try {
-        eventHubMessages = [].concat.apply([], eventHubMessages);
+        appendBlobMessages = [].concat.apply([], appendBlobMessages);
         var metadatamap = {};
         var allcontentlengths = {};
-        getContentLengthPerBlob(eventHubMessages, allcontentlengths, metadatamap);
+        getContentLengthPerBlob(appendBlobMessages, allcontentlengths, metadatamap);
         var processed = 0;
         context.bindings.tasks = [];
         var allRowPromises = [];

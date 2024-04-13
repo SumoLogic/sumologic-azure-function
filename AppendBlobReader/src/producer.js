@@ -65,6 +65,7 @@ function getEntity(metadata, endByte, currentEtag) {
         blobName: metadata.blobName,
         containerName: metadata.containerName,
         storageName: metadata.storageName,
+        "offset@odata.type": "Edm.Int64",  
         offset: endByte,
         eventdate: new Date().toISOString(),
         blobType: metadata.blobType,

@@ -230,7 +230,21 @@ function filterAppendBlob(eventHubMessages) {
     });
 }
 
+function filterByFileExtension(eventHubMessages, extensions) {
+    // Use Array.prototype.map to iterate over eventHubMessages
+    return eventHubMessages.map(messages => {
+        // Use Array.prototype.filter to filter messages based on extension
+        return messages.filter(message => {
+            const subject = message.subject || '';
+            const fileExtension = subject.substring(subject.lastIndexOf('.') + 1);
+            // If no extension or extension matches one of the supported extensions
+            return !fileExtension || extensions.includes(fileExtension);
+        });
+    });
+}
+
 module.exports = async function (context, eventHubMessages) {
+    context.log("Inside append blob file tracker:");
     // eventHubMessages = [
     //     [
     //         {
@@ -255,14 +269,19 @@ module.exports = async function (context, eventHubMessages) {
     //         }
     //     ]
     // ]
+
+    context.log.verbose("appendblobfiletracker message received: ", filterMessages.length);
     var appendBlobMessages = filterAppendBlob(eventHubMessages);
-    context.log("appendblobfiletracker message received: ", appendBlobMessages.length);
-    context.log.verbose("appendblobfiletracker messages: ", JSON.stringify(appendBlobMessages));
+    var supportedExtensions = ['.log', '.csv', '.json', '.blob', '.nsg'];
+    var filterMessages = filterByFileExtension(appendBlobMessages, supportedExtensions);
+
+    context.log.verbose("appendblobfiletracker message after filter: ", filterMessages.length);
+    context.log.verbose("appendblobfiletracker messages: ", JSON.stringify(filterMessages));
     try {
-        appendBlobMessages = [].concat.apply([], appendBlobMessages);
+        filterMessages = [].concat.apply([], filterMessages);
         var metadatamap = {};
         var allcontentlengths = {};
-        getContentLengthPerBlob(appendBlobMessages, allcontentlengths, metadatamap);
+        getContentLengthPerBlob(filterMessages, allcontentlengths, metadatamap);
         var processed = 0;
         context.bindings.tasks = [];
         var allRowPromises = [];

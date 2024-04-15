@@ -233,10 +233,10 @@ function filterByFileExtension(context, messages) {
     return messages.filter(message => {
         let fileExtension = message.subject.split(".").pop();
         // If no extension or extension matches one of the supported extensions
-        if (!fileExtension) {
+        if (fileExtension == message.subject) {
             context.log.verbose("Found file with no extension, accepting appendblob file as log file")
         }
-        return !fileExtension || supportedExtensions.includes(fileExtension);
+        return fileExtension == message.subject || supportedExtensions.includes(fileExtension);
     });
 }
 

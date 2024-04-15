@@ -220,31 +220,28 @@ function getNewTask(currentoffset, sortedcontentlengths, metadata) {
     return [tasks, lastoffset];
 }
 
-function filterAppendBlob(eventHubMessages) {
-    // Use Array.prototype.map to extract the messages with AppendBlob
-    return eventHubMessages.map(messages => {
-        // Use Array.prototype.filter to filter messages for AppendBlob
-        return messages.filter(message => {
-            return message.data.blobType === 'AppendBlob';
-        });
+function filterAppendBlob(messages) {
+    // Use Array.prototype.filter to filter messages for AppendBlob
+    return messages.filter(message => {
+        return message.data.blobType === 'AppendBlob';
     });
 }
 
-function filterByFileExtension(eventHubMessages, extensions) {
-    // Use Array.prototype.map to iterate over eventHubMessages
-    return eventHubMessages.map(messages => {
-        // Use Array.prototype.filter to filter messages based on extension
-        return messages.filter(message => {
-            const subject = message.subject || '';
-            const fileExtension = subject.substring(subject.lastIndexOf('.') + 1);
-            // If no extension or extension matches one of the supported extensions
-            return !fileExtension || extensions.includes(fileExtension);
-        });
+function filterByFileExtension(context, messages) {
+    var supportedExtensions = ['log', 'csv', 'json', 'blob', 'nsg'];
+    // Use Array.prototype.filter to filter messages based on extension
+    return messages.filter(message => {
+        let fileExtension = message.subject.split(".").pop();
+        // If no extension or extension matches one of the supported extensions
+        if (!fileExtension) {
+            context.log.verbose("Found file with no extension, accepting appendblob file as log file")
+        }
+        return !fileExtension || supportedExtensions.includes(fileExtension);
     });
 }
 
 module.exports = async function (context, eventHubMessages) {
-    context.log("Inside append blob file tracker:");
+    context.log("Inside append blob file tracker");
     // eventHubMessages = [
     //     [
     //         {
@@ -270,49 +267,56 @@ module.exports = async function (context, eventHubMessages) {
     //     ]
     // ]
 
-    context.log.verbose("appendblobfiletracker message received: ", filterMessages.length);
-    var appendBlobMessages = filterAppendBlob(eventHubMessages);
-    var supportedExtensions = ['.log', '.csv', '.json', '.blob', '.nsg'];
-    var filterMessages = filterByFileExtension(appendBlobMessages, supportedExtensions);
 
-    context.log.verbose("appendblobfiletracker message after filter: ", filterMessages.length);
-    context.log.verbose("appendblobfiletracker messages: ", JSON.stringify(filterMessages));
     try {
-        filterMessages = [].concat.apply([], filterMessages);
-        var metadatamap = {};
-        var allcontentlengths = {};
-        getContentLengthPerBlob(filterMessages, allcontentlengths, metadatamap);
-        var processed = 0;
-        context.bindings.tasks = [];
-        var allRowPromises = [];
-        var totalRows = Object.keys(allcontentlengths).length;
-        var errArr = [], rowKey;
-        for (rowKey in allcontentlengths) {
-            var sortedcontentlengths = allcontentlengths[rowKey].sort(); // ensuring increasing order of contentlengths
-            var metadata = metadatamap[rowKey];
-            var partitionKey = metadata.containerName;
-            allRowPromises.push(sumoutils.p_retryMax(createTasksForBlob, MaxAttempts, RetryInterval, [partitionKey, rowKey, sortedcontentlengths, context, metadata], context).catch((err) => err));
-        }
-        await Promise.all(allRowPromises).then((responseValues) => {
-            //creating duplicate task for file causing an error when update condition is not satisfied in mutiple read and write scenarios for same row key in fileOffSetMap table
-            for (let response of responseValues) {
-                processed += 1;
-                if (response.status === "failed") {
-                    context.log.verbose("creating duplicate task since retry failed for rowkey: " + response.rowKey);
-                    var duplicateTask = Object.assign({
-                        startByte: response.currentoffset + 1,
-                        endByte: response.lastoffset
-                    }, metadatamap[response.rowKey]);
-                    context.bindings.tasks = context.bindings.tasks.concat([duplicateTask]);
-                    errArr.push(response.message);
+        eventHubMessages = [].concat.apply([], eventHubMessages);
+
+        context.log.verbose("appendblobfiletracker message received: ", JSON.stringify(eventHubMessages));
+        var appendBlobMessages = filterAppendBlob(eventHubMessages);
+        context.log.verbose("appendBlob message filtered", JSON.stringify(appendBlobMessages));
+        var filterMessages = filterByFileExtension(context, appendBlobMessages);
+        context.log.verbose("fileExtension message filtered: ", JSON.stringify(filterMessages));
+
+        if (filterMessages.length > 0) {
+            var metadatamap = {};
+            var allcontentlengths = {};
+            getContentLengthPerBlob(filterMessages, allcontentlengths, metadatamap);
+            var processed = 0;
+            context.bindings.tasks = [];
+            var allRowPromises = [];
+            var totalRows = Object.keys(allcontentlengths).length;
+            var errArr = [], rowKey;
+            for (rowKey in allcontentlengths) {
+                var sortedcontentlengths = allcontentlengths[rowKey].sort(); // ensuring increasing order of contentlengths
+                var metadata = metadatamap[rowKey];
+                var partitionKey = metadata.containerName;
+                allRowPromises.push(sumoutils.p_retryMax(createTasksForBlob, MaxAttempts, RetryInterval, [partitionKey, rowKey, sortedcontentlengths, context, metadata], context).catch((err) => err));
+            }
+            await Promise.all(allRowPromises).then((responseValues) => {
+                //creating duplicate task for file causing an error when update condition is not satisfied in mutiple read and write scenarios for same row key in fileOffSetMap table
+                for (let response of responseValues) {
+                    processed += 1;
+                    if (response.status === "failed") {
+                        context.log.verbose("creating duplicate task since retry failed for rowkey: " + response.rowKey);
+                        var duplicateTask = Object.assign({
+                            startByte: response.currentoffset + 1,
+                            endByte: response.lastoffset
+                        }, metadatamap[response.rowKey]);
+                        context.bindings.tasks = context.bindings.tasks.concat([duplicateTask]);
+                        errArr.push(response.message);
+                    }
                 }
+            });
+            if (totalRows === processed) {
+                context.log("Tasks Created: " + JSON.stringify(context.bindings.tasks) + " Blobpaths: " + JSON.stringify(allcontentlengths));
+                if (errArr.length > 0) {
+                    context.log.error(errArr.join('\n'));
+                }
+                context.done();
             }
-        });
-        if (totalRows === processed) {
-            context.log("Tasks Created: " + JSON.stringify(context.bindings.tasks) + " Blobpaths: " + JSON.stringify(allcontentlengths));
-            if (errArr.length > 0) {
-                context.log.error(errArr.join('\n'));
-            }
+        }
+        else {
+            context.log(`eventHubMessages might not pertain to appendblob or files with supported extensions, Exit now!`);
             context.done();
         }
     } catch (error) {

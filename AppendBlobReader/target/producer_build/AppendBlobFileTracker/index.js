@@ -271,11 +271,11 @@ module.exports = async function (context, eventHubMessages) {
     try {
         eventHubMessages = [].concat.apply([], eventHubMessages);
 
-        context.log.verbose("appendblobfiletracker message received: ", JSON.stringify(eventHubMessages));
+        context.log.verbose("appendblobfiletracker message received: ", eventHubMessages.length);
         var appendBlobMessages = filterAppendBlob(eventHubMessages);
-        context.log.verbose("appendBlob message filtered", JSON.stringify(appendBlobMessages));
+        context.log.verbose("appendBlob message filtered", eventHubMessages.length);
         var filterMessages = filterByFileExtension(context, appendBlobMessages);
-        context.log.verbose("fileExtension message filtered: ", JSON.stringify(filterMessages));
+        context.log.verbose("fileExtension message filtered: ", eventHubMessages.length);
 
         if (filterMessages.length > 0) {
             var metadatamap = {};

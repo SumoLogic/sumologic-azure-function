@@ -173,7 +173,7 @@ function getUpdatedEntity(task, endByte) {
     let entity = {
         done: false,
         updatedate: new Date().toISOString(),
-        offset: endByte,
+        offset: { type: "Int64", value: String(endByte) },
         // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
         partitionKey: task.containerName,
         rowKey: task.rowKey,

@@ -563,6 +563,26 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 }
 
 /**
+ * Truncates the given string if it exceeds 128 characters and creates a new string.
+ * If the string is within the limit, returns the original string.
+ * @param {string} data - The original data.
+ * @returns {string} - The new string, truncated if necessary.
+ */
+function checkAndTruncate(data) {
+    const maxLength = 128;
+
+    // Check if the string length exceeds the maximum length
+    if (data.length > maxLength) {
+        // Truncate the data, taking the first 60 characters, adding "..." in between, and taking the last 60 characters
+        return data.substring(0, 60) + "..." + data.substring(data.length - 60);
+    } else {
+        // If the data is within the limit, return the original data
+        return data;
+    }
+}
+
+
+/**
  * @param {} servisBusTask
  * @param {} options
  *
@@ -585,7 +605,7 @@ function setSourceCategory(serviceBusTask, options) {
     options.metadata["sourceHost"] = `${serviceBusTask.storageName}/${serviceBusTask.containerName}`
     // context.log(serviceBusTask.blobName, serviceBusTask.storageName,serviceBusTask.containerName);
     // options.metadata["sourceCategory"] = "custom_source_category";
-    options.metadata["sourceName"] = serviceBusTask.blobName;
+    options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 
 module.exports = async function (context, triggerData) {

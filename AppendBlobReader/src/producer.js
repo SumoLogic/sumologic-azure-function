@@ -125,17 +125,26 @@ async function getBlobPointerMap(partitionKey, rowKey, context) {
     return { statusCode: statusCode, entity: entity };
 }
 
-async function updateBlobPointerMap(entity, context) {
+/**
+ * Update Blob Pointer Map.
+ * 
+ * @param {Object} entity - The entity object to update or create.
+ * @returns {Promise<Object>} - A promise that resolves to the response from updating or creating the entity.
+ */
+async function updateBlobPointerMap(entity) {
     let response;
     if (entity.options) {
         let options = entity.options;
+        // Remove options from entity
         delete entity.options;
-        response = await tableClient.updateEntity(entity, "Replace", options)
+        // Update entity with specified options
+        response = await tableClient.updateEntity(entity, "Replace", options);
     } else {
-        response = await tableClient.createEntity(entity)
+        response = await tableClient.createEntity(entity);
     }
     return response;
 }
+
 
 /**
  * @param  {} PartitionKey
@@ -170,7 +179,7 @@ async function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, co
     if (tasks.length > 0) { // modify offset only when it's been changed
         var entity = getEntity(metadata, lastoffset, currentEtag);
         try {
-            var updatedResponse = await updateBlobPointerMap(entity, context);
+            var updatedResponse = await updateBlobPointerMap(entity);
             //context.log("updated blob pointer successsfully for rowkey: " + rowKey + " response: "+ updatedResponse)
             context.bindings.tasks = context.bindings.tasks.concat(tasks);
             return Promise.resolve({ status: "success", rowKey: rowKey, message: tasks.length + " Tasks added for rowKey: " + rowKey });
@@ -184,7 +193,7 @@ async function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, co
         context.log("Append blob scenario create just an entry RowKey: ", rowKey)
         try {
             var entity = getEntity(metadata, 0, currentEtag);
-            var updatedResponse = await updateBlobPointerMap(entity, context);
+            var updatedResponse = await updateBlobPointerMap(entity);
             context.bindings.tasks = context.bindings.tasks.concat(tasks);
             return Promise.resolve({ status: "success", rowKey: rowKey, message: "AppendBlob Entry added for RowKey: " + rowKey });
         } catch (err) {
@@ -220,25 +229,46 @@ function getNewTask(currentoffset, sortedcontentlengths, metadata) {
     return [tasks, lastoffset];
 }
 
+/**
+ * Filter messages for AppendBlob.
+ * 
+ * @param {Array<Object>} messages - An array of message objects to filter.
+ * @returns {Array<Object>} - An array containing only the messages with AppendBlob type.
+ */
 function filterAppendBlob(messages) {
     // Use Array.prototype.filter to filter messages for AppendBlob
     return messages.filter(message => {
+        // Return true if the message's blobType is 'AppendBlob'
         return message.data.blobType === 'AppendBlob';
     });
 }
 
+/**
+ * Filter messages by file extension.
+ * 
+ * @param {Object} context - The context object for logging or other operations.
+ * @param {Array<Object>} messages - An array of message objects to filter.
+ * @returns {Array<Object>} - An array containing only the messages with supported file extensions.
+ */
 function filterByFileExtension(context, messages) {
+    // List of supported file extensions
     var supportedExtensions = ['log', 'csv', 'json', 'blob', 'nsg'];
+
     // Use Array.prototype.filter to filter messages based on extension
     return messages.filter(message => {
+        // Extract file extension from message subject
         let fileExtension = message.subject.split(".").pop();
-        // If no extension or extension matches one of the supported extensions
+
+        // If no extension found
         if (fileExtension == message.subject) {
             context.log.verbose("Found file with no extension, accepting appendblob file as log file")
         }
+
+        // Return true if the message's extension is in the list of supported extensions
         return fileExtension == message.subject || supportedExtensions.includes(fileExtension);
     });
 }
+
 
 module.exports = async function (context, eventHubMessages) {
     context.log("Inside append blob file tracker");

@@ -78,86 +78,39 @@ function csvHandler(msgtext, headers) {
 }
 
 /**
- * @param  {} jsonArray
- * Handler for NSG Flow logs to JSON supports version 1 and version 2 both
- */
-function nsgLogsHandler(msg) {
-
-    var jsonArray = [];
-    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
-    jsonArray = JSON.parse("[" + msg + "]");
-    var eventsArr = [];
-    jsonArray.forEach(function (record) {
-        version = record.properties.Version;
-        record.properties.flows.forEach(function (rule) {
-            rule.flows.forEach(function (flow) {
-                flow.flowTuples.forEach(function (tuple) {
-                    col = tuple.split(",");
-                    let event = {
-                        time: col[0], // this should be epoch time
-                        sys_id: record.systemId,
-                        category: record.category,
-                        resource_id: record.resourceId,
-                        event_name: record.operationName,
-                        rule_name: rule.rule,
-                        mac: flow.mac,
-                        src_ip: col[1],
-                        dest_IP: col[2],
-                        src_port: col[3],
-                        dest_port: col[4],
-                        protocol: col[5],
-                        traffic_destination: col[6],
-                        "traffic_a/d": col[7],
-                        version: version,
-                        flow_state: null,
-                        num_packets_sent_src_to_dest: null,
-                        bytes_sent_src_to_dest: null,
-                        num_packets_sent_dest_to_src: null,
-                        bytes_sent_dest_to_src: null
-                        // nsg_name:
-                        // resource_group_name:
-                    }
-                    if (version === 2) {
-                        event.flow_state = (col[8] === "" || col[8] === undefined) ? null : col[8];
-                        event.num_packets_sent_src_to_dest = (col[9] === "" || col[9] === undefined) ? null : col[9];
-                        event.bytes_sent_src_to_dest = (col[10] === "" || col[10] === undefined) ? null : col[10];
-                        event.num_packets_sent_dest_to_src = (col[11] === "" || col[11] === undefined) ? null : col[11];
-                        event.bytes_sent_dest_to_src = (col[12] === "" || col[12] === undefined) ? null : col[12];
-                    }
-                    eventsArr.push(event);
-                })
-            })
-        })
-    });
-    return eventsArr;
-}
-
-/**
+ * @param  {} context
  * @param  {} msg
- *
- * Handler for extracting multiple json objects from the middle of the json array(from a file present in storage account)
- */
-function jsonHandler(msg) {
-    // it's assumed that json is well formed {},{}
-    var jsonArray = [];
-    msg = JSON.stringify(msg)
-    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
-    jsonArray = JSON.parse("[" + msg + "]");
-    return jsonArray;
-}
-/**
- * @param  {} msg
+ * @param  {} serviceBusTask
  * Handler for json line format where every line is a json object
  */
-function blobHandler(msg) {
+function jsonlineHandler(context, msg, serviceBusTask) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
 
-    var jsonArray = [];
+    let jsonArray = [];
     msg = msg.replace(/\0/g, '');
-    msg = msg.replace(/(\r?\n|\r)/g, ",");
+    msg = msg.replace(/}\r?\n{/g, "},{")
     msg = msg.trim().replace(/(^,+)|(,+$)/g, ""); //removing trailing spaces,newlines and leftover commas
-    jsonArray = JSON.parse("[" + msg + "]");
+
+    try {
+        jsonArray = JSON.parse("[" + msg + "]");
+    } catch (e) {
+        context.log("JSON ParseException in blobHandler");
+        context.log(e, msg);
+        // removing unparsed prefix and suffix
+        let start_idx = msg.indexOf('{');
+        let last_idx = msg.lastIndexOf('}');
+        let submsg = msg.substr(start_idx, last_idx + 1 - start_idx); // prefix & suffix removed
+        try {
+            jsonArray = JSON.parse("[" + submsg.replace(/}\r?\n{/g, "},{") + "]");
+            let suffixlen = msg.length - (last_idx + 1);
+            contentDownloaded -= suffixlen;
+        } catch (e) {
+            context.log("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0, start_idx), msg.substr(last_idx + 1));
+            // will try to ingest the whole block
+            jsonArray = [msg];
+        }
+    }
     return jsonArray;
 }
 
@@ -457,49 +410,76 @@ function errorHandler(err, serviceBusTask, context) {
     return discardError;
 }
 
+/**
+ * Archive an ingested file by deleting its entity from Azure Table Storage.
+ * 
+ * @param {Object} serviceBusTask - Task object associated with the service bus message.
+ * @param {Object} context - The context object for logging or other operations.
+ */
 async function archiveIngestedFile(serviceBusTask, context) {
     try {
+        // Delete entity from Azure Table Storage
         await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
         context.done("Entity deleted");
     } catch (error) {
         context.log.error(`failed to archive Ingested File : ${error}`);
         context.done();
     }
-    
 }
 
+
+/**
+ * Stream data from a readable stream to a buffer.
+ * 
+ * @param {Object} context - The context object for logging or other operations.
+ * @param {ReadableStream} readableStream - The readable stream containing the data to be streamed.
+ * @param {Object} serviceBusTask - Task object associated with the service bus message.
+ * @returns {Promise<Buffer>} - A promise that resolves to a buffer containing the streamed data.
+ */
 async function streamToBuffer(context, readableStream, serviceBusTask) {
     return new Promise((resolve, reject) => {
         var dataLen = 0;
         var chunks = [];
 
+        // Event listener for data chunks
         readableStream.on("data", (data) => {
-            // Todo: returns 4 MB chunks we may need to break it to 1MB
             if ((chunks.length >= 10 && chunks.length % 10 === 0) || chunks.length <= 2) {
                 context.log.verbose(`Received ${data.length} bytes of data. numChunks ${chunks.length}`);
             }
+            // Accumulate data length and push data chunk to chunks array
             dataLen += data.length;
             chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
         });
 
+        // Event listener for end of stream
         readableStream.on("end", () => {
             context.log(`Finished Fetching numChunks: ${chunks.length} dataLen: ${dataLen} rowKey: ${serviceBusTask.rowKey}`);
+            // Resolve the promise with concatenated buffer of all chunks
             resolve(Buffer.concat(chunks));
         });
 
+        // Event listener for stream errors
         readableStream.on('error', (err) => {
-            reject(err)
+            // Reject the promise with the error if any
+            reject(err);
         });
     });
 }
 
+
+/**
+ * Task Handler method to collect and parse data from Append Blob, send to Sumo Collector/Source
+ * 
+ * @param {Object} serviceBusTask - The serviceBusTask object.
+ * @param {Object} context - The context object for logging or other operations.
+ */
 async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
     var file_ext = serviceBusTask.blobName.split(".").pop();
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    var msghandler = { "log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler };
+    var msghandler = { "log": logHandler, "csv": csvHandler, "json": jsonlineHandler, "blob": jsonlineHandler };
     if (!(file_ext in msghandler)) {
         context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
         context.done();
@@ -583,6 +563,26 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 }
 
 /**
+ * Truncates the given string if it exceeds 128 characters and creates a new string.
+ * If the string is within the limit, returns the original string.
+ * @param {string} data - The original data.
+ * @returns {string} - The new string, truncated if necessary.
+ */
+function checkAndTruncate(data) {
+    const maxLength = 128;
+
+    // Check if the string length exceeds the maximum length
+    if (data.length > maxLength) {
+        // Truncate the data, taking the first 60 characters, adding "..." in between, and taking the last 60 characters
+        return data.substring(0, 60) + "..." + data.substring(data.length - 60);
+    } else {
+        // If the data is within the limit, return the original data
+        return data;
+    }
+}
+
+
+/**
  * @param {} servisBusTask
  * @param {} options
  *
@@ -605,7 +605,7 @@ function setSourceCategory(serviceBusTask, options) {
     options.metadata["sourceHost"] = `${serviceBusTask.storageName}/${serviceBusTask.containerName}`
     // context.log(serviceBusTask.blobName, serviceBusTask.storageName,serviceBusTask.containerName);
     // options.metadata["sourceCategory"] = "custom_source_category";
-    options.metadata["sourceName"] = serviceBusTask.blobName;
+    options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 
 module.exports = async function (context, triggerData) {

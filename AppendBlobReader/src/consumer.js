@@ -182,7 +182,7 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) 
             }
             resolve();
         } catch (error) {
-            if (error.code === "ResourceNotFound" && error.statusCode === 404) {
+            if (error !== undefined && (error.code === "ContainerNotFound" || error.code === "BlobNotFound" || error.statusCode == 404)) {
                 context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
                 resolve();
             } else {

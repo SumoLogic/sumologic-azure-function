@@ -172,16 +172,25 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
 async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
     var curdataLenSent = dataLenSent || contentDownloaded;
     var newOffset = parseInt(serviceBusTask.startByte, 10) + curdataLenSent;
-
-    if (newOffset > serviceBusTask.startByte) {
-        return await setAppendBlobOffset(context, serviceBusTask, newOffset).catch(function (error) {
-            // not failing with error because log will automatically released by appendblob
-            context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
-        });
-    } else {
-        context.log.verbose("Skipping to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
-        return new Promise(function (resolve, reject) { resolve(); });
-    }
+    return new Promise(async function (resolve, reject) {
+        try {
+            await setAppendBlobOffset(context, serviceBusTask, newOffset)
+            if (serviceBusTask.startByte === newOffset) {
+                context.log("Successfully updated Lock for Table row: " + serviceBusTask.rowKey + " Offset remains the same : " + newOffset);
+            } else {
+                context.log("Successfully updated OffsetMap, Table row: " + serviceBusTask.rowKey + ", To : " + newOffset + ", From: " + serviceBusTask.startByte);
+            }
+            resolve();
+        } catch (error) {
+            if (error.code === "ResourceNotFound" && error.statusCode === 404) {
+                context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
+                resolve();
+            } else {
+                context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
+                reject(error);
+            }
+        }
+    });
 }
 
 function sendToSumoBlocking(chunk, sendOptions, context, isText) {

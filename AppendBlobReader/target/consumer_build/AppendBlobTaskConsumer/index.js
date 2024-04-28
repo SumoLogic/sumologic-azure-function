@@ -262,7 +262,7 @@ function getBoundaryRegex(serviceBusTask) {
     // https://stackoverflow.com/questions/31969913/why-does-this-regexp-exec-cause-an-infinite-loop
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     if (file_ext === "json") {
-        logRegex = '\{\\s+\"time\"\:\\s+\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';
+        logRegex = '\{(?:[^{}]|(?R))*\}';
     }
     if (serviceBusTask.storageName === "mue1supportakspocsa" || serviceBusTask.storageName === "mue1supportaksdevsa" || serviceBusTask.storageName === "muw1nortonaksintsa" || serviceBusTask.storageName === "muw1supportaksstgsa" || serviceBusTask.storageName === "muw1supportaksprodsa" || serviceBusTask.storageName === "mue2supportaksprodsa" || serviceBusTask.storageName === "muw1supportakscoresa") {
         if (file_ext === "log") {

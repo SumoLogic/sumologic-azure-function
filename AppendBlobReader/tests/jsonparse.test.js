@@ -1,7 +1,4 @@
-// Create package.json with "{"scripts": { "test": "jest" }}"
-// install: npm install --save-dev jest
-// run: npm test 
-
+// sample.test.js
 const parse = require('./parse');
 
 //T1: \n{“key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}\n\r
@@ -116,6 +113,74 @@ test('Parse JSON T7 to equal R7', () => {
         [
             '{"key1": "value1\n","abc": [{"xyz1":"value1"},{"xyz2":"value2"}]}\n',
             '{"key2": "value2", "abc": [{"abc1":"value1"},{"abc2":"value2"}]}'
+        ]
+    ];
+
+    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+});
+
+//T8: "\n"hegjhf}{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r"
+//R8: 
+// '{"key1": "value1", "abc": {"xyz": "value3"}}\r\n'
+test('Parse JSON T7 to equal R7', () => {
+    regex = '\{"key+';
+    data = '\n"hegjhf}{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r';
+    var expectedOutPut = [
+        9,
+        [
+            '{"key1": "value1", "abc": {"xyz": "value3"}}\r\n'
+        ]
+    ];
+
+    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+});
+
+//T9: "\n"hegjhf}{"key1": "value1"}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r"
+//R9: 
+// '{"key1": "value1"}\r\n'
+test('Parse JSON T7 to equal R7', () => {
+    regex = '\{"key+';
+    data = '\n"hegjhf}{"key1": "value1"}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r';
+    var expectedOutPut = [
+        9,
+        [
+            '{"key1": "value1"}\r\n'
+        ]
+    ];
+
+    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+});
+
+//T10: "\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4"}}\r\n{"key2": "value2", "abc": {"xyz": "value4"}}{"key2\n\r"
+//R10: 
+// '{"key1": "value2", "abc": {"xyz": "value4"}}\r\n'
+// '{"key2": "value2", "abc": {"xyz": "value4"}}'
+test('Parse JSON T7 to equal R7', () => {
+    regex = '\{"key+';
+    data = '\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4"}}\r\n{"key2": "value2", "abc": {"xyz": "value4"}}{"key2\n\r';
+    var expectedOutPut = [
+        9,
+        [
+            '{"key1": "value2", "abc": {"xyz": "value4"}}\r\n',
+            '{"key2": "value2", "abc": {"xyz": "value4"}}'
+        ]
+    ];
+
+    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+});
+
+//T11: "\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n{"key2": "value2\n\r", "abc": {"xyz": "value4"}}{"key2\n\r"
+//R11: 
+// '{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n'
+// '{"key2": "value2\n\r", "abc": {"xyz": "value4"}}'
+test('Parse JSON T7 to equal R7', () => {
+    regex = '\{"key+';
+    data = '\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n{"key2": "value2\n\r", "abc": {"xyz": "value4"}}{"key2\n\r';
+    var expectedOutPut = [
+        9,
+        [
+            '{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n',
+            '{"key2": "value2\n\r", "abc": {"xyz": "value4"}}'
         ]
     ];
 

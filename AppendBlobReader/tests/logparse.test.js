@@ -1,6 +1,19 @@
 // sample.test.js
 const parse = require('./parse');
 
+var serviceBusTask = {
+    partitionKey: 'testcontainer-22-04-24-15-40-14',
+    rowKey: 'testsa220424154014-testcontainer-22-04-24-15-40-14-123.json',
+    containerName: 'testcontainer-22-04-24-15-40-14',
+    blobName: 'datafile.log',
+    storageName: 'testsa220424154014',
+    resourceGroupName: 'testsumosarg220424154014',
+    subscriptionId: '',
+    blobType: 'AppendBlob',
+    startByte: 0,
+    batchSize: 104857600
+}
+
 //T1: key1 = value1\nkey2 = value2\n
 //R1: 
 // 'key1 = value1\n'
@@ -14,7 +27,7 @@ test('Parse log T1 to equal R1', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T2: value1\nkey1 = value1\nkey2 = value2\nkey4 = value4
@@ -30,7 +43,7 @@ test('Parse log T2 to equal R2', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T3: value1\nkey1 = value1\nkey2 = value2\nkey4 =
@@ -46,7 +59,7 @@ test('Parse log T3 to equal R3', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T4: \nkey1 = value1\nkey2 = value2\nke
@@ -62,7 +75,7 @@ test('Parse log T4 to equal R4', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T5: \nkey2 = value2\n
@@ -75,5 +88,5 @@ test('Parse log T5 to equal R5', () => {
         []
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });

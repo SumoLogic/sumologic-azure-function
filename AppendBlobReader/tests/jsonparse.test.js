@@ -1,6 +1,19 @@
 // sample.test.js
 const parse = require('./parse');
 
+var serviceBusTask = {
+    partitionKey: 'testcontainer-22-04-24-15-40-14',
+    rowKey: 'testsa220424154014-testcontainer-22-04-24-15-40-14-123.json',
+    containerName: 'testcontainer-22-04-24-15-40-14',
+    blobName: 'datafile.log',
+    storageName: 'testsa220424154014',
+    resourceGroupName: 'testsumosarg220424154014',
+    subscriptionId: '',
+    blobType: 'AppendBlob',
+    startByte: 0,
+    batchSize: 104857600
+}
+
 //T1: \n{“key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}\n\r
 //R1: 
 // '{"key1": "value1", "abc": {"xyz": "value3"}}\r\n',
@@ -16,7 +29,7 @@ test('Parse JSON T1 to equal R1', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T2: {"key1": "value1"}\n{"key2": "value2"}\n{
@@ -32,7 +45,7 @@ test('Parse JSON T2 to equal R2', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T3: "value1"}\n{"key1": "value1"}\n{"key2": "value2"}\n{"key4": "value4"
@@ -48,7 +61,7 @@ test('Parse JSON T3 to equal R3', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T4: "}\n{"key1": "value1"}\n{"key2": "value2"}\n"
@@ -64,7 +77,7 @@ test('Parse JSON T3 to equal R3', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T5: "\n{"key2": "value2"}\n"
@@ -80,7 +93,7 @@ test('Parse JSON T5 to equal R5', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T6: "\n{“key1": "value1\n","abc": {"xyz": "value3"}}\n{"key2": "value2", "abc": {"xyz": "value3"}}"
@@ -98,7 +111,7 @@ test('Parse JSON T6 to equal R6', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T7: "\n{"key1": "value1\n","abc": [{"xyz1":"value1"},{"xyz2":"value2"}]}\n{"key2": "value2", "abc": [{"abc1":"value1"},{"abc2":"value2"}]}"
@@ -116,7 +129,7 @@ test('Parse JSON T7 to equal R7', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T8: "\n"hegjhf}{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r"
@@ -132,7 +145,7 @@ test('Parse JSON T7 to equal R7', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T9: "\n"hegjhf}{"key1": "value1"}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r"
@@ -148,7 +161,7 @@ test('Parse JSON T7 to equal R7', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T10: "\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4"}}\r\n{"key2": "value2", "abc": {"xyz": "value4"}}{"key2\n\r"
@@ -166,7 +179,7 @@ test('Parse JSON T7 to equal R7', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T11: "\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n{"key2": "value2\n\r", "abc": {"xyz": "value4"}}{"key2\n\r"
@@ -184,5 +197,5 @@ test('Parse JSON T7 to equal R7', () => {
         ]
     ];
 
-    expect(parse(data, regex)).toBe(JSON.stringify(expectedOutPut));
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });

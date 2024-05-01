@@ -21,6 +21,8 @@ var serviceBusTask = {
 test('Parse JSON T1 to equal R1', () => {
     regex = '\{"key+';
     data = '\n{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}\n\r';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         1,
         [
@@ -38,6 +40,8 @@ test('Parse JSON T1 to equal R1', () => {
 test('Parse JSON T2 to equal R2', () => {
     regex = '\{"key+';
     data = '{"key1": "value1"}\n{"key2": "value2"}\n{';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         0,
         [
@@ -54,6 +58,8 @@ test('Parse JSON T2 to equal R2', () => {
 test('Parse JSON T3 to equal R3', () => {
     regex = '\{"key+';
     data = '"value1"}\n{"key1": "value1"}\n{"key2": "value2"}\n{"key4": "value4"';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         10,
         [
@@ -70,6 +76,8 @@ test('Parse JSON T3 to equal R3', () => {
 test('Parse JSON T3 to equal R3', () => {
     regex = '\{"key+';
     data = '}\n{"key1": "value1"}\n{"key2": "value2"}\n';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         2,
         [
@@ -86,6 +94,8 @@ test('Parse JSON T3 to equal R3', () => {
 test('Parse JSON T5 to equal R5', () => {
     regex = '\{"key+';
     data = '\n{"key2": "value2"}\n';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         1,
         [
@@ -103,6 +113,8 @@ test('Parse JSON T5 to equal R5', () => {
 test('Parse JSON T6 to equal R6', () => {
     regex = '\{"key+';
     data = '\n{"key1": "value1\n","abc": {"xyz": "value3"}}\n{"key2": "value2", "abc": {"xyz": "value3"}}';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         1,
         [
@@ -121,6 +133,8 @@ test('Parse JSON T6 to equal R6', () => {
 test('Parse JSON T7 to equal R7', () => {
     regex = '\{"key+';
     data = '\n{"key1": "value1\n","abc": [{"xyz1":"value1"},{"xyz2":"value2"}]}\n{"key2": "value2", "abc": [{"abc1":"value1"},{"abc2":"value2"}]}';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         1,
         [
@@ -138,6 +152,8 @@ test('Parse JSON T7 to equal R7', () => {
 test('Parse JSON T7 to equal R7', () => {
     regex = '\{"key+';
     data = '\n"hegjhf}{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         9,
         [
@@ -154,6 +170,8 @@ test('Parse JSON T7 to equal R7', () => {
 test('Parse JSON T7 to equal R7', () => {
     regex = '\{"key+';
     data = '\n"hegjhf}{"key1": "value1"}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         9,
         [
@@ -171,6 +189,8 @@ test('Parse JSON T7 to equal R7', () => {
 test('Parse JSON T7 to equal R7', () => {
     regex = '\{"key+';
     data = '\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4"}}\r\n{"key2": "value2", "abc": {"xyz": "value4"}}{"key2\n\r';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         9,
         [
@@ -189,12 +209,44 @@ test('Parse JSON T7 to equal R7', () => {
 test('Parse JSON T7 to equal R7', () => {
     regex = '\{"key+';
     data = '\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n{"key2": "value2\n\r", "abc": {"xyz": "value4"}}{"key2\n\r';
+
+    serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [
         9,
         [
             '{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n',
             '{"key2": "value2\n\r", "abc": {"xyz": "value4"}}'
         ]
+    ];
+
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+});
+
+//T12: \n{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n
+//R12: []
+test('Parse JSON T12 to equal R12', () => {
+    regex = '\{"key+';
+    data = '\n{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n';
+
+    serviceBusTask.blobName = 'datafile.json';
+    var expectedOutPut = [
+        1,
+        []
+    ];
+
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+});
+
+//T13: \n{"key1": "value2"}
+//R13: '{"key1": "value2"}'
+test('Parse JSON T12 to equal R12', () => {
+    regex = '\{"key+';
+    data = '\n{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n';
+
+    serviceBusTask.blobName = 'datafile.json';
+    var expectedOutPut = [
+        1,
+        ['{"key1": "value2"}']
     ];
 
     expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));

@@ -90,3 +90,18 @@ test('Parse log T5 to equal R5', () => {
 
     expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
 });
+
+//T6: \nkey1 = value\\n1\nkey2 = value2\nke
+//R6: key1 = value1\n
+test('Parse log T6 to equal R6', () => {
+    regex = 'key+';
+    data = '\nkey1 = value\\n1\nkey2 = value2\nke';
+
+    serviceBusTask.blobName = 'datafile.json';
+    var expectedOutPut = [
+        1,
+        ['key1 = value\\n1\n']
+    ];
+
+    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+});

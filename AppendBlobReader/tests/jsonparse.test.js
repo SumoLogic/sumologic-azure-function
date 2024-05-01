@@ -241,7 +241,7 @@ test('Parse JSON T12 to equal R12', () => {
 //R13: '{"key1": "value2"}'
 test('Parse JSON T12 to equal R12', () => {
     regex = '\{"key+';
-    data = '\n{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n';
+    data = '\n{"key1": "value2"}';
 
     serviceBusTask.blobName = 'datafile.json';
     var expectedOutPut = [

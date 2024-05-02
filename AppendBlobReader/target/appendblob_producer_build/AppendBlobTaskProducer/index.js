@@ -188,34 +188,8 @@ function batchUpdateOffsetTable(context, allentities, mode) {
         }
     });
     return Promise.all(batch_promises).then(function (results) {
-
-
         context.log.verbose("batchUpdateOffsetTable mode: " + mode + " succentCount: " + successCnt + " errorCount: " + errorCnt);
         return results;
-    });
-}
-
-
-/*
- * @param  {} context
- *
- * It fetches the archived files for block blob type entries in table storage.
-*/
-function getArchivedBlockBlobFiles(context) {
-    // https://azure.github.io/azure-storage-node/TableQuery.html
-    // https://github.com/Azure/azure-storage-node/blob/master/lib/services/table/tableutilities.js
-    var maxArchivedDays = parseInt(process.env.APPSETTING_MAX_LOG_FILE_ROLLOVER_DAYS);
-    var dateVal = new Date();
-    dateVal.setDate(dateVal.getDate() - maxArchivedDays);
-
-    var archivedFileQuery = `blobType eq '${'BlockBlob'}' and eventdate le datetime'${dateVal.toISOString()}'`
-    return queryFiles(archivedFileQuery, context).then(function (processedFiles) {
-        context.log("BlockBlob Archived Files: " + processedFiles.length);
-        return processedFiles;
-    }).catch(function (error) {
-        // not failing so that other tasks gets archived
-        context.log.error(`Unable to fetch blockblob archived rows from table, Error: ${JSON.stringify(error)}`);
-        return [];
     });
 }
 
@@ -265,7 +239,7 @@ function getFixedNumberOfEntitiesbyEnqueTime(context, entities) {
     let allFileCount = 0;
     let maxFileTaskPerInvoke = 8000;
     // 800 because 25 is the max number of requests one invoke can make 25*800 = 20000 which is equal to max request per sec.
-    let maxFileTaskPerInvokePerStorageAccount = 800;
+    let maxFileTaskPerInvokePerStorageAccount = 8000;
     var filteredEntities = [];
     let entity = null;
     for (let idx = 0; idx < entities.length; idx += 1) {
@@ -318,7 +292,12 @@ function setBatchSizePerStorageAccount(newFiletasks) {
  * then only new task is produced for that file in case of append blobs.
  */
 function getTasksForUnlockedFiles(context) {
-    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0}`
+
+    var maxIngestionDelayPerFile = 5;
+    var dateVal = new Date();
+    dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxIngestionDelayPerFile));
+    // fetching unlocked files which were not enqueued in last 5 minutes
+    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`
     return new Promise(function (resolve, reject) {
         queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];
@@ -375,11 +354,8 @@ function PollAppendBlobFiles(context) {
                 entitiesToUpdate = entitiesToUpdate.concat(unlockedEntities);
                 return batchUpdateOffsetTable(context, entitiesToUpdate, "insert");
             }),
-            getArchivedBlockBlobFiles(context).then(function (blockBlobArchivedFiles) {
-                // deleting both archived block blob and append blob files
-                archivedRowEntities = archivedRowEntities.concat(blockBlobArchivedFiles);
-                return batchUpdateOffsetTable(context, archivedRowEntities, "delete");
-            })
+
+            batchUpdateOffsetTable(context, archivedRowEntities, "delete")
         ];
         return Promise.all(batch_promises).then(function (results) {
             context.log("BatchUpdateResults - ", results);

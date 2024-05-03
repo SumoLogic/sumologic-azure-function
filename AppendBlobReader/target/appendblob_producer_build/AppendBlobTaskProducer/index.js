@@ -279,7 +279,8 @@ function setBatchSizePerStorageAccount(newFiletasks) {
     let MAX_GET_BLOB_REQUEST_PER_INVOKE = 25;
     for (let idx = 0; idx < newFiletasks.length; idx += 1) {
         task = newFiletasks[idx];
-        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName])) * 4 * 1024 * 1024;
+        let apiCallPerFile = Math.max(1, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName]));
+        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, apiCallPerFile) * 4 * 1024 * 1024;
     }
     return newFiletasks;
 }

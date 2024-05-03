@@ -318,7 +318,7 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask) {
     try {
         // if last chunk is parsable then make lastIndex = data.length
         if (suffix.length > 0) {
-            JSON.parse(suffix)
+            JSON.parse(suffix.trim())
             lastIndex = data.length;
         }
     } catch (e) {
@@ -379,9 +379,7 @@ function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, 
             if (dataChunks.length === 0) {
                 context.log(`No chunks to send ${serviceBusTask.rowKey}`);
             } else if (numChunksSent === dataChunks.length) {
-                if (numChunksSent === dataChunks.length) {
-                    context.log(`All chunks successfully sent to sumo, Blob: ${serviceBusTask.rowKey}, Prefix: ${ignoredprefixLen}, Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
-                }
+                context.log(`All chunks successfully sent to sumo, Blob: ${serviceBusTask.rowKey}, Prefix: ${ignoredprefixLen}, Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
             }
             resolve(dataLenSent + ignoredprefixLen);
         });
@@ -617,7 +615,7 @@ function setSourceCategory(serviceBusTask, options) {
     options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 
-module.exports = async function (context, triggerData) {
+async function run (context, triggerData) {
     contentDownloaded = 0;
 
     // triggerData = {
@@ -643,3 +641,9 @@ module.exports = async function (context, triggerData) {
         context.done()
     }
 };
+
+module.exports = {
+    "run": run,
+    "sendDataToSumoUsingSplitHandler": sendDataToSumoUsingSplitHandler,
+    "decodeDataChunks": decodeDataChunks
+}

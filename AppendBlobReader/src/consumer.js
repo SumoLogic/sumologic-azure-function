@@ -615,7 +615,7 @@ function setSourceCategory(serviceBusTask, options) {
     options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 
-module.exports = async function (context, triggerData) {
+async function run (context, triggerData) {
     contentDownloaded = 0;
 
     // triggerData = {
@@ -641,3 +641,9 @@ module.exports = async function (context, triggerData) {
         context.done()
     }
 };
+
+module.exports = {
+    "run": run,
+    "sendDataToSumoUsingSplitHandler": sendDataToSumoUsingSplitHandler,
+    "decodeDataChunks": decodeDataChunks
+}

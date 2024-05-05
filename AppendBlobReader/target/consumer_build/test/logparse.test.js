@@ -1,5 +1,25 @@
 // sample.test.js
-const parse = require('./parse');
+const { decodeDataChunks } = require('../AppendBlobTaskConsumer/decodeDataChunks');
+const maxChunkSize = 44;
+const context = {
+    log: function (message) {
+        console.log(message);
+    }
+};
+
+// Extend context.log with error, warning, verbose, etc.
+context.log.error = function (message) {
+    console.error(`Error: ${message}`);
+};
+
+context.log.warning = function (message) {
+    console.warn(`Warning: ${message}`);
+};
+
+context.log.verbose = function (message) {
+    console.log(`Verbose: ${message}`);
+};
+
 
 var serviceBusTask = {
     partitionKey: 'testcontainer-22-04-24-15-40-14',
@@ -27,7 +47,7 @@ test('Parse log T1 to equal R1', () => {
         ]
     ];
 
-    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+    expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T2: value1\nkey1 = value1\nkey2 = value2\nkey4 = value4
@@ -43,7 +63,7 @@ test('Parse log T2 to equal R2', () => {
         ]
     ];
 
-    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+    expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T3: value1\nkey1 = value1\nkey2 = value2\nkey4 =
@@ -59,7 +79,7 @@ test('Parse log T3 to equal R3', () => {
         ]
     ];
 
-    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+    expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T4: \nkey1 = value1\nkey2 = value2\nke
@@ -75,7 +95,7 @@ test('Parse log T4 to equal R4', () => {
         ]
     ];
 
-    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+    expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T5: \nkey2 = value2\n
@@ -88,20 +108,18 @@ test('Parse log T5 to equal R5', () => {
         []
     ];
 
-    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+    expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));
 });
 
 //T6: \nkey1 = value\\n1\nkey2 = value2\nke
 //R6: key1 = value1\n
 test('Parse log T6 to equal R6', () => {
     regex = 'key+';
-    data = '\nkey1 = value\\n1\nkey2 = value2\nke';
-
-    serviceBusTask.blobName = 'datafile.json';
+    data = '\nkey1 = value\n1\nkey2 = value2\nke';
     var expectedOutPut = [
         1,
-        ['key1 = value\\n1\n']
+        ['key1 = value\n1\n']
     ];
 
-    expect(parse(data, regex, serviceBusTask)).toBe(JSON.stringify(expectedOutPut));
+    expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));
 });

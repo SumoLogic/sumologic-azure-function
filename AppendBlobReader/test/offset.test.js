@@ -1,5 +1,5 @@
 // sample.test.js
-var { sendDataToSumoUsingSplitHandler } = require('../AppendBlobTaskConsumer/sendDataToSumoUsingSplitHandler');
+var { sendDataToSumoUsingSplitHandler } = require('../target/consumer_build/AppendBlobTaskConsumer/sendDataToSumoUsingSplitHandler');
 const context = {
     log: function (message) {
         console.log(message);

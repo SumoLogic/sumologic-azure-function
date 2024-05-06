@@ -1,5 +1,5 @@
 // sample.test.js
-const { decodeDataChunks } = require('../AppendBlobTaskConsumer/decodeDataChunks');
+const { decodeDataChunks } = require('../target/consumer_build/AppendBlobTaskConsumer/decodeDataChunks');
 const maxChunkSize = 44;
 const context = {
     log: function (message) {
@@ -38,7 +38,7 @@ var serviceBusTask = {
 // '{"key1": "value1", "abc": {"xyz": "value3"}}\r\n',
 // '{"key1": "value2", "abc": {"xyz": "value4"}}\n\r'
 test('Parse JSON T1 to equal R1', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}\n\r';
     
     var expectedOutPut = [
@@ -56,7 +56,7 @@ test('Parse JSON T1 to equal R1', () => {
 //R2: 
 // '{"key1": "value1"}\n'
 test('Parse JSON T2 to equal R2', () => {
-    regex = '\{"key+';
+    
     data = '{"key1": "value1"}\n{"key2": "value2"}\n{';
     
     var expectedOutPut = [
@@ -73,7 +73,7 @@ test('Parse JSON T2 to equal R2', () => {
 //R3: 
 // '{"key1": "value1"}\n{"key2": "value2"}\n'
 test('Parse JSON T3 to equal R3', () => {
-    regex = '\{"key+';
+    
     data = '"value1"}\n{"key1": "value1"}\n{"key2": "value2"}\n{"key4": "value4"';
     
     var expectedOutPut = [
@@ -90,7 +90,7 @@ test('Parse JSON T3 to equal R3', () => {
 //R4: 
 // '{"key1": "value1"}\n{"key2": "value2"}\n'
 test('Parse JSON T3 to equal R3', () => {
-    regex = '\{"key+';
+    
     data = '}\n{"key1": "value1"}\n{"key2": "value2"}\n';
     
     var expectedOutPut = [
@@ -107,7 +107,7 @@ test('Parse JSON T3 to equal R3', () => {
 //R5: 
 // '{"key2": "value2"}\n'
 test('Parse JSON T5 to equal R5', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key2": "value2"}\n';
     
     var expectedOutPut = [
@@ -125,7 +125,7 @@ test('Parse JSON T5 to equal R5', () => {
 // '{"key1": "value1\n","abc": {"xyz": "value3"}}\n',
 // '{"key2": "value2", "abc": {"xyz": "value3"}}'
 test('Parse JSON T6 to equal R6', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key1": "value1\n","abc": {"xyz": "value3"}}\n{"key2": "value2", "abc": {"xyz": "value3"}}';
     
     var expectedOutPut = [
@@ -144,7 +144,7 @@ test('Parse JSON T6 to equal R6', () => {
 // '{"key1": "value1\n","abc": [{"xyz1":"value1"},{"xyz2":"value2"}]}\n',
 // '{"key2": "value2", "abc": [{"abc1":"value1"},{"abc2":"value2"}]}'
 test('Parse JSON T7 to equal R7', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key1": "value1\n","abc": [{"xyz1":"value1"},{"xyz2":"value2"}]}\n{"key2": "value2", "abc": [{"abc1":"value1"},{"abc2":"value2"}]}';
 
     var expectedOutPut = [
@@ -162,7 +162,7 @@ test('Parse JSON T7 to equal R7', () => {
 //R8: 
 // '{"key1": "value1", "abc": {"xyz": "value3"}}\r\n'
 test('Parse JSON T7 to equal R7', () => {
-    regex = '\{"key+';
+    
     data = '\n"hegjhf}{"key1": "value1", "abc": {"xyz": "value3"}}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r';
 
     var expectedOutPut = [
@@ -179,7 +179,7 @@ test('Parse JSON T7 to equal R7', () => {
 //R9: 
 // '{"key1": "value1"}\r\n'
 test('Parse JSON T7 to equal R7', () => {
-    regex = '\{"key+';
+    
     data = '\n"hegjhf}{"key1": "value1"}\r\n{"key1": "value2", "abc": {"xyz": "value4"}}{"ke\n\r';
     
     var expectedOutPut = [
@@ -197,7 +197,7 @@ test('Parse JSON T7 to equal R7', () => {
 // '{"key1": "value2", "abc": {"xyz": "value4"}}\r\n'
 // '{"key2": "value2", "abc": {"xyz": "value4"}}'
 test('Parse JSON T7 to equal R7', () => {
-    regex = '\{"key+';
+    
     data = '\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4"}}\r\n{"key2": "value2", "abc": {"xyz": "value4"}}{"key2\n\r';
     
     var expectedOutPut = [
@@ -216,7 +216,7 @@ test('Parse JSON T7 to equal R7', () => {
 // '{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n'
 // '{"key2": "value2\n\r", "abc": {"xyz": "value4"}}'
 test('Parse JSON T7 to equal R7', () => {
-    regex = '\{"key+';
+    
     data = '\n"hegjhf}{"key1": "value2", "abc": {"xyz": "value4\n"}}\r\n{"key2": "value2\n\r", "abc": {"xyz": "value4"}}{"key2\n\r';
 
     var expectedOutPut = [
@@ -233,7 +233,7 @@ test('Parse JSON T7 to equal R7', () => {
 //T12: \n{"key1": "value2", "abc": {"xyz": "value4"}}\r\n
 //R12: []
 test('Parse JSON T12 to equal R12', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key1": "value2", "abc": {"xyz": "value4"}}\r\n';
     
     var expectedOutPut = [
@@ -247,7 +247,7 @@ test('Parse JSON T12 to equal R12', () => {
 //T13: \n{"key1": "value2"}
 //R13: '{"key1": "value2"}'
 test('Parse JSON T13 to equal R13', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key1": "value2"}';
     
     var expectedOutPut = [
@@ -261,7 +261,7 @@ test('Parse JSON T13 to equal R13', () => {
 //T14: \n{"key1": "value\n2"}
 //R14: ''
 test('Parse JSON T14 to equal R14', () => {
-    regex = '\{"key+';
+    
     data = '\n{"key1": "value\\n2"}';
     
     var expectedOutPut = [

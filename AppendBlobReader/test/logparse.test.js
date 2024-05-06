@@ -1,5 +1,5 @@
 // sample.test.js
-const { decodeDataChunks } = require('../AppendBlobTaskConsumer/decodeDataChunks');
+const { decodeDataChunks } = require('../target/consumer_build/AppendBlobTaskConsumer/decodeDataChunks');
 const maxChunkSize = 44;
 const context = {
     log: function (message) {
@@ -38,7 +38,6 @@ var serviceBusTask = {
 //R1: 
 // 'key1 = value1\n'
 test('Parse log T1 to equal R1', () => {
-    regex = 'key+';
     data = 'key1 = value1\nkey2 = value2\n';
     var expectedOutPut = [
         0,
@@ -54,7 +53,7 @@ test('Parse log T1 to equal R1', () => {
 //R2: 
 // 'key1 = value1\n'
 test('Parse log T2 to equal R2', () => {
-    regex = 'key+';
+    
     data = 'value1\nkey1 = value1\nkey2 = value2\nkey4 = value4';
     var expectedOutPut = [
         7,
@@ -70,7 +69,7 @@ test('Parse log T2 to equal R2', () => {
 //R3: 
 // 'key1 = value1\n'
 test('Parse log T3 to equal R3', () => {
-    regex = 'key+';
+    
     data = 'value1\nkey1 = value1\nkey2 = value2\nkey4 =';
     var expectedOutPut = [
         7,
@@ -86,7 +85,7 @@ test('Parse log T3 to equal R3', () => {
 //R4: 
 // 'key1 = value1\n'
 test('Parse log T4 to equal R4', () => {
-    regex = 'key+';
+    
     data = '\nkey1 = value1\nkey2 = value2\nke';
     var expectedOutPut = [
         1,
@@ -101,7 +100,7 @@ test('Parse log T4 to equal R4', () => {
 //T5: \nkey2 = value2\n
 //R5: []
 test('Parse log T5 to equal R5', () => {
-    regex = 'key+';
+    
     data = '\nkey2 = value2\n';
     var expectedOutPut = [
         1,
@@ -114,7 +113,7 @@ test('Parse log T5 to equal R5', () => {
 //T6: \nkey1 = value\\n1\nkey2 = value2\nke
 //R6: key1 = value1\n
 test('Parse log T6 to equal R6', () => {
-    regex = 'key+';
+    
     data = '\nkey1 = value\n1\nkey2 = value2\nke';
     var expectedOutPut = [
         1,

@@ -298,7 +298,7 @@ function getTasksForUnlockedFiles(context) {
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxIngestionDelayPerFile));
     // fetching unlocked files which were not enqueued in last 5 minutes
-    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`
+    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and ( not (lastEnqueLockTime lt '') or lastEnqueLockTime le datetime'${dateVal.toISOString()}')`
     return new Promise(function (resolve, reject) {
         queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];

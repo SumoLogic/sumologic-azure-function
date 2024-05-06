@@ -5,7 +5,6 @@
 const { ContainerClient } = require("@azure/storage-blob");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { TableClient } = require("@azure/data-tables");
-const { decodeDataChunks } = require('./decodeDataChunks');
 const { sendDataToSumoUsingSplitHandler } = require('./sendDataToSumoUsingSplitHandler');
 const azureTableClient = TableClient.fromConnectionString(process.env.AzureWebJobsStorage, process.env.TABLE_NAME);
 const MaxAttempts = 3
@@ -440,7 +439,7 @@ function setSourceCategory(serviceBusTask, options) {
     options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 
-module.exports = async function run(context, triggerData) {
+module.exports = async function (context, triggerData) {
     contentDownloaded = 0;
 
     // triggerData = {

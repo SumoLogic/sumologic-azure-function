@@ -279,7 +279,8 @@ function setBatchSizePerStorageAccount(newFiletasks) {
     let MAX_GET_BLOB_REQUEST_PER_INVOKE = 25;
     for (let idx = 0; idx < newFiletasks.length; idx += 1) {
         task = newFiletasks[idx];
-        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName])) * 4 * 1024 * 1024;
+        let apiCallPerFile = Math.max(1, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName]));
+        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, apiCallPerFile) * 4 * 1024 * 1024;
     }
     return newFiletasks;
 }
@@ -297,7 +298,7 @@ function getTasksForUnlockedFiles(context) {
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxIngestionDelayPerFile));
     // fetching unlocked files which were not enqueued in last 5 minutes
-    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`
+    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and ( not (lastEnqueLockTime lt '') or lastEnqueLockTime le datetime'${dateVal.toISOString()}')`
     return new Promise(function (resolve, reject) {
         queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];

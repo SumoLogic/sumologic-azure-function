@@ -41,7 +41,7 @@ function getBoundaryRegex(serviceBusTask) {
         logRegex = '\{\\s+\"time\"\:\\s+\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';;
     } else if ((serviceBusTask.storageName === "muw1olpolpadminccatsa01" || serviceBusTask.storageName === "mue2olpolpadminccatsa01" || serviceBusTask.storageName === "muw1olpolpadminsa01") && serviceBusTask.containerName === "insights-logs-appservicehttplogs") {
         logRegex = '\{\\s+\"category\"\:\\s+\"';
-    } else if (serviceBusTask.storageName === "testsa220424154014") { // unit test
+    } else if (serviceBusTask.storageName === "testsa070524101434") { // unit test
         if (file_ext === "json") {
             logRegex = '\{"key+';
         } else {
@@ -62,60 +62,70 @@ function getBoundaryRegex(serviceBusTask) {
     so that in next invocation it will pick up from <date><incompletemsg>
  */
 function decodeDataChunks(context, dataBytesBuffer, serviceBusTask, maxChunkSize = 1 * 1024 * 1024) {
-
-    var dataChunks = [];
-    let defaultEncoding = "utf8";
-    // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.
-    var data = dataBytesBuffer.toString(defaultEncoding);
-    // remove prefix before first date
-    // remove suffix after last date
-    let logRegex = getBoundaryRegex(serviceBusTask);
-
-    // return -1 if not found
-    let firstIdx = regexIndexOf(data, logRegex);
-    let lastIndex = regexLastIndexOf(data, logRegex, firstIdx + 1);
-
-    // data.substring method extracts the characters in a string between "start" and "end", not including "end" itself.
-    let prefix = data.substring(0, firstIdx);
-    // in case only one time string
-    if (lastIndex === -1 && data.length > 0) {
-        lastIndex = data.length;
-    }
-    let suffix = data.substring(lastIndex, data.length);
-
     try {
-        // if last chunk is parsable then make lastIndex = data.length
-        if (suffix.length > 0) {
-            JSON.parse(suffix.trim());
+        var dataChunks = [];
+        let defaultEncoding = "utf8";
+        // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.
+        var data = dataBytesBuffer.toString(defaultEncoding);
+        // remove prefix before first date
+        // remove suffix after last date
+        let logRegex = getBoundaryRegex(serviceBusTask);
+
+        // return -1 if not found
+        let firstIdx = regexIndexOf(data, logRegex);
+        let lastIndex = regexLastIndexOf(data, logRegex, firstIdx + 1);
+
+        // data.substring method extracts the characters in a string between "start" and "end", not including "end" itself.
+        let prefix = data.substring(0, firstIdx);
+        // in case only one time string
+        if (lastIndex === -1 && data.length > 0) {
             lastIndex = data.length;
         }
-    } catch (e) {
-        context.log.verbose("Last chunk not json parsable so ignoring", suffix, lastIndex, e);
-    }
-    // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
-    // for new files offset will always start from date
-    var ignoredprefixLen = Buffer.byteLength(prefix, defaultEncoding);
-    // data with both prefix and suffix removed
-    data = data.substring(firstIdx, lastIndex);
-    // can't use matchAll since it's available only after version > 12
-    let startpos = 0;
-    //let maxChunkSize = 1 * 1024 * 1024; // 1 MB
-    while ((match = logRegex.exec(data)) !== null) {
+        let suffix = data.substring(lastIndex, data.length);
 
-        if (match.index - startpos >= maxChunkSize) {
-            dataChunks.push(data.substring(startpos, match.index));
-            context.log.verbose("New chunk %d %d", startpos, match.index);
-            startpos = match.index;
+        function jsonParse(jsonString, count) {
+            try {
+                // if last chunk is parsable then make lastIndex = data.length
+                if (jsonString.length > 0) {
+                    JSON.parse(jsonString.trim());
+                    lastIndex = count;
+                }
+            } catch (error) {
+                context.log.verbose("Last chunk not json parsable so ignoring", suffix, lastIndex, error);
+            }
         }
-    }
-    // pushing the remaining chunk
-    let lastChunk = data.substring(startpos, data.length);
-    if (lastChunk.length > 0) {
-        dataChunks.push(lastChunk);
-    }
 
-    //context.log.verbose(`Decode Data Chunks, rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
-    return [ignoredprefixLen, dataChunks];
+        jsonParse(suffix, data.length); // Call the inner function
+
+
+        // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
+        // for new files offset will always start from date
+        var ignoredprefixLen = Buffer.byteLength(prefix, defaultEncoding);
+        // data with both prefix and suffix removed
+        data = data.substring(firstIdx, lastIndex);
+        // can't use matchAll since it's available only after version > 12
+        let startpos = 0;
+        //let maxChunkSize = 1 * 1024 * 1024; // 1 MB
+        while ((match = logRegex.exec(data)) !== null) {
+
+            if (match.index - startpos >= maxChunkSize) {
+                dataChunks.push(data.substring(startpos, match.index));
+                context.log.verbose("New chunk %d %d", startpos, match.index);
+                startpos = match.index;
+            }
+        }
+        // pushing the remaining chunk
+        let lastChunk = data.substring(startpos, data.length);
+        if (lastChunk.length > 0) {
+            dataChunks.push(lastChunk);
+        }
+
+        context.log.verbose(`Decode Data Chunks, rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
+        return [ignoredprefixLen, dataChunks];
+    } catch (error) {
+        context.log.error(`Error in decodeDataChunks blob: ${serviceBusTask.rowKey}`, error)
+        return [0,0];
+    }
 }
-//hello c
+
 exports.decodeDataChunks = decodeDataChunks;

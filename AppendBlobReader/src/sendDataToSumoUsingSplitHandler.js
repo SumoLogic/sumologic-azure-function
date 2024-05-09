@@ -31,11 +31,13 @@ function sendToSumoBlocking(chunk, sendOptions, context, isText) {
  */
 async function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOptions, serviceBusTask) {
 
-    var results = decodeDataChunks(context, dataBytesBuffer, serviceBusTask);
+    var results = decodeDataChunks(context, dataBytesBuffer, serviceBusTask)
+        
     var ignoredprefixLen = results[0];
     var dataChunks = results[1];
     var numChunksSent = 0;
     var dataLenSent = 0;
+
     return new Promise(function (resolve, reject) {
 
         let promiseChain = Promise.resolve();
@@ -53,15 +55,13 @@ async function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOpt
             resolve(dataLenSent + ignoredprefixLen);
         }).then(function () {
             if (dataChunks.length === 0) {
-                context.log(`No chunks to send ${serviceBusTask.rowKey}`);
+                context.log.verbose(`No chunks to send ${serviceBusTask.rowKey}`);
             } else if (numChunksSent === dataChunks.length) {
                 context.log(`All chunks successfully sent to sumo, Blob: ${serviceBusTask.rowKey}, Prefix: ${ignoredprefixLen}, Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
             }
             resolve(dataLenSent + ignoredprefixLen);
         });
-
     });
-
 }
-//hello
+
 exports.sendDataToSumoUsingSplitHandler = sendDataToSumoUsingSplitHandler;

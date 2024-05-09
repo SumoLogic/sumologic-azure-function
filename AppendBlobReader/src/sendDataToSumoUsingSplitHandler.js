@@ -63,5 +63,5 @@ async function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOpt
     });
 
 }
-//hello
+
 exports.sendDataToSumoUsingSplitHandler = sendDataToSumoUsingSplitHandler;

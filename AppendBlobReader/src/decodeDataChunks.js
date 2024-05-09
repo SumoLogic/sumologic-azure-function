@@ -12,8 +12,8 @@ function regexIndexOf(string, regex, startpos) {
 function regexLastIndexOf(string, regex, startpos) {
     // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
     var stringToWorkWith = string.substring(startpos, string.length);
-    var match = string.match(regex);
-    return match ? string.lastIndexOf(match.slice(-1)) : -1;
+    var match = stringToWorkWith.match(regex);
+    return match ? stringToWorkWith.lastIndexOf(match.slice(-1)) : -1;
 }
 
 /*  Function to use boundary regex for azure storage accounts to avoid split issue & multiple single event issue */
@@ -114,8 +114,8 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask, maxChunkSize
         dataChunks.push(lastChunk);
     }
 
-    //context.log.verbose(`Decode Data Chunks, rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
+    context.log.verbose(`Decode Data Chunks, rowKey: ${serviceBusTask.rowKey} numChunks: ${dataChunks.length} ignoredprefixLen: ${ignoredprefixLen} suffixLen: ${Buffer.byteLength(suffix, defaultEncoding)} dataLenTobeSent: ${Buffer.byteLength(data, defaultEncoding)}`);
     return [ignoredprefixLen, dataChunks];
 }
-//hello c
+
 exports.decodeDataChunks = decodeDataChunks;

@@ -213,7 +213,7 @@ function getSumoEndpoint(serviceBusTask) {
 /*
     First all the data(of length batchsize) is fetched and then sequentially sends the data by splitting into 1 MB chunks and removing splitted chunks in boundary
  */
-function errorHandler(err, serviceBusTask, context) { 
+function errorHandler(err, serviceBusTask, context) {
     //TODO test and update err.code to error.details.errorCode
     let discardError = false;
     let errMsg = (err !== undefined ? err.toString() : "");
@@ -243,7 +243,7 @@ function errorHandler(err, serviceBusTask, context) {
 
 /**
  * Archive an ingested file by deleting its entity from Azure Table Storage.
- * 
+ *
  * @param {Object} serviceBusTask - Task object associated with the service bus message.
  * @param {Object} context - The context object for logging or other operations.
  */
@@ -261,7 +261,7 @@ async function archiveIngestedFile(serviceBusTask, context) {
 
 /**
  * Stream data from a readable stream to a buffer.
- * 
+ *
  * @param {Object} context - The context object for logging or other operations.
  * @param {ReadableStream} readableStream - The readable stream containing the data to be streamed.
  * @param {Object} serviceBusTask - Task object associated with the service bus message.
@@ -300,7 +300,7 @@ async function streamToBuffer(context, readableStream, serviceBusTask) {
 
 /**
  * Task Handler method to collect and parse data from Append Blob, send to Sumo Collector/Source
- * 
+ *
  * @param {Object} serviceBusTask - The serviceBusTask object.
  * @param {Object} context - The context object for logging or other operations.
  */
@@ -343,7 +343,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         );
         var blockBlobClient = containerClient.getBlockBlobClient(serviceBusTask.blobName);
     }
-    catch(error){
+    catch (error) {
         context.log.error(`Error while creating block blob client: ${serviceBusTask.rowKey} err ${error}`);
         let discardError = errorHandler(error, serviceBusTask, context);
         return await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
@@ -362,15 +362,15 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         // downloadToBuffer is only available in Node.js
         //const fileSize = fs.statSync(localFilePath).size;
-        // https://learn.microsoft.com/en-us/javascript/api/@azure/storage-blob/blobdownloadtobufferoptions?view=azure-node-latest#properties 
-        
+        // https://learn.microsoft.com/en-us/javascript/api/@azure/storage-blob/blobdownloadtobufferoptions?view=azure-node-latest#properties
+
         var numChunks = 0;
         await blockBlobClient.downloadToBuffer(buffer, serviceBusTask.startByte, batchSize, {
             //abortSignal: AbortController.timeout(30 * 60 * 1000), // Abort uploading with timeout in 30mins
             blockSize: 4 * 1024 * 1024, // 4MB block size
             concurrency: 20, // 20 concurrency
             maxRetryRequestsPerBlock: MaxAttempts,
-            onProgress: function(state){
+            onProgress: function (state) {
                 numChunks += 1;
                 if ((numChunks >= 10 && numChunks % 10 === 0) || numChunks <= 2) {
                     context.log.verbose(`Received ${state.loadedBytes} bytes of data. numChunks ${numChunks}`);
@@ -384,29 +384,33 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         // context.log(
         //     `downloadToBuffer failed, requestId - ${error.request.requestId}, statusCode - ${error.statusCode}, errorCode - ${error.details.errorCode}`,
         // );
-
-        context.log(`downloadToBuffer failed ${error}`)
-;
-        let discardError = errorHandler(error, serviceBusTask, context);
-        if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
-            // delete the entry from table storage
-            archiveIngestedFile(serviceBusTask, context);
+        let errMsg = (error !== undefined ? error.toString() : "");
+        if (typeof errMsg === 'string' && errMsg.indexOf("Stream drains before getting enough data needed")) {
+            context.log(`Finished Fetching numChunks: ${numChunks} dataLen: ${Buffer.byteLength(buffer, 'utf-8')} rowKey: ${serviceBusTask.rowKey}`);
         } else {
-            await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
-                if (discardError) {
-                    context.done();
-                } else {
-                    context.log.error("Failed to download data in streamToBuffer");
+            context.log(`downloadToBuffer failed ${error}`)
+                ;
+            let discardError = errorHandler(error, serviceBusTask, context);
+            if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
+                // delete the entry from table storage
+                archiveIngestedFile(serviceBusTask, context);
+            } else {
+                await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
+                    if (discardError) {
+                        context.done();
+                    } else {
+                        context.log.error("Failed to download data in streamToBuffer");
 
-                    // after 1 hr lock automatically releases
-                    context.done(error);
-                }
-            });
+                        // after 1 hr lock automatically releases
+                        context.done(error);
+                    }
+                });
+            }
+            return;
         }
-        return;
     }
 
-       
+
     await sendDataToSumoUsingSplitHandler(context, buffer, sendOptions, serviceBusTask).then(async (dataLenSent) => {
         contentDownloaded = dataLenSent;
         await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
@@ -488,13 +492,13 @@ module.exports = async function (context, triggerData) {
     //     "startByte": 0,
     //     "batchSize": 104857600
     // }
-    
+
     context.log("Inside blob task consumer:", triggerData.rowKey);
 
-    if (triggerData.blobType == 'AppendBlob'){
+    if (triggerData.blobType == 'AppendBlob') {
         await appendBlobStreamMessageHandlerv2(context, triggerData);
     }
-    else{
+    else {
         context.log(`triggerData blobType is ${triggerData.blobType}, Exit now!`);
         context.done()
     }

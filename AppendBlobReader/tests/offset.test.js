@@ -37,8 +37,8 @@ var serviceBusTask = {
     rowKey: 'testsa220424154014-testcontainer-22-04-24-15-40-14-123.json',
     containerName: 'testcontainer-22-04-24-15-40-14',
     blobName: 'datafile.json',
-    storageName: 'testsa220424154014',
-    resourceGroupName: 'testsumosarg220424154014',
+    storageName: 'testsa070524101434',
+    resourceGroupName: 'testsumosarg070524101434',
     subscriptionId: '',
     blobType: 'AppendBlob',
     startByte: 0,
@@ -50,7 +50,7 @@ var serviceBusTask = {
 test.concurrent('Parse log T1 to equal R1', async () => {
      
     let data = 'key1 = value1\nkey2 = value2\n';
-    let outputData = 'key1 = value1\n';
+    let outputData = 'key1 = value1\nkey2 = value2\n';
     
     sendOptions.metadata.sourceName = 'datafile.log';
     serviceBusTask.blobName = 'datafile.log';
@@ -114,7 +114,7 @@ test.concurrent('Parse JSON T3 to equal R3', async () => {
 test.concurrent('Parse log T4 to equal R4', async () => {
      
     data = 'key1 = valu\ne1\nkey2 = value2\n';
-    outputData = 'key1 = valu\ne1\n';
+    outputData = 'key1 = valu\ne1\nkey2 = value2\n';
     
     sendOptions.metadata.sourceName = 'datafile.log';
     serviceBusTask.blobName = 'datafile.log';

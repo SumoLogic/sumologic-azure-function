@@ -26,8 +26,8 @@ var serviceBusTask = {
     rowKey: 'testsa220424154014-testcontainer-22-04-24-15-40-14-123.json',
     containerName: 'testcontainer-22-04-24-15-40-14',
     blobName: 'datafile.log',
-    storageName: 'testsa220424154014',
-    resourceGroupName: 'testsumosarg220424154014',
+    storageName: 'testsa070524101434',
+    resourceGroupName: 'testsumosarg070524101434',
     subscriptionId: '',
     blobType: 'AppendBlob',
     startByte: 0,
@@ -42,7 +42,7 @@ test('Parse log T1 to equal R1', () => {
     var expectedOutPut = [
         0,
         [
-            'key1 = value1\n'
+            'key1 = value1\nkey2 = value2\n'
         ]
     ];
 
@@ -104,7 +104,7 @@ test('Parse log T5 to equal R5', () => {
     data = '\nkey2 = value2\n';
     var expectedOutPut = [
         1,
-        []
+        ['key2 = value2\n']
     ];
 
     expect(JSON.stringify(decodeDataChunks(context, Buffer.from(data), serviceBusTask, maxChunkSize))).toBe(JSON.stringify(expectedOutPut));

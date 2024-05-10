@@ -12,8 +12,8 @@ function regexIndexOf(string, regex, startpos) {
 function regexLastIndexOf(string, regex, startpos) {
     // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
     var stringToWorkWith = string.substring(startpos, string.length);
-    var match = stringToWorkWith.match(regex);
-    return match ? stringToWorkWith.lastIndexOf(match.slice(-1)) : -1;
+    var match = string.match(regex);
+    return match ? string.lastIndexOf(match.slice(-1)) : -1;
 }
 
 /*  Function to use boundary regex for azure storage accounts to avoid split issue & multiple single event issue */
@@ -41,7 +41,7 @@ function getBoundaryRegex(serviceBusTask) {
         logRegex = '\{\\s+\"time\"\:\\s+\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';;
     } else if ((serviceBusTask.storageName === "muw1olpolpadminccatsa01" || serviceBusTask.storageName === "mue2olpolpadminccatsa01" || serviceBusTask.storageName === "muw1olpolpadminsa01") && serviceBusTask.containerName === "insights-logs-appservicehttplogs") {
         logRegex = '\{\\s+\"category\"\:\\s+\"';
-    } else if (serviceBusTask.storageName === "testsa220424154014") { // unit test
+    } else if (serviceBusTask.storageName === "testsa070524101434") { // unit test
         if (file_ext === "json") {
             logRegex = '\{"key+';
         } else {
@@ -83,15 +83,24 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask, maxChunkSize
     }
     let suffix = data.substring(lastIndex, data.length);
 
-    try {
-        // if last chunk is parsable then make lastIndex = data.length
-        if (suffix.length > 0) {
-            JSON.parse(suffix.trim());
-            lastIndex = data.length;
+    if (suffix.length > 0) {
+        if (logRegex.source.startsWith('\{')) { // consider as JSON
+            try {
+                JSON.parse(suffix.trim());
+                lastIndex = data.length;
+            } catch (error) {
+                //context.log.verbose("Failed to parse the JSON last chunk. Ignoring:", { suffix, lastIndex, error });
+            }
+        } else { // consider as log
+            if (suffix.endsWith('\n')) {
+                lastIndex = data.length;
+            }
+            else {
+                //context.log.verbose("Failed to parse the log last chunk. Ignoring:", { suffix, lastIndex, error });
+            }
         }
-    } catch (e) {
-        context.log.verbose("Last chunk not json parsable so ignoring", suffix, lastIndex, e);
     }
+
     // ideally ignoredprefixLen should always be 0. it will be dropped for existing files
     // for new files offset will always start from date
     var ignoredprefixLen = Buffer.byteLength(prefix, defaultEncoding);
@@ -99,7 +108,6 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask, maxChunkSize
     data = data.substring(firstIdx, lastIndex);
     // can't use matchAll since it's available only after version > 12
     let startpos = 0;
-    //let maxChunkSize = 1 * 1024 * 1024; // 1 MB
     while ((match = logRegex.exec(data)) !== null) {
 
         if (match.index - startpos >= maxChunkSize) {

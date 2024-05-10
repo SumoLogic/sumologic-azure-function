@@ -12,7 +12,7 @@ function regexIndexOf(string, regex, startpos) {
 function regexLastIndexOf(string, regex, startpos) {
     // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
     var stringToWorkWith = string.substring(startpos, string.length);
-    var match = string.match(regex);
+    var match = stringToWorkWith.match(regex);
     return match ? string.lastIndexOf(match.slice(-1)) : -1;
 }
 
@@ -82,21 +82,21 @@ function decodeDataChunks(context, dataBytesBuffer, serviceBusTask, maxChunkSize
         lastIndex = data.length;
     }
     let suffix = data.substring(lastIndex, data.length);
-
+    var file_ext = String(serviceBusTask.blobName).split(".").pop();
     if (suffix.length > 0) {
-        if (logRegex.source.startsWith('\{')) { // consider as JSON
+        if (file_ext === "json" || file_ext === "blob" || logRegex.source.startsWith('\{')) { // consider as JSON
             try {
                 JSON.parse(suffix.trim());
                 lastIndex = data.length;
             } catch (error) {
-                //context.log.verbose("Failed to parse the JSON last chunk. Ignoring:", { suffix, lastIndex, error });
+                context.log.verbose("Failed to parse the JSON last chunk. Ignoring:", { suffix, lastIndex, error });
             }
         } else { // consider as log
             if (suffix.endsWith('\n')) {
                 lastIndex = data.length;
             }
             else {
-                //context.log.verbose("Failed to parse the log last chunk. Ignoring:", { suffix, lastIndex, error });
+                context.log.verbose("Failed to parse the log last chunk. Ignoring:", { suffix, lastIndex });
             }
         }
     }

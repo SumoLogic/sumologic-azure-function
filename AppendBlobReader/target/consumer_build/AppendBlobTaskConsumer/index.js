@@ -344,7 +344,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         var blockBlobClient = containerClient.getBlockBlobClient(serviceBusTask.blobName);
 
         context.log.verbose(`Download blob content, offset: ${serviceBusTask.startByte}, count: ${serviceBusTask.startByte + batchSize - 1}, option: ${JSON.stringify(options)}`);
-        let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, serviceBusTask.startByte + batchSize - 1, options);
+        let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, batchSize, options);
         await streamToBuffer(context, downloadBlockBlobResponse.readableStreamBody, serviceBusTask).then(
             async function (value) {
                 context.log.verbose("Successfully downloaded data, sending to SUMO.");

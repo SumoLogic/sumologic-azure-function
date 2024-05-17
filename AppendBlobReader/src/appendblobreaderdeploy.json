@@ -294,74 +294,7 @@
             }
         },
         {
-            "type": "Microsoft.Insights/autoscaleSettings",
-            "name": "[concat(parameters('serverfarms_BlobReaderPlan_name'), 'Autoscale')]",
-            "apiVersion": "2022-10-01",
-            "location": "[parameters('location')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]"
-            ],
-            "properties": {
-                "profiles": [
-                    {
-                        "name": "Auto created scale condition",
-                        "capacity": {
-                            "minimum": "2",
-                            "maximum": "10",
-                            "default": "2"
-                        },
-                        "rules": [
-                            {
-                                "scaleAction": {
-                                    "direction": "Increase",
-                                    "type": "ChangeCount",
-                                    "value": "1",
-                                    "cooldown": "PT5M"
-                                },
-                                "metricTrigger": {
-                                    "metricName": "MemoryPercentage",
-                                    "metricNamespace": "microsoft.web/serverfarms",
-                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
-                                    "operator": "GreaterThanOrEqual",
-                                    "statistic": "Max",
-                                    "threshold": 70,
-                                    "timeAggregation": "Maximum",
-                                    "timeGrain": "PT1M",
-                                    "timeWindow": "PT10M",
-                                    "dividePerInstance": true
-                                }
-                            },
-                            {
-                                "scaleAction": {
-                                    "direction": "Decrease",
-                                    "type": "ChangeCount",
-                                    "value": "1",
-                                    "cooldown": "PT5M"
-                                },
-                                "metricTrigger": {
-                                    "metricName": "MemoryPercentage",
-                                    "metricNamespace": "microsoft.web/serverfarms",
-                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
-                                    "operator": "LessThanOrEqual",
-                                    "statistic": "Max",
-                                    "threshold": 30,
-                                    "timeAggregation": "Maximum",
-                                    "timeGrain": "PT1M",
-                                    "timeWindow": "PT10M",
-                                    "dividePerInstance": true
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "targetResourceLocation": "[parameters('location')]",
-                "enabled": true,
-                "name": "[concat(parameters('serverfarms_BlobReaderPlan_name'), 'Autoscale')]",
-                "targetResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]"
-            }
-        },
-        {
-            "type": "Microsoft.Insights/autoscaleSettings",
+            "type": "Microsoft.Insights/autoscalesettings",
             "name": "[concat(parameters('serverfarms_BlobReaderPlan_name'), 'Autoscale')]",
             "apiVersion": "2022-10-01",
             "location": "[parameters('location')]",
@@ -428,74 +361,7 @@
             }
         },
         {
-            "type": "Microsoft.Insights/autoscaleSettings",
-            "name": "[concat(parameters('serverfarms_ConsumerPlan_name'), 'Autoscale')]",
-            "apiVersion": "2022-10-01",
-            "location": "[parameters('location')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
-            ],
-            "properties": {
-                "profiles": [
-                    {
-                        "name": "Auto created scale condition",
-                        "capacity": {
-                            "minimum": "2",
-                            "maximum": "10",
-                            "default": "2"
-                        },
-                        "rules": [
-                            {
-                                "scaleAction": {
-                                    "direction": "Increase",
-                                    "type": "ChangeCount",
-                                    "value": "1",
-                                    "cooldown": "PT5M"
-                                },
-                                "metricTrigger": {
-                                    "metricName": "MemoryPercentage",
-                                    "metricNamespace": "microsoft.web/serverfarms",
-                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
-                                    "operator": "GreaterThanOrEqual",
-                                    "statistic": "Max",
-                                    "threshold": 70,
-                                    "timeAggregation": "Maximum",
-                                    "timeGrain": "PT1M",
-                                    "timeWindow": "PT10M",
-                                    "dividePerInstance": true
-                                }
-                            },
-                            {
-                                "scaleAction": {
-                                    "direction": "Decrease",
-                                    "type": "ChangeCount",
-                                    "value": "1",
-                                    "cooldown": "PT5M"
-                                },
-                                "metricTrigger": {
-                                    "metricName": "MemoryPercentage",
-                                    "metricNamespace": "microsoft.web/serverfarms",
-                                    "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
-                                    "operator": "LessThanOrEqual",
-                                    "statistic": "Max",
-                                    "threshold": 30,
-                                    "timeAggregation": "Maximum",
-                                    "timeGrain": "PT1M",
-                                    "timeWindow": "PT10M",
-                                    "dividePerInstance": true
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "targetResourceLocation": "[parameters('location')]",
-                "enabled": true,
-                "name": "[concat(parameters('serverfarms_ConsumerPlan_name'), 'Autoscale')]",
-                "targetResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]"
-            }
-        },
-        {
-            "type": "Microsoft.Insights/autoscaleSettings",
+            "type": "Microsoft.Insights/autoscalesettings",
             "name": "[concat(parameters('serverfarms_ConsumerPlan_name'), 'Autoscale')]",
             "apiVersion": "2022-10-01",
             "location": "[parameters('location')]",

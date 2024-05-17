@@ -493,6 +493,7 @@
                 "enabled": true,
                 "reserved": false,
                 "siteConfig": {
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -589,6 +590,7 @@
                 "enabled": true,
                 "reserved": false,
                 "siteConfig": {
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -597,6 +599,10 @@
                         "allowedOrigins": [ "https://portal.azure.com" ]
                     },
                     "appSettings": [
+                        {
+                            "name": "languageWorkers:node:arguments",
+                            "value": "--max-old-space-size=1536"
+                        },
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
                             "value": "~4"
@@ -689,6 +695,7 @@
                 "enabled": true,
                 "reserved": false,
                 "siteConfig": {
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -697,6 +704,10 @@
                         "allowedOrigins": [ "https://portal.azure.com" ]
                     },
                     "appSettings": [
+                        {
+                            "name": "languageWorkers:node:arguments",
+                            "value": "--max-old-space-size=3072"
+                        },
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
                             "value": "~4"

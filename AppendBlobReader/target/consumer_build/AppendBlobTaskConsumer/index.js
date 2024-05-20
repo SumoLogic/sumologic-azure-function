@@ -10,7 +10,6 @@ const azureTableClient = TableClient.fromConnectionString(process.env.AzureWebJo
 const MaxAttempts = 3
 
 var DEFAULT_CSV_SEPARATOR = ",";
-var contentDownloaded = 0;
 
 const tokenCredential = new DefaultAzureCredential();
 
@@ -103,7 +102,7 @@ function jsonlineHandler(context, msg, serviceBusTask) {
         try {
             jsonArray = JSON.parse("[" + submsg.replace(/}\r?\n{/g, "},{") + "]");
             let suffixlen = msg.length - (last_idx + 1);
-            contentDownloaded -= suffixlen;
+            // contentDownloaded -= suffixlen;
         } catch (e) {
             context.log("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0, start_idx), msg.substr(last_idx + 1));
             // will try to ingest the whole block
@@ -136,7 +135,7 @@ function getUpdatedEntity(task, endByte) {
         resourceGroupName: task.resourceGroupName,
         subscriptionId: task.subscriptionId
     }
-    if (contentDownloaded > 0) {
+    if (endByte > task.startByte) {
         entity.senddate = new Date().toISOString()
     }
     return entity;
@@ -160,7 +159,7 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
             context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
-            context.log("Update offset result: ", updateResult)
+            context.log.verbose("Updated offset result: %s row: %s to: %d from: %d", JSON.stringify(updateResult), serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
             resolve();
         } catch (error) {
             reject(error)
@@ -169,8 +168,8 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
 }
 
 async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
-    var curdataLenSent = dataLenSent || contentDownloaded;
-    var newOffset = parseInt(serviceBusTask.startByte, 10) + curdataLenSent;
+
+    var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
     return new Promise(async function (resolve, reject) {
         try {
             await setAppendBlobOffset(context, serviceBusTask, newOffset)
@@ -185,7 +184,7 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) 
                 context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
                 resolve();
             } else {
-                context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
+                context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(dataLenSent)}`)
                 reject(error);
             }
         }
@@ -349,7 +348,6 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
             async function (value) {
                 context.log.verbose("Successfully downloaded data, sending to SUMO.");
                 await sendDataToSumoUsingSplitHandler(context, value, sendOptions, serviceBusTask).then(async (dataLenSent) => {
-                    contentDownloaded = dataLenSent;
                     await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
                         context.done();
                     });
@@ -440,7 +438,6 @@ function setSourceCategory(serviceBusTask, options) {
 }
 
 module.exports = async function (context, triggerData) {
-    contentDownloaded = 0;
 
     // triggerData = {
     //     "partitionKey": 'testcontainer-01-03-24-00-00-01',

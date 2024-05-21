@@ -5,7 +5,7 @@
         "version": "[4.0.0, 5.0.0)"
     },
     "serviceBus": {
-      "maxConcurrentCalls": 20,
+      "maxConcurrentCalls": 40,
       "prefetchCount": 80,
       "autoRenewTimeout": "00:10:00",
       "autoComplete": true
@@ -28,7 +28,7 @@
         "default": "Warning",
         "Host.Aggregator": "Trace",
         "Host.Results": "Information",
-        "Function": "Information"
+        "Function": "Trace"
       }
     }
 }

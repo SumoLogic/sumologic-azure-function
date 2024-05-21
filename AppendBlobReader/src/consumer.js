@@ -10,7 +10,6 @@ const azureTableClient = TableClient.fromConnectionString(process.env.AzureWebJo
 const MaxAttempts = 3
 
 var DEFAULT_CSV_SEPARATOR = ",";
-var contentDownloaded = 0;
 
 const tokenCredential = new DefaultAzureCredential();
 
@@ -103,7 +102,7 @@ function jsonlineHandler(context, msg, serviceBusTask) {
         try {
             jsonArray = JSON.parse("[" + submsg.replace(/}\r?\n{/g, "},{") + "]");
             let suffixlen = msg.length - (last_idx + 1);
-            contentDownloaded -= suffixlen;
+            // contentDownloaded -= suffixlen;
         } catch (e) {
             context.log("JSON ParseException in blobHandler for rowKey: " + serviceBusTask.rowKey + " with submsg ", start_idx, last_idx, msg.substr(0, start_idx), msg.substr(last_idx + 1));
             // will try to ingest the whole block
@@ -136,7 +135,7 @@ function getUpdatedEntity(task, endByte) {
         resourceGroupName: task.resourceGroupName,
         subscriptionId: task.subscriptionId
     }
-    if (contentDownloaded > 0) {
+    if (endByte > task.startByte) {
         entity.senddate = new Date().toISOString()
     }
     return entity;
@@ -157,10 +156,10 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
     return new Promise(async (resolve, reject) => {
         try {
             // Todo: this should be atomic update if other request decreases offset it shouldn't allow
-            context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
+            context.log.verbose("Attempting to update offset row: %s from: %d to: %d", serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
-            context.log("Update offset result: ", updateResult)
+            context.log.verbose("Updated offset result: %s row: %s from: %d to: %d", JSON.stringify(updateResult), serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
             resolve();
         } catch (error) {
             reject(error)
@@ -168,16 +167,16 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
     });
 }
 
-async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
-    var curdataLenSent = dataLenSent || contentDownloaded;
-    var newOffset = parseInt(serviceBusTask.startByte, 10) + curdataLenSent;
+async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent=0) {
+
+    var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
     return new Promise(async function (resolve, reject) {
         try {
             await setAppendBlobOffset(context, serviceBusTask, newOffset)
             if (serviceBusTask.startByte === newOffset) {
                 context.log("Successfully updated Lock for Table row: " + serviceBusTask.rowKey + " Offset remains the same : " + newOffset);
             } else {
-                context.log("Successfully updated OffsetMap, Table row: " + serviceBusTask.rowKey + ", To : " + newOffset + ", From: " + serviceBusTask.startByte);
+                context.log("Successfully updated OffsetMap, Table row: " + serviceBusTask.rowKey + ", From: " + serviceBusTask.startByte, "To : " + newOffset);
             }
             resolve();
         } catch (error) {
@@ -185,7 +184,7 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) 
                 context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
                 resolve();
             } else {
-                context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(curdataLenSent)}`)
+                context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(dataLenSent)}`)
                 reject(error);
             }
         }
@@ -349,7 +348,6 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
             async function (value) {
                 context.log.verbose("Successfully downloaded data, sending to SUMO.");
                 await sendDataToSumoUsingSplitHandler(context, value, sendOptions, serviceBusTask).then(async (dataLenSent) => {
-                    contentDownloaded = dataLenSent;
                     await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
                         context.done();
                     });
@@ -364,7 +362,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                     // delete the entry from table storage
                     archiveIngestedFile(serviceBusTask, context);
                 } else {
-                    await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                    await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
                         if (discardError) {
                             context.done();
                         } else {
@@ -440,7 +438,6 @@ function setSourceCategory(serviceBusTask, options) {
 }
 
 module.exports = async function (context, triggerData) {
-    contentDownloaded = 0;
 
     // triggerData = {
     //     "partitionKey": 'testcontainer-01-03-24-00-00-01',

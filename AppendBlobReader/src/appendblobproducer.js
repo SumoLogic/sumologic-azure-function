@@ -275,12 +275,12 @@ function setBatchSizePerStorageAccount(newFiletasks) {
             filesPerStorageAccountCount[task.storageName] += 1;
         }
     };
-    let MAX_READ_API_LIMIT_PER_SEC = 10000;
+    let MAX_READ_API_LIMIT_PER_SEC = 15000;
     let MAX_GET_BLOB_REQUEST_PER_INVOKE = 25;
     for (let idx = 0; idx < newFiletasks.length; idx += 1) {
         task = newFiletasks[idx];
         let apiCallPerFile = Math.max(1, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName]));
-        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, apiCallPerFile) * 4 * 1024 * 1024;
+        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, apiCallPerFile) * 12 * 1024 * 1024;
     }
     return newFiletasks;
 }
@@ -307,7 +307,7 @@ function getTasksForUnlockedFiles(context) {
             var lockedEntities = [];
             allentities.forEach(function (entity) {
                 if (isAppendBlobArchived(context, entity)) {
-                    archivedFiles.push(entity);
+                    archivedFiles.push(getunLockedEntity(entity));
                 } else {
                     if (entity.storageName === "glo1503134026east01" || entity.storageName === "glo1503134026west01") {
                         newFiletasks.push(getTask(entity));

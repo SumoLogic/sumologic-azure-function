@@ -156,10 +156,10 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
     return new Promise(async (resolve, reject) => {
         try {
             // Todo: this should be atomic update if other request decreases offset it shouldn't allow
-            context.log.verbose("Attempting to update offset row: %s to: %d from: %d", serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
+            context.log.verbose("Attempting to update offset row: %s from: %d to: %d", serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
             var entity = getUpdatedEntity(serviceBusTask, newOffset)
             var updateResult = await updateAppendBlobPointerMap(entity)
-            context.log.verbose("Updated offset result: %s row: %s to: %d from: %d", JSON.stringify(updateResult), serviceBusTask.rowKey, newOffset, serviceBusTask.startByte);
+            context.log.verbose("Updated offset result: %s row: %s from: %d to: %d", JSON.stringify(updateResult), serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
             resolve();
         } catch (error) {
             reject(error)
@@ -167,7 +167,7 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
     });
 }
 
-async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) {
+async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent=0) {
 
     var newOffset = parseInt(serviceBusTask.startByte, 10) + dataLenSent;
     return new Promise(async function (resolve, reject) {
@@ -176,7 +176,7 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent) 
             if (serviceBusTask.startByte === newOffset) {
                 context.log("Successfully updated Lock for Table row: " + serviceBusTask.rowKey + " Offset remains the same : " + newOffset);
             } else {
-                context.log("Successfully updated OffsetMap, Table row: " + serviceBusTask.rowKey + ", To : " + newOffset + ", From: " + serviceBusTask.startByte);
+                context.log("Successfully updated OffsetMap, Table row: " + serviceBusTask.rowKey + ", From: " + serviceBusTask.startByte, "To : " + newOffset);
             }
             resolve();
         } catch (error) {
@@ -362,7 +362,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
                     // delete the entry from table storage
                     archiveIngestedFile(serviceBusTask, context);
                 } else {
-                    await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent).then(function () {
+                    await releaseLockfromOffsetTable(context, serviceBusTask).then(function () {
                         if (discardError) {
                             context.done();
                         } else {

@@ -233,9 +233,11 @@ function getFixedNumberOfEntitiesbyEnqueTime(context, entities) {
         } else {
             lastEnqueLockTime_b = b.lastEnqueLockTime;
         }
-        return lastEnqueLockTime_b - lastEnqueLockTime_a;
+        lastEnqueLockTime_a = new Date(lastEnqueLockTime_a);
+        lastEnqueLockTime_b = new Date(lastEnqueLockTime_b);
+        return (lastEnqueLockTime_a < lastEnqueLockTime_b) ? -1 : ((lastEnqueLockTime_a > lastEnqueLockTime_b) ? 1 : 0);
     });
-    context.log(`Min locktime: ${entities[0].lastEnqueLockTime} Max locktime: ${entities[entities.length-1].lastEnqueLockTime}`);
+
     let filesPerStorageAccountCount = {};
     let allFileCount = 0;
     let maxFileTaskPerInvoke = 8000;

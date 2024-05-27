@@ -252,7 +252,7 @@ function filterAppendBlob(messages) {
  */
 function filterByFileExtension(context, messages) {
     // List of supported file extensions
-    var supportedExtensions = ['log', 'csv', 'json', 'blob', 'nsg'];
+    var supportedExtensions = ['log', 'csv', 'json', 'blob', 'txt'];
 
     // Use Array.prototype.filter to filter messages based on extension
     return messages.filter(message => {

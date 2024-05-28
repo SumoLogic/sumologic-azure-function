@@ -327,8 +327,8 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log.verbose(`Downloading blob, rowKey: ${serviceBusTask.rowKey}, offset: ${serviceBusTask.startByte}, count: ${serviceBusTask.startByte + batchSize - 1}, option: ${JSON.stringify(options)}`);
         let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, batchSize, options);
         bufferData = await streamToBuffer(context, downloadBlockBlobResponse.readableStreamBody, serviceBusTask)
-        context.log.verbose("Successfully downloaded data, sending to SUMO.");
-
+        context.log.verbose(`Successfully downloaded data, sending to SUMO. RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+        
     } catch (error) {
         downloadErrorHandler(error, serviceBusTask, context);
         if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
@@ -362,7 +362,6 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log.error(`Error while sending to sumo: ${serviceBusTask.rowKey} err ${err}`);
     }
 
-    context.log(`RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
     context.done();
 
 }

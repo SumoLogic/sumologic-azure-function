@@ -332,7 +332,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log.verbose("Successfully downloaded data, sending to SUMO.");
 
     } catch (error) {
-        downloadfErrorHandler(error, serviceBusTask, context);
+        downloadErrorHandler(error, serviceBusTask, context);
         if (error !== undefined && (error.code === "BlobNotFound" || error.statusCode == 404)) {
             // delete the entry from table storage
             await archiveIngestedFile(serviceBusTask, context);

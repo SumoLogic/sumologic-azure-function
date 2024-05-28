@@ -334,7 +334,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         } else {
             await releaseLockfromOffsetTable(context, serviceBusTask);
         }
-        context.log.verbose(`rowKey - ${serviceBusTask.rowKey}, RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+        
         context.done();
         return;
     }

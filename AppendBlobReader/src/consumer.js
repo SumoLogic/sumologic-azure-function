@@ -307,8 +307,6 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         return;
     }
 
-
-
     let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
     context.log.verbose("Setting batch-size", batchSize);
 
@@ -341,6 +339,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         }
 
         context.done();
+        return;
     }
 
     try {
@@ -359,14 +358,12 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         let dataLenSent = await sendDataToSumoUsingSplitHandler(context, bufferData, sendOptions, serviceBusTask)
         await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent)
 
-        context.done();
-
     } catch (err) {
         context.log.error(`Error while sending to sumo: ${serviceBusTask.rowKey} err ${err}`);
-        context.done();
     }
 
     context.log(`RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+    context.done();
 
 }
 

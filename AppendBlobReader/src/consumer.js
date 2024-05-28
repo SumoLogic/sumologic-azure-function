@@ -180,7 +180,7 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent =
             }
             resolve();
         } catch (error) {
-            if (error !== undefined && (error.details.odataError === "ResourceNotFound" || error.statusCode == 404)) {
+            if (error !== undefined && (error.details.odataError === "ResourceNotFound" && error.statusCode == 404)) {
                 context.log.error("Error - Failed to update OffsetMap, resource not found with RowKey: " + serviceBusTask.rowKey);
                 resolve();
             } else {
@@ -242,7 +242,7 @@ async function archiveIngestedFile(serviceBusTask, context) {
     try {
         // Delete entity from Azure Table Storage
         await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
-        context.log(`Entity deleted: ${serviceBusTask.blobName}`);
+        context.log(`Entity deleted, rowKey: ${serviceBusTask.rowKey}`);
     } catch (error) {
         context.log.error(`failed to archive Ingested File : ${error}`);
     }
@@ -282,6 +282,7 @@ async function streamToBuffer(context, readableStream, serviceBusTask) {
         // Event listener for stream errors
         readableStream.on('error', (err) => {
             // Reject the promise with the error if any
+            context.log.verbose(`Stream errors in streamToBuffer, rowKey: ${serviceBusTask.rowKey}`);
             reject(err);
         });
     });
@@ -300,8 +301,9 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    var msghandler = { "log": logHandler, "csv": csvHandler, "json": jsonlineHandler, "blob": jsonlineHandler };
-    if (!(file_ext in msghandler)) {
+
+    var supportedExtensions = ['log', 'csv', 'json', 'blob', 'txt'];
+    if (!(supportedExtensions.includes(file_ext))) {
         context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
         context.done();
         return;
@@ -327,7 +329,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.log.verbose(`Downloading blob, rowKey: ${serviceBusTask.rowKey}, offset: ${serviceBusTask.startByte}, count: ${serviceBusTask.startByte + batchSize - 1}, option: ${JSON.stringify(options)}`);
         let downloadBlockBlobResponse = await blockBlobClient.download(serviceBusTask.startByte, batchSize, options);
         bufferData = await streamToBuffer(context, downloadBlockBlobResponse.readableStreamBody, serviceBusTask)
-        context.log.verbose(`Successfully downloaded data, sending to SUMO. RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
+        context.log.verbose(`Successfully downloaded data, sending to SUMO.`);
         
     } catch (error) {
         downloadErrorHandler(error, serviceBusTask, context);
@@ -337,7 +339,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         } else {
             await releaseLockfromOffsetTable(context, serviceBusTask);
         }
-
+        context.log.verbose(`rowKey - ${serviceBusTask.rowKey}, RequestId - ${downloadBlockBlobResponse.requestId}, statusCode - ${downloadBlockBlobResponse._response.status}`);
         context.done();
         return;
     }
@@ -427,13 +429,13 @@ module.exports = async function (context, triggerData) {
     // "batchSize": 314572800
     // }
 
-    context.log("Inside blob task consumer");
+    context.log(`Inside blob task consumer, rowKey: ${triggerData.rowKey}`);
 
     if (triggerData.blobType == 'AppendBlob') {
         await appendBlobStreamMessageHandlerv2(context, triggerData);
     }
     else {
-        context.log(`triggerData blobType is ${triggerData.blobType}, Exit now!`);
+        context.log(`triggerData blobType is ${triggerData.blobType}, rowKey: ${triggerData.rowKey} Exit now!`);
         context.done()
     }
 };

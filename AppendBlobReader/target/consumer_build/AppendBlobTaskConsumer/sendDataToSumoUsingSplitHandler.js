@@ -49,7 +49,7 @@ async function sendDataToSumoUsingSplitHandler(context, dataBytesBuffer, sendOpt
             promiseChain = promiseChain.then(makeNextPromise(dataChunks[i]));
         }
         return promiseChain.catch(function (err) {
-            context.log.error(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}, error ${err}`);
+            context.log.error(`Error in sendDataToSumoUsingSplitHandler blob: ${serviceBusTask.rowKey} prefix: ${ignoredprefixLen} Sent ${dataLenSent} bytes of data. numChunksSent ${numChunksSent}`);
             resolve(dataLenSent + ignoredprefixLen);
         }).then(function () {
             if (dataChunks.length === 0) {

@@ -180,14 +180,9 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent =
             }
             resolve();
         } catch (error) {
-            if (error !== undefined && (error.details.odataError === "ResourceNotFound" && error.statusCode == 404)) {
-                context.log.error("Error - Failed to update OffsetMap, resource not found with RowKey: " + serviceBusTask.rowKey);
-                resolve();
-            } else {
-                // Data duplication may occure if data send to sumo and updateoffset api fails.
-                context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(dataLenSent)}`)
-                resolve();
-            }
+            // Data duplication may occure if data send to sumo and updateoffset api fails.
+            context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask: ${JSON.stringify(serviceBusTask)}, data: ${JSON.stringify(dataLenSent)}`)
+            resolve();
         }
     });
 }

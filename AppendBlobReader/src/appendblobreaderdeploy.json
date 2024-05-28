@@ -487,6 +487,9 @@
             "apiVersion": "2022-09-01",
             "location": "[parameters('location')]",
             "scale": null,
+            "identity": {
+                "type":"SystemAssigned"
+            },
             "properties": {
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "httpsOnly": true,

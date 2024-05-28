@@ -180,8 +180,8 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent =
             }
             resolve();
         } catch (error) {
-            if (error !== undefined && (error.code === "ContainerNotFound" || error.code === "BlobNotFound" || error.statusCode == 404)) {// TODO rowKey not found : remove entity
-                context.log("Already Archived AppendBlob File with RowKey: " + serviceBusTask.rowKey);
+            if (error !== undefined && (error.details.odataError === "ResourceNotFound" || error.statusCode == 404)) {
+                context.log.error("Error - Failed to update OffsetMap, resource not found with RowKey: " + serviceBusTask.rowKey);
                 resolve();
             } else {
                 // Data duplication may occure if data send to sumo and updateoffset api fails.

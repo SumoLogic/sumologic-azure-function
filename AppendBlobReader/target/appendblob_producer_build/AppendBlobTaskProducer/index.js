@@ -199,16 +199,20 @@ function batchUpdateOffsetTable(context, allentities, mode) {
  * and thus there is a chance that the file may get locked for a long time so the below function automatically
  * releases the lock after a threshold is breached.
  */
-function getLockedEntitiesExceedingThreshold(context) {
+function getLockedEntitiesExceedingThreshold(context, maxQueueingDelay) {
 
-    var maxlockThresholdMin = 15;
+    var maxlockThresholdMin = 30;
+    if (maxQueueingDelay > 30) {
+        context.log("WARNING maxQueueingDelay exceeding 30 minutes");
+        maxlockThresholdMin = maxQueueingDelay;
+    }
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxlockThresholdMin));
     var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`
     return queryFiles(lockedFileQuery, context).then(function (allentities) {
-        context.log("AppendBlob Locked Files exceeding maxlockThresholdMin: " + allentities.length);
+        context.log(`AppendBlob Locked Files exceeding maxlockThresholdMin of ${maxlockThresholdMin}:  ${allentities.length}`);
         var unlockedEntities = allentities.map(function (entity) {
-            context.log("Unlocking Append Blob File with rowKey: %s lastEnqueLockTime: %s", entity.rowKey, entity.lastEnqueLockTime);
+            context.log.verbose("Unlocking Append Blob File with rowKey: %s lastEnqueLockTime: %s", entity.rowKey, entity.lastEnqueLockTime);
             return getunLockedEntity(entity);
         });
         return unlockedEntities;
@@ -278,16 +282,34 @@ function setBatchSizePerStorageAccount(newFiletasks) {
             filesPerStorageAccountCount[task.storageName] += 1;
         }
     };
-    let MAX_READ_API_LIMIT_PER_SEC = 15000;
-    let MAX_GET_BLOB_REQUEST_PER_INVOKE = 25;
+    let MAX_READ_API_LIMIT_PER_SEC = 20000;  // storage account read api limit
+    let MAX_GET_BLOB_REQUEST_PER_INVOKE = 50; // 50*4MB = 200MB max batch size size
     for (let idx = 0; idx < newFiletasks.length; idx += 1) {
         task = newFiletasks[idx];
-        let apiCallPerFile = Math.max(1, Math.floor(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName]));
-        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, apiCallPerFile) * 12 * 1024 * 1024;
+        let apiCallPerFile = Math.max(1, Math.ceil(MAX_READ_API_LIMIT_PER_SEC / filesPerStorageAccountCount[task.storageName]));
+        task.batchSize = Math.min(MAX_GET_BLOB_REQUEST_PER_INVOKE, apiCallPerFile) * 4 * 1024 * 1024; // single request fetches 4MB
     }
     return newFiletasks;
 }
 
+/**
+ *
+ *
+ */
+function getDateDifferenceInMinutes(date_a, date_b) {
+
+    try {
+        if !(date_a && date_b)
+            return null;
+        var dateVal_a = new Date(date_a);
+        var dateVal_b = new Date(date_b);
+        var diffMs = (dateVal_b - dateVal_a);
+        var diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000);
+        return diffMins;
+    } catch {
+        return null;
+    }
+}
 /**
  *First it fetches the unlocked append blob files rows and creates tasks for them in Event Hub
  *
@@ -308,6 +330,8 @@ function getTasksForUnlockedFiles(context) {
             var archivedFiles = [];
             var newFileEntities = [];
             var lockedEntities = [];
+            var maxQueueingDelay = 0;
+            let currentQueueingDelay = null;
             allentities.forEach(function (entity) {
                 if (isAppendBlobArchived(context, entity)) {
                     archivedFiles.push(getunLockedEntity(entity));
@@ -320,6 +344,9 @@ function getTasksForUnlockedFiles(context) {
                     }
                     context.log.verbose("Creating task for file: " + entity.rowKey);
                 }
+
+                maxQueueingDelay = max(maxQueueingDelay, getDateDifferenceInMinutes(entity.lastEnqueLockTime, entity.updatedate));
+
             });
             newFileEntities = getFixedNumberOfEntitiesbyEnqueTime(context, newFileEntities)
             newFileEntities.forEach(function (entity) {
@@ -328,7 +355,7 @@ function getTasksForUnlockedFiles(context) {
             });
             newFiletasks = setBatchSizePerStorageAccount(newFiletasks)
             context.log("New File Tasks created: " + newFiletasks.length + " AppendBlob Archived Files: " + archivedFiles.length);
-            resolve([newFiletasks, archivedFiles, lockedEntities]);
+            resolve([newFiletasks, archivedFiles, lockedEntities, maxQueueingDelay]);
         }).catch(function (error) {
             context.log.error(`Error in getting new tasks, Error: ${JSON.stringify(error)}`);
             reject(error);
@@ -350,10 +377,11 @@ function PollAppendBlobFiles(context) {
         var newFiletasks = r[0];
         var archivedRowEntities = r[1];
         var entitiesToUpdate = r[2];
+        var maxQueueingDelay = r[3];
         context.bindings.tasks = context.bindings.tasks.concat(newFiletasks);
         context.log.verbose("new file tasks", newFiletasks);
         var batch_promises = [
-            getLockedEntitiesExceedingThreshold(context).then(function (unlockedEntities) {
+            getLockedEntitiesExceedingThreshold(context, maxQueueingDelay).then(function (unlockedEntities) {
                 // setting lock for new tasks and unsetting lock for old tasks
                 entitiesToUpdate = entitiesToUpdate.concat(unlockedEntities);
                 return batchUpdateOffsetTable(context, entitiesToUpdate, "insert");

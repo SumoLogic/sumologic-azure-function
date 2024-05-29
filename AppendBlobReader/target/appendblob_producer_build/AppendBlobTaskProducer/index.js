@@ -299,8 +299,9 @@ function setBatchSizePerStorageAccount(newFiletasks) {
 function getDateDifferenceInMinutes(date_a, date_b) {
 
     try {
-        if !(date_a && date_b)
+        if (!(date_a && date_b)) {
             return null;
+        }
         var dateVal_a = new Date(date_a);
         var dateVal_b = new Date(date_b);
         var diffMs = (dateVal_b - dateVal_a);

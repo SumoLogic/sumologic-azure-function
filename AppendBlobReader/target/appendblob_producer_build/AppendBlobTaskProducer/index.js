@@ -134,10 +134,10 @@ function queryFiles(tableQuery, context) {
                 allentities.push(entity);
             }
 
-            resolve(allentities);
+            return resolve(allentities);
         } catch (error) {
             context.log.error(`Error while fetching queryFiles: ${JSON.stringify(error)}`);
-            reject(error);
+            return reject(error);
         }
     })
 }
@@ -326,7 +326,7 @@ function getTasksForUnlockedFiles(context) {
     // fetching unlocked files which were not enqueued in last 5 minutes
     var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and ( not (lastEnqueLockTime lt '') or lastEnqueLockTime le datetime'${dateVal.toISOString()}')`
     return new Promise(function (resolve, reject) {
-        queryFiles(existingFileQuery, context).then(function (allentities) {
+        return queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];
             var archivedFiles = [];
             var newFileEntities = [];
@@ -346,7 +346,7 @@ function getTasksForUnlockedFiles(context) {
                     context.log.verbose("Creating task for file: " + entity.rowKey);
                 }
 
-                maxQueueingDelay = max(maxQueueingDelay, getDateDifferenceInMinutes(entity.lastEnqueLockTime, entity.updatedate));
+                maxQueueingDelay = Math.max(maxQueueingDelay, getDateDifferenceInMinutes(entity.lastEnqueLockTime, entity.updatedate));
 
             });
             newFileEntities = getFixedNumberOfEntitiesbyEnqueTime(context, newFileEntities)
@@ -356,10 +356,10 @@ function getTasksForUnlockedFiles(context) {
             });
             newFiletasks = setBatchSizePerStorageAccount(newFiletasks)
             context.log("New File Tasks created: " + newFiletasks.length + " AppendBlob Archived Files: " + archivedFiles.length);
-            resolve([newFiletasks, archivedFiles, lockedEntities, maxQueueingDelay]);
+            return resolve([newFiletasks, archivedFiles, lockedEntities, maxQueueingDelay]);
         }).catch(function (error) {
             context.log.error(`Error in getting new tasks, Error: ${JSON.stringify(error)}`);
-            reject(error);
+            return reject(error);
         });
     });
 }

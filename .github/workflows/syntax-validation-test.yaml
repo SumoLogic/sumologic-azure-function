@@ -1,0 +1,30 @@
+name: "Syntax validation tests"
+on: [workflow_dispatch, pull_request]
+
+jobs:
+  package-version-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: 
+        include: # Includes one more job
+          - dir: 'BlockBlobReader/target/consumer_build'
+          - dir: 'BlockBlobReader/target/dlqprocessor_build'
+          - dir: 'BlockBlobReader/target/producer_build'
+          - dir: 'AppendBlobReader/target/producer_build'
+          - dir: 'AppendBlobReader/target/appendblob_producer_build'
+          - dir: 'AppendBlobReader/target/consumer_build'
+          - dir: 'AppendBlobReader/target/consumer_build'
+          - dir: 'AppendBlobReader/target/consumer_build'
+          - dir: 'EventHubs/target/metrics_build'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - working-directory: ${{ matrix.dir }}
+        run: |
+          find ./ -name *.js | xargs node -c

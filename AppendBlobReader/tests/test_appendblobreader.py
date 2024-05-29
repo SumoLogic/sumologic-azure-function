@@ -47,7 +47,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.deploy_template()
         self.assertTrue(self.resource_group_exists(self.resource_group_name))
         self.table_service = self.get_table_service()
-        self.create_offset_table(self.offsetmap_table_name)
+        self.create_offset_table(self.offsetmap_table_name)  # now this gets created automatically
 
     def test_02_resource_count(self):
         expected_resource_count = 12  # 10 + 2(microsoft.insights/autoscalesettings)
@@ -65,7 +65,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         azurefunction = "AppendBlobFileTracker"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
-        message = "Append blob scenario create just an entry RowKey:"
+        message = "FileOffSetMap Rows Created: 1 Existing Rows: 0 Failed: 0"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
         expected_count = 1

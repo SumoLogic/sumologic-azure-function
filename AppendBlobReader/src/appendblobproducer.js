@@ -201,7 +201,7 @@ function batchUpdateOffsetTable(context, allentities, mode) {
  */
 function getLockedEntitiesExceedingThreshold(context, maxQueueingDelay) {
 
-    var maxlockThresholdMin = max(maxQueueingDelay, 15);
+    var maxlockThresholdMin = max(maxQueueingDelay, 30);
     var dateVal = new Date();
     dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxlockThresholdMin));
     var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`

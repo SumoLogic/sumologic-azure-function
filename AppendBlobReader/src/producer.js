@@ -143,17 +143,21 @@ async function createTasksForAppendBlob(partitionKey, rowKey, context, metadata)
     } catch (err) {
 
         if (err.statusCode === 409 && JSON.stringify(err).includes("EntityAlreadyExists")) {
+            context.log("AppendBlob Entry exists for RowKey: " + rowKey);
             return Promise.resolve({ status: "success", rowKey: rowKey, message: "AppendBlob Entry exists for RowKey: " + rowKey });
-        } else if (err.statusCode === 404 && JSON.stringify(err).includes("TableNotFound")) {
+        } else if ((err.statusCode === 404) && JSON.stringify(err).includes("TableNotFound")) {
             try {
+                context.log(`Creating table in storage account: ${process.env.TABLE_NAME}`);
                 await tableClient.createTable();
-                return createTasksForAppendBlob(partitionKey, rowKey, context, metadata);
+                await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second wait for the table to be created
+                var response = await updateOrCreateBlobPointerMap(entity); // this will always create
+                return Promise.resolve({ status: "success", rowKey: rowKey, message: "AppendBlob Entry added for RowKey: " + rowKey });
             } catch(err) {
-                return Promise.reject({ status: "failed", rowKey: rowKey, message: "Failed to create table for rowKey: " + rowKey });
+                return Promise.reject({ status: "failed", rowKey: rowKey, message: `Failed to create table for rowKey: ${rowKey} error: ${JSON.stringify(err)}`});
             }
 
         } else {
-            return Promise.reject({ status: "failed", rowKey: rowKey, message: "Failed to create AppendBlob Entry for rowKey: " + rowKey });
+            return Promise.reject({ status: "failed", rowKey: rowKey, message: `Failed to create AppendBlob Entry for rowKey: ${rowKey} error: ${JSON.stringify(err)}` });
         }
 
     }
@@ -184,7 +188,7 @@ function getNewTask(currentoffset, sortedcontentlengths, metadata) {
 
 /**
  * Filter messages for AppendBlob.
- * 
+ *
  * @param {Array<Object>} messages - An array of message objects to filter.
  * @returns {Array<Object>} - An array containing only the messages with AppendBlob type.
  */
@@ -198,7 +202,7 @@ function filterAppendBlob(messages) {
 
 /**
  * Filter messages by file extension.
- * 
+ *
  * @param {Object} context - The context object for logging or other operations.
  * @param {Array<Object>} messages - An array of message objects to filter.
  * @returns {Array<Object>} - An array containing only the messages with supported file extensions.
@@ -228,8 +232,8 @@ module.exports = async function (context, eventHubMessages) {
     // eventHubMessages = [
     //     [
     //         {
-    //             topic: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/SumoAuditCollection/providers/Microsoft.Storage/storageAccounts/allbloblogseastus',
-    //             subject: '/blobServices/default/containers/testabb/blobs/dummy_data.csv',
+    //             topic: '/subscriptions/c088dc46-d692-42ad-a4b6-9a542d28ad2a/resourceGroups/testsumosarg290524101050/providers/Microsoft.Storage/storageAccounts/testsa290524101050',
+    //             subject: '/blobServices/default/containers/testcontainer-29-05-24-10-10-50/blobs/test.blob',
     //             eventType: 'Microsoft.Storage.BlobCreated',
     //             id: '05bad26c-b01e-0064-59cf-6a5397068de0',
     //             data: {
@@ -239,7 +243,7 @@ module.exports = async function (context, eventHubMessages) {
     //                 contentType: 'text/csv',
     //                 contentLength: 0,
     //                 blobType: 'AppendBlob',
-    //                 url: 'https://allbloblogseastus.blob.core.windows.net/testabb/dummy_data.csv',
+    //                 url: 'https://testsa290524101050.blob.core.windows.net/testcontainer-29-05-24-10-10-50/test.blob',
     //                 sequencer: '00000000000000000000000000010F8A0000000000047e92',
     //                 storageDiagnostics: { batchId: 'd7656e84-7006-0036-00cf-6a2f7f000000' }
     //             },
@@ -264,7 +268,7 @@ module.exports = async function (context, eventHubMessages) {
             var metadatamap = {};
             var allcontentlengths = {};
             getContentLengthPerBlob(filterMessages, allcontentlengths, metadatamap);
-            var processed = 0;
+            var totalRowsCreated = 0, totalExistingRows = 0;
             var allRowPromises = [];
             var totalRows = Object.keys(allcontentlengths).length;
             var errArr = [], rowKey;
@@ -273,23 +277,27 @@ module.exports = async function (context, eventHubMessages) {
                 var partitionKey = metadata.containerName;
                 allRowPromises.push(sumoutils.p_retryMax(createTasksForAppendBlob, MaxAttempts, RetryInterval, [partitionKey, rowKey, context, metadata], context).catch((err) => err));
             }
+            // Fail the function if any one of the files fail to get inserted into FileOffsetMap
+
             await Promise.all(allRowPromises).then((responseValues) => {
 
                 for (let response of responseValues) {
-                    processed += 1;
                     if (response.status === "failed") {
                         errArr.push(response.message);
+                    } else if(response.status === "success" && response.message.includes("Entry exists")) {
+                        totalExistingRows += 1;
+                    } else {
+                        totalRowsCreated += 1;
                     }
                 }
             });
-            // Fail the function if any one of the files fail to get inserted into FileOffsetMap
-            var totalTasksCreated = processed - errArr.length;
-            var msg = `FileOffSetMap Rows Created: ${totalTasksCreated} Failed: ${errArr.length}`;
+
+            var msg = `FileOffSetMap Rows Created: ${totalRowsCreated} Existing Rows: ${totalExistingRows} Failed: ${errArr.length}`;
+            context.log(msg);
             if (errArr.length > 0) {
                 context.log.error(`Failed for payload: allcontentlengths: ${JSON.stringify(allcontentlengths)} ErrorResponse: ${errArr.join('\n')}`);
                 context.done(msg)
             } else {
-                context.log(msg);
                 context.done();
             }
 

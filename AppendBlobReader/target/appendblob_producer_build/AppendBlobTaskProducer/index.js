@@ -358,7 +358,6 @@ function getTasksForUnlockedFiles(context) {
             context.log("New File Tasks created: " + newFiletasks.length + " AppendBlob Archived Files: " + archivedFiles.length);
             return resolve([newFiletasks, archivedFiles, lockedEntities, maxQueueingDelay]);
         }).catch(function (error) {
-            context.log.error(`Error in getting new tasks, Error: ${JSON.stringify(error)}`);
             return reject(error);
         });
     });

@@ -98,7 +98,7 @@ class BaseTest(unittest.TestCase):
 
     def get_Workspace_Id(self):
         workspace = self.get_resource(
-            'microsoft.operationalinsights/workspaces')
+            'Microsoft.OperationalInsights/workspaces')
         client = LogAnalyticsManagementClient(
             credential=self.azure_credential,
             subscription_id=self.subscription_id,

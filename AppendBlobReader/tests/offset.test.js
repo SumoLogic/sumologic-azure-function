@@ -20,7 +20,7 @@ context.log.verbose = function (message) {
 };
 
 var sendOptions = {
-    urlString: 'https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV0hr0BM3rtK7_BJJkeUzqkGmGly-2SjDIFTwjUBjaAA2Afx6q-u34DxN2jtbYfvVoabBV-diHc7fxKcU0dw-uELJyVpEEGDxtGKGd-btZLqzg==',
+    urlString: '<sumo endpoint>',
     MaxAttempts: 3,
     RetryInterval: 3000,
     compress_data: true,

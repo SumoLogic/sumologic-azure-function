@@ -111,7 +111,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
 
-        message = "Update offset result"
+        message = "Updated offset result"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
 

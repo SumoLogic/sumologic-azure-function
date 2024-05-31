@@ -67,6 +67,7 @@ function getunLockedEntity(entity) {
         resourceGroupName: entity.resourceGroupName,
         subscriptionId: entity.subscriptionId
     };
+
     return entity;
 }
 
@@ -82,13 +83,8 @@ function isAppendBlobArchived(context, entity) {
 
     if (entity.blobType === "AppendBlob" && entity.offset > 0 && entity.eventdate !== undefined) {
         var maxArchivedHours = parseInt(process.env.APPSETTING_MAX_LOG_FILE_ROLLOVER_HOURS);
-        if (entity.storageName === "muw1olpmessagingprodsa01" || entity.storageName === "mue1olpmessagingprodsa01" || entity.storageName === "muw1olpolpadminccatsa01" || entity.storageName === "mue2olpolpadminccatsa01" || entity.storageName === "muw1bitfunctionslogssa" || entity.storageName === "mue1bitfunctionslogssa") {
-            maxArchivedHours = 1;
-        } else if (entity.storageName === "mue1supportakspocsa" || entity.storageName === "mue1supportaksdevsa" || entity.storageName === "muw1nortonaksintsa" || entity.storageName === "muw1supportaksstgsa" || entity.storageName === "muw1supportaksprodsa" || entity.storageName === "mue2supportaksprodsa" || entity.storageName === "muw1supportakscoresa") {
-            maxArchivedHours = 4;
-        }
-        var curDate = new Date();
 
+        var curDate = new Date();
         var fileCreationDate = new Date(entity.eventdate);
         var numHoursPassedSinceFileCreation = (curDate - fileCreationDate) / (1000 * 60 * 60);
 
@@ -100,7 +96,7 @@ function isAppendBlobArchived(context, entity) {
         }
 
         var lastEnqueTaskDate = new Date(lastEnqueLockTime);
-        var numMinPassedSinceLastEnquedTask = (curDate - lastEnqueTaskDate) / (1000 * 60 * 60);
+        var numMinPassedSinceLastEnquedTask = (curDate - lastEnqueTaskDate) / (1000 * 60);
         var maxlockThresholdMin = 15;
         // Here we are also checking that file creation date should exceed threshold.
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
@@ -123,6 +119,7 @@ function isAppendBlobArchived(context, entity) {
  * fetches the files from FileOffset Map table recursively
  */
 function queryFiles(tableQuery, context) {
+    // Todo: it queries to the whole table break this by per Partitionkey
     var allentities = [];
     return new Promise(async (resolve, reject) => {
         try {
@@ -133,7 +130,6 @@ function queryFiles(tableQuery, context) {
             for await (const entity of entities) {
                 allentities.push(entity);
             }
-
             return resolve(allentities);
         } catch (error) {
             context.log.error(`Error while fetching queryFiles: ${JSON.stringify(error)}`);
@@ -206,9 +202,9 @@ function getLockedEntitiesExceedingThreshold(context, maxQueueingDelay) {
         context.log("WARNING maxQueueingDelay exceeding 30 minutes");
         maxlockThresholdMin = maxQueueingDelay;
     }
-    var dateVal = new Date();
-    dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxlockThresholdMin));
-    var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le datetime'${dateVal.toISOString()}'`
+    let MS_PER_MINUTE = 60*1000;
+    var dateVal = new Date(new Date() - maxlockThresholdMin*MS_PER_MINUTE);
+    var lockedFileQuery = `done eq ${true} and blobType eq '${'AppendBlob'}' and offset ge ${0} and lastEnqueLockTime le '${dateVal.toISOString()}'`
     return queryFiles(lockedFileQuery, context).then(function (allentities) {
         context.log(`AppendBlob Locked Files exceeding maxlockThresholdMin of ${maxlockThresholdMin}:  ${allentities.length}`);
         var unlockedEntities = allentities.map(function (entity) {
@@ -321,10 +317,10 @@ function getDateDifferenceInMinutes(date_a, date_b) {
 function getTasksForUnlockedFiles(context) {
 
     var maxIngestionDelayPerFile = 5;
-    var dateVal = new Date();
-    dateVal.setMinutes(Math.max(0, dateVal.getMinutes() - maxIngestionDelayPerFile));
+    let MS_PER_MINUTE = 60*1000;
+    var dateVal = new Date(new Date() - maxIngestionDelayPerFile*MS_PER_MINUTE);
     // fetching unlocked files which were not enqueued in last 5 minutes
-    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and ( not (lastEnqueLockTime lt '') or lastEnqueLockTime le datetime'${dateVal.toISOString()}')`
+    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and ( not (lastEnqueLockTime gt '') or lastEnqueLockTime le '${dateVal.toISOString()}')`
     return new Promise(function (resolve, reject) {
         return queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];
@@ -337,15 +333,9 @@ function getTasksForUnlockedFiles(context) {
                 if (isAppendBlobArchived(context, entity)) {
                     archivedFiles.push(getunLockedEntity(entity));
                 } else {
-                    if (entity.storageName === "glo1503134026east01" || entity.storageName === "glo1503134026west01") {
-                        newFiletasks.push(getTask(entity));
-                        lockedEntities.push(getLockedEntity(entity));
-                    } else {
-                        newFileEntities.push(entity);
-                    }
+                    newFileEntities.push(entity);
                     context.log.verbose("Creating task for file: " + entity.rowKey);
                 }
-
                 maxQueueingDelay = Math.max(maxQueueingDelay, getDateDifferenceInMinutes(entity.lastEnqueLockTime, entity.updatedate));
 
             });

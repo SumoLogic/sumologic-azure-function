@@ -190,11 +190,9 @@ async function releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent =
 function setAppendBlobBatchSize(serviceBusTask) {
 
     let batchSize = serviceBusTask.batchSize;
-    if (serviceBusTask.containerName === "cct-prod-logs") {
-        batchSize = 180 * 1024 * 1024;
-    } else if (serviceBusTask.containerName === "onboard-prod-applogs") {
-        batchSize = 30 * 1024 * 1024;
-    }
+    // if (serviceBusTask.containerName === "<containerName>") { // override batchsize
+    //     batchSize = 180 * 1024 * 1024;
+    // }
     return batchSize;
 }
 
@@ -304,16 +302,13 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         return;
     }
 
-    let batchSize = setAppendBlobBatchSize(serviceBusTask); // default batch size from sdk code
-    context.log.verbose("Setting batch-size", batchSize);
-
-
     let options = {
         maxRetryRequests: MaxAttempts
     };
 
     let bufferData = null;
     try {
+        let batchSize = setAppendBlobBatchSize(serviceBusTask);
 
         var containerClient = new ContainerClient(
             `https://${serviceBusTask.storageName}.blob.core.windows.net/${serviceBusTask.containerName}`,
@@ -338,7 +333,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
         context.done();
         return;
     }
-
+    let dataLenSent = 0;
     try {
 
         var sendOptions = {
@@ -351,12 +346,13 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
 
         setSourceCategory(serviceBusTask, sendOptions);
 
-        // TODO: fetch status code and send status code 
-        let dataLenSent = await sendDataToSumoUsingSplitHandler(context, bufferData, sendOptions, serviceBusTask)
-        await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent)
+        // TODO: create new columns fetch status code and send status code in table so that task producer function can slow down creation of new tasks based on throttling / unavailability of storage/sumologic services
+        dataLenSent = await sendDataToSumoUsingSplitHandler(context, bufferData, sendOptions, serviceBusTask)
 
     } catch (err) {
         context.log.error(`Error while sending to sumo: ${serviceBusTask.rowKey} err ${err}`);
+    } finally {
+        await releaseLockfromOffsetTable(context, serviceBusTask, dataLenSent)
     }
 
     context.done();

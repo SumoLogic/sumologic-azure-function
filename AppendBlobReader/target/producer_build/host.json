@@ -21,7 +21,7 @@
       "default": "Warning",
       "Host.Aggregator": "Trace",
       "Host.Results": "Information",
-      "Function": "Information"
+      "Function": "Trace"
     }
   },
   "functionTimeout": "00:10:00",

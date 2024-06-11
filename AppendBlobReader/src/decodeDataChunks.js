@@ -23,31 +23,18 @@ function getBoundaryRegex(serviceBusTask) {
     // global is necessary if using regex.exec
     // https://stackoverflow.com/questions/31969913/why-does-this-regexp-exec-cause-an-infinite-loop
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
-    if (file_ext === "json") {
+    if (file_ext === "json" || file_ext === "blob") {
         logRegex = '\{\\s*\"';
     }
-    if (serviceBusTask.storageName === "mue1supportakspocsa" || serviceBusTask.storageName === "mue1supportaksdevsa" || serviceBusTask.storageName === "muw1nortonaksintsa" || serviceBusTask.storageName === "muw1supportaksstgsa" || serviceBusTask.storageName === "muw1supportaksprodsa" || serviceBusTask.storageName === "mue2supportaksprodsa" || serviceBusTask.storageName === "muw1supportakscoresa") {
-        if (file_ext === "log") {
-            logRegex = '\{\"\@timestamp\"\:\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';
-        } else if (file_ext === "json") {
-            if (serviceBusTask.containerName === "insights-logs-kube-audit") {
-                logRegex = '\{\\s+\"operationName\"\:\\s+\"';
-            }
-            else {
-                logRegex = '\{\\s+\"attrs\"\:\\s+\"';
-            }
-        }
-    } else if (serviceBusTask.storageName === "muw1bitfunctionslogssa" || serviceBusTask.storageName === "mue1bitfunctionslogssa") {
-        logRegex = '\{\\s+\"time\"\:\\s+\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';;
-    } else if ((serviceBusTask.storageName === "muw1olpolpadminccatsa01" || serviceBusTask.storageName === "mue2olpolpadminccatsa01" || serviceBusTask.storageName === "muw1olpolpadminsa01") && serviceBusTask.containerName === "insights-logs-appservicehttplogs") {
-        logRegex = '\{\\s+\"category\"\:\\s+\"';
-    } else if (serviceBusTask.storageName === "testsa070524101434") { // unit test
-        if (file_ext === "json") {
-            logRegex = '\{"key+';
-        } else {
-            logRegex = 'key+';
-        }
-    }
+    // uncomment and use the snippet below for overriding boundary regex for your log files
+    // if (serviceBusTask.storageName === "<your storageAccountName>" || serviceBusTask.containerName === "<your containerName>" ) {
+    //     logRegex = '\{\"\@timestamp\"\:\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';
+    //     logRegex = '\{\\s+\"operationName\"\:\\s+\"';
+    //     logRegex = '\{\\s+\"attrs\"\:\\s+\"';
+    //     logRegex = '\{\\s+\"time\"\:\\s+\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}';
+    //     logRegex = '\{\\s+\"category\"\:\\s+\"';
+    //     logRegex = '\{"key+';
+    // }
 
     return new RegExp(logRegex, "gim");
 }

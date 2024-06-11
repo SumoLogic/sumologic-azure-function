@@ -241,7 +241,7 @@ function getFixedNumberOfEntitiesbyEnqueTime(context, entities) {
     let filesPerStorageAccountCount = {};
     let allFileCount = 0;
     let maxFileTaskPerInvoke = 8000;
-    // 800 because 25 is the max number of requests one invoke can make 25*800 = 20000 which is equal to max request per sec.
+    // based on experiments it takes ~3min to process 8000 tasks with file size of ~5MB
     let maxFileTaskPerInvokePerStorageAccount = 8000;
     var filteredEntities = [];
     let entity = null;

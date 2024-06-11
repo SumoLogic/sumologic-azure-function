@@ -10,7 +10,7 @@
                 "no"
             ],
             "metadata": {
-                "description": "Choose 'no' if you are deploying in this subscription for the first time, else choose 'yes'."
+                "description": "Choose 'yes' if you are deploying the ARM template again for the same storage account, else choose 'no'."
             }
         },
         "sites_blobReader_name": {

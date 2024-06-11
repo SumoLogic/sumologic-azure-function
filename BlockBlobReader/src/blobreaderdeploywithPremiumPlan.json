@@ -330,11 +330,11 @@
             },
             "properties": {
                 "httpsOnly": true,
-                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
+                    "ftpsState": "Disabled",
                     "alwaysOn": true,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
@@ -427,11 +427,11 @@
             },
             "properties": {
                 "httpsOnly": true,
-                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
+                    "ftpsState": "Disabled",
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -520,11 +520,11 @@
             },
             "properties": {
                 "httpsOnly": true,
-                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms',parameters('serverfarms_ConsumerPlan_name'))]",
                 "reserved": false,
                 "siteConfig": {
+                    "ftpsState": "Disabled",
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",

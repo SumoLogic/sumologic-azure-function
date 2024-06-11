@@ -85,7 +85,7 @@
             "type": "String"
         },
         "sourceCodeBranch": {
-            "defaultValue": "SUMO-236067-update-azure-function-code-for-append-blob",
+            "defaultValue": "master",
             "type": "String"
         },
         "sourceCodeManualIntegration": {

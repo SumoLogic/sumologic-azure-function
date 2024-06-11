@@ -131,7 +131,7 @@ function downloadErrorHandler(err, serviceBusTask, context) {
 async function archiveIngestedFile(serviceBusTask, context) {
     try {
         // Delete entity from Azure Table Storage
-        await azureTableClient.deleteEntity(serviceBusTask.containerName, serviceBusTask.rowKey);
+        await azureTableClient.deleteEntity(serviceBusTask.partitionKey, serviceBusTask.rowKey);
         context.log(`Entity deleted, rowKey: ${serviceBusTask.rowKey}`);
     } catch (error) {
         context.log.error(`failed to archive Ingested File : ${error}`);

@@ -165,7 +165,7 @@ function batchUpdateOffsetTable(context, allentities, mode) {
                     for (let index = 0; index < currentBatch.length; index++) {
                         const element = currentBatch[index];
                         if (mode === "delete") {
-                            transaction.deleteEntity(element);
+                            transaction.deleteEntity(element.partitionKey, element.rowKey);
                         } else {
                             transaction.updateEntity(element, "Merge");
                         }

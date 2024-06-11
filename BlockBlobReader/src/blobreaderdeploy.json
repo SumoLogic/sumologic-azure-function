@@ -334,6 +334,7 @@
             },
             "properties": {
                 "httpsOnly": true,
+                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "reserved": false,
@@ -430,6 +431,7 @@
             },
             "properties": {
                 "httpsOnly": true,
+                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "reserved": false,
@@ -523,6 +525,7 @@
             },
             "properties": {
                 "httpsOnly": true,
+                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms',parameters('serverfarms_ConsumerPlan_name'))]",
                 "reserved": false,

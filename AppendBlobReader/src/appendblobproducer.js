@@ -97,9 +97,11 @@ function isAppendBlobArchived(context, entity) {
 
         var lastEnqueTaskDate = new Date(lastEnqueLockTime);
         var numMinPassedSinceLastEnquedTask = (curDate - lastEnqueTaskDate) / (1000 * 60);
-        var maxlockThresholdMin = 15;
+        var maxlockThresholdMin = 30;
+
         // Here we are also checking that file creation date should exceed threshold.
         // Also file row should not have its lock released recently this ensures those file rows do not get archived as soon as their lock is released.
+
         if ((numHoursPassedSinceFileCreation >= maxArchivedHours) && (numMinPassedSinceLastEnquedTask <= maxlockThresholdMin)) {
             context.log("Archiving Append Blob File with rowKey: %s numHoursPassedSinceFileCreation: %d numMinPassedSinceLastEnquedTask: %d", entity.rowKey, numHoursPassedSinceFileCreation, numMinPassedSinceLastEnquedTask)
             return true;
@@ -368,6 +370,7 @@ function PollAppendBlobFiles(context) {
         var archivedRowEntities = r[1];
         var entitiesToUpdate = r[2];
         var maxQueueingDelay = r[3];
+        // It takes ~3min to ingest tasks to service bus, currently batch ingestion not supported by Azure
         context.bindings.tasks = context.bindings.tasks.concat(newFiletasks);
         context.log.verbose("new file tasks", newFiletasks);
         var batch_promises = [

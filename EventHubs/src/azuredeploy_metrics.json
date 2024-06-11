@@ -196,6 +196,7 @@
             },
             "properties": {
                 "httpsOnly": true,
+                "ftpsState": "Disabled",
                 "enabled": true,
                 "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_SumoMetricsAppServicePlan_name'))]",
                 "reserved": false,

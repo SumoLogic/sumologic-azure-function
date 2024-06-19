@@ -191,6 +191,9 @@
             "apiVersion": "2022-09-01",
             "location": "[parameters('location')]",
             "scale": null,
+            "identity": {
+                "type": "SystemAssigned"
+            },
             "properties": {
                 "httpsOnly": true,
                 "enabled": true,
@@ -198,6 +201,7 @@
                 "reserved": false,
                 "siteConfig": {
                     "http20Enabled": true,
+                    "ftpsState": "Disabled",
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
                     "cors": {
@@ -322,13 +326,13 @@
             ]
         },
         {
-            "type": "microsoft.operationalinsights/workspaces",
+            "type": "Microsoft.OperationalInsights/workspaces",
             "apiVersion": "2022-10-01",
             "name": "[parameters('logAnalyticsWorkspaceName')]",
             "location": "[parameters('location')]",
             "properties": {
                 "sku": {
-                    "name": "pergb2018"
+                    "name": "PerGB2018"
                 },
                 "retentionInDays": 30,
                 "features": {
@@ -350,8 +354,11 @@
             "properties": {
                 "Application_Type": "web",
                 "applicationId": "[parameters('appInsightsName')]",
-                "WorkspaceResourceId": "[resourceId('microsoft.operationalinsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
-            }
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            ]
         }
     ]
 }

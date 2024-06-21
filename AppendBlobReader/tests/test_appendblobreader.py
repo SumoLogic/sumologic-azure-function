@@ -154,7 +154,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-    def test_04_sumo_query_record_count(self):
         self.logger.info("fetching mock data count from sumo")
         query = f'_sourceCategory="{self.source_category}" | count by _sourceName, _sourceHost'
         relative_time_in_minutes = 30
@@ -165,11 +164,10 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         try:
             result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
             record_count = int(result['records'][0]['map']['_count'])
-            import pdb;pdb.set_trace()
             source_name = result['records'][0]['map']['_sourcename']
             source_host = result['records'][0]['map']['_sourcehost']
-            record_excluded_by_filter_count = int(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_excluded_by_filter}" | count', relative_time_in_minutes)['records'][0]['map']['_count'])
-            record_unsupported_extension_count = int(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_unsupported_extension}" | count', relative_time_in_minutes)['records'][0]['map']['_count'])
+            record_excluded_by_filter_count = len(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_excluded_by_filter}" | count', relative_time_in_minutes)['records'])
+            record_unsupported_extension_count = len(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_unsupported_extension}" | count', relative_time_in_minutes)['records'])
         except Exception as err:
             self.logger.info(f"Error in fetching sumo query results {err}")
 
@@ -179,17 +177,17 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         # Verify Filter Prefix field
         self.assertTrue(record_excluded_by_filter_count == 0,
                         f"append blob file's record count: {record_excluded_by_filter_count}, logs outside container filter prefix should not be ingested")
-        # Verify unsupported file type (done)
+        # Verify unsupported file type
         self.assertTrue(record_unsupported_extension_count == 0,
                         f"append blob file's record count: {record_unsupported_extension_count}, logs with unsupported blob extension should not be ingested")
 
-        # Verify with a very long append blob filename (1024 characters) (done)
+        # Verify with a very long append blob filename (1024 characters)
         if len(self.test_filename) > 128:
             expected_filename = self.test_filename[:60] + "..." + self.test_filename[-60:]
         else:
             expected_filename = self.test_filename
 
-        # Verify addition of _sourceCategory, _sourceHost, _sourceName and also additional metadata (done)
+        # Verify addition of _sourceCategory, _sourceHost, _sourceName and also additional metadata
         self.assertTrue(source_name == f"{expected_filename}", f"_sourceName {source_name} metadata is incorrect")
         self.assertTrue(source_host == f"{self.test_storageaccount_name}/{self.test_container_name}", f"_sourceHost {source_host} metadata is incorrect")
 

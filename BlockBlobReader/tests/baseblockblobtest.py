@@ -31,7 +31,8 @@ class BaseBlockBlobTest(BaseTest):
         template_data["parameters"]["StorageAccountResourceGroupName"]["defaultValue"] = self.test_storage_res_group
         template_data["parameters"]["StorageAccountRegion"]["defaultValue"] = self.test_storageAccountRegion
         template_data["parameters"]["location"]["defaultValue"] = self.resourcegroup_location
-
+        template_data["parameters"]["deployingAgainForSameStorageAccount"]["defaultValue"] = 'no'
+        template_data["parameters"]["filterPrefix"]["defaultValue"] = f"/blobServices/default/containers/{self.test_container_name}/"
         return template_data
 
     @classmethod

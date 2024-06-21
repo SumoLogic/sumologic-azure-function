@@ -82,20 +82,20 @@
         },
         "deployingAgainForSameStorageAccount": {
             "type": "string",
-            "defaultValue": "yes",
+            "defaultValue": "no",
             "allowedValues": [
                 "yes",
                 "no"
             ],
             "metadata": {
-                "description": "Choose yes if you are deploying in this subscription for the first time, else choose no."
+                "description": "Choose 'yes' if you are deploying the ARM template again for the same storage account, else choose 'no'."
             }
         },
         "eventGridSystemTopicName": {
             "defaultValue": "[concat('SUMOBREventGridSystemTopic', uniqueString(resourceGroup().id))]",
             "type": "String",
             "metadata": {
-                "description": "If you are deploying template again for same storage account then provide the existing System Topic Name for the StorageAccount "
+                "description": "If you are deploying template again for same storage account then provide the existing System Topic Name for the StorageAccount"
             }
         },
         "StorageAccountName": {
@@ -309,10 +309,13 @@
             "location": "[parameters('location')]",
             "properties": {
                 "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
-                "perSiteScaling": false,
-                "reserved": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
-                "targetWorkerSizeId": 0
+                "targetWorkerSizeId": 0,
+                "reserved": false,
+                "isSpot": false,
+                "isXenon": false,
+                "hyperV": false
             }
         },
         {
@@ -331,13 +334,17 @@
             "location": "[parameters('location')]",
             "properties": {
                 "name": "[parameters('serverfarms_ConsumerPlan_name')]",
-                "perSiteScaling": false,
-                "reserved": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
-                "targetWorkerSizeId": 0
+                "targetWorkerSizeId": 0,
+                "reserved": false,
+                "isSpot": false,
+                "isXenon": false,
+                "hyperV": false
             }
         },
         {
+            "comments": "Generalized from resource: 'Microsoft.Web/sites/BlobReader'.",
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_BlobReader_name')]",
@@ -355,6 +362,7 @@
                 "siteConfig": {
                     "ftpsState": "Disabled",
                     "alwaysOn": true,
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -451,6 +459,7 @@
                 "reserved": false,
                 "siteConfig": {
                     "ftpsState": "Disabled",
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -545,6 +554,7 @@
                 "reserved": false,
                 "siteConfig": {
                     "ftpsState": "Disabled",
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
@@ -651,7 +661,7 @@
             "location": "[parameters('location')]",
             "properties": {
                 "messageRetentionInDays": 7,
-                "partitionCount": 2,
+                "partitionCount": 1,
                 "status": "Active"
             },
             "dependsOn": [

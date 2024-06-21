@@ -15,7 +15,7 @@ function getRowKey(metadata) {
     Array.prototype.push.apply(keyArr, arr);
     // key cannot be greater than 1KB or 1024 bytes;
     var rowKey = keyArr.join("-");
-    return rowKey.substr(0,min(1024, rowKey.length)).replace(/^-+|-+$/g, '');
+    return rowKey.substr(0,Math.min(1024, rowKey.length)).replace(/^-+|-+$/g, '');
 
 }
 

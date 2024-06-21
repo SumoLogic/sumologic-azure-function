@@ -32,12 +32,15 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"
         cls.test_container_name = "testcontainer-%s" % (datetime_value)
+        cls.test_filename_excluded_by_filter = "test_filename_excluded_by_filter.blob"
+        cls.test_filename_unsupported_extension = "test.xml"
         # https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
         # https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
         # storageAccount 3-24 container 3-63 blobName 1-1024 maxDepth 63 if hierarchial namespace enabled
-        cls.bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=1015))
+        # Verify maximum length path of storage location
         folder_depth = str.join('/', choices(ascii_uppercase+digits, k=62))
-        cls.test_filename = f"{folder_depth}/test{cls.bigrandomfilename}.blob"
+        bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=(1024-10-len(folder_depth))))
+        cls.test_filename = f"{folder_depth}/test{bigrandomfilename}.blob"
         cls.event_subscription_name = "SUMOBRSubscription"
 
         cls.create_storage_account(cls.test_storageAccountRegion, cls.test_storage_res_group, cls.test_storageaccount_name)
@@ -64,21 +67,20 @@ class TestAppendBlobReader(BaseAppendBlobTest):
     def upload_file_in_another_container(self):
         self.logger.info("uploading file in another container outside filter prefix")
         test_container_name_excluded_by_filter = "anothercontainernotinprefix"
-        cls.test_filename_excluded_by_filter = "test_filename_excluded_by_filter.blob"
+
         line_not_present = "this line should not be present"
         chunk = "\n".join(line_not_present) + "\n"
         self.create_container(test_container_name_excluded_by_filter)
-        self.block_blob_service.create_blob(test_container_name_excluded_by_filter, cls.test_filename_excluded_by_filter)
-        self.block_blob_service.append_blob_from_text(test_container_name_excluded_by_filter, cls.test_filename_excluded_by_filter, chunk, encoding='utf-8')
+        self.block_blob_service.create_blob(test_container_name_excluded_by_filter, self.test_filename_excluded_by_filter)
+        self.block_blob_service.append_blob_from_text(test_container_name_excluded_by_filter, self.test_filename_excluded_by_filter, chunk, encoding='utf-8')
 
     def upload_file_of_unknown_extension(self):
         self.logger.info("uploading file with unsupported extension")
-        cls.test_filename_unsupported_extension = "test.xml"
         line_not_present = '<?xml version="1.0"?>'
         chunk = "\n".join(line_not_present) + "\n"
         self.create_container(self.test_container_name)
-        self.block_blob_service.create_blob(self.test_container_name, cls.test_filename_unsupported_extension)
-        self.block_blob_service.append_blob_from_text(self.test_container_name, cls.test_filename_unsupported_extension, chunk, encoding='utf-8')
+        self.block_blob_service.create_blob(self.test_container_name, self.test_filename_unsupported_extension)
+        self.block_blob_service.append_blob_from_text(self.test_container_name, self.test_filename_unsupported_extension, chunk, encoding='utf-8')
 
     def test_03_func_logs(self):
         self.logger.info("inserting mock data in BlobStorage")

@@ -64,9 +64,13 @@ cd ../../
 
 echo "removing packagejson"
 
-rm producer_build/BlobTaskProducer/package.json
-rm consumer_build/BlobTaskConsumer/package.json
-rm dlqprocessor_build/DLQTaskConsumer/package.json
+rm producer_build/package-lock.json
+rm consumer_build/package-lock.json
+rm dlqprocessor_build/package-lock.json
+
+rm producer_build/package.json
+rm consumer_build/package.json
+rm dlqprocessor_build/package.json
 
 if [ $? -eq 0 ]; then
    echo OK
@@ -76,7 +80,7 @@ else
 fi
 
 echo "creating zip"
-version="1.0.0"
+version="4.1.0"
 producer_zip_file="taskproducer$version.zip"
 consumer_zip_file="taskconsumer$version.zip"
 dlqprocessor_zip_file="dlqprocessor$version.zip"
@@ -95,14 +99,20 @@ fi
 export AWS_PROFILE="prod"
 
 echo "uploading zip"
-sumoappsuite upload-file -f "$producer_zip_file" -b "appdev-cloudformation-templates" -r "us-east-1" -p "AzureBlobReader/"   --public
+bucket_name="appdev-cloudformation-templates"
+folder_prefix="AzureBlobReader/"
+bucket_region="us-east-1"
 
-sumoappsuite upload-file -f "$consumer_zip_file" -b "appdev-cloudformation-templates" -r "us-east-1" -p "AzureBlobReader/"   --public
+aws s3 cp "$producer_zip_file" "s3://${bucket_name}/${folder_prefix}" --acl public-read --region "${bucket_region}"
 
-sumoappsuite upload-file -f "$dlqprocessor_zip_file" -b "appdev-cloudformation-templates" -r "us-east-1" -p "AzureBlobReader/"   --public
+aws s3 cp "$consumer_zip_file" "s3://${bucket_name}/${folder_prefix}" --acl public-read --region "${bucket_region}"
 
-
-
-
+aws s3 cp "$dlqprocessor_zip_file" "s3://${bucket_name}/${folder_prefix}" --acl public-read --region "${bucket_region}"
 
 
+if [ $? -eq 0 ]; then
+   echo "zip uploaded successfully!"
+else
+   echo FAIL
+   exit 1
+fi

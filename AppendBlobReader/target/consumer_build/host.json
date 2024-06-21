@@ -28,7 +28,7 @@
         "default": "Warning",
         "Host.Aggregator": "Trace",
         "Host.Results": "Information",
-        "Function": "Trace"
+        "Function": "Information"
       }
     }
 }

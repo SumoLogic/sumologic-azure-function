@@ -131,6 +131,7 @@ function downloadErrorHandler(err, serviceBusTask, context) {
 async function archiveIngestedFile(serviceBusTask, context) {
     try {
         // Delete entity from Azure Table Storage
+        // blobName should not be used directly since they might be truncated
         await azureTableClient.deleteEntity(serviceBusTask.partitionKey, serviceBusTask.rowKey);
         context.log(`Entity deleted, rowKey: ${serviceBusTask.rowKey}`);
     } catch (error) {

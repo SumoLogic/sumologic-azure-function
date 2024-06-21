@@ -13,7 +13,10 @@ function getRowKey(metadata) {
     var arr = metadata.url.split('/').slice(3);
     var keyArr = [storageName];
     Array.prototype.push.apply(keyArr, arr);
-    return keyArr.join("-");
+    // key cannot be greater than 1KB or 1024 bytes;
+    var rowKey = keyArr.join("-");
+    return rowKey.substr(0,min(1024, rowKey.length)).replace(/^-+|-+$/g, '');
+
 }
 
 function getBlobMetadata(message) {

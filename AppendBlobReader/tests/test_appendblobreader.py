@@ -33,6 +33,8 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         cls.test_storageAccountRegion = "Central US"
         cls.test_container_name = "testcontainer-%s" % (datetime_value)
         # https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
+        # https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+        # storageAccount 3-24 container 3-63 blobName 1-1024 maxDepth 63 if hierarchial namespace enabled
         cls.bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=1015))
         folder_depth = str.join('/', choices(ascii_uppercase+digits, k=62))
         cls.test_filename = f"{folder_depth}/test{cls.bigrandomfilename}.blob"

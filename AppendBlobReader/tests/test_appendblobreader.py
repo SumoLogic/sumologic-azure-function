@@ -32,8 +32,10 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"
         cls.test_container_name = "testcontainer-%s" % (datetime_value)
-        cls.bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=1024))
-        cls.test_filename = f"test{cls.bigrandomfilename}.blob"
+        # https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
+        cls.bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=1015))
+        folder_depth = str.join('/', choices(ascii_uppercase+digits, k=62))
+        cls.test_filename = f"{folder_depth}/test{cls.bigrandomfilename}.blob"
         cls.event_subscription_name = "SUMOBRSubscription"
 
         cls.create_storage_account(cls.test_storageAccountRegion, cls.test_storage_res_group, cls.test_storageaccount_name)

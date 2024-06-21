@@ -91,7 +91,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         app_insights = self.get_resource('Microsoft.Insights/components')
 
-        # Azure function: AppendBlobFileTracker
         azurefunction = "AppendBlobFileTracker"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
@@ -109,7 +108,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-        # Azure function: AppendBlobTaskProducer
         azurefunction = "AppendBlobTaskProducer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
@@ -133,7 +131,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-        # Azure function: AppendBlobTaskConsumer
         azurefunction = "AppendBlobTaskConsumer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
@@ -162,16 +159,17 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         query = f'_sourceCategory="{self.source_category}" | count by _sourceName, _sourceHost'
         relative_time_in_minutes = 30
         expected_record_count = 32768
-        record_count = record_excluded_by_filter_count = 0
+        record_count = record_excluded_by_filter_count = record_unsupported_extension_count = None
         source_host = source_name = ""
         #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '32768'}}]}
         try:
             result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
             record_count = int(result['records'][0]['map']['_count'])
-            source_name = int(result['records'][0]['map']['_sourceName'])
-            source_host = int(result['records'][0]['map']['_sourceHost'])
-            record_excluded_by_filter_count = self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_excluded_by_filter}" | count', relative_time_in_minutes)['records'][0]['map']['_count']
-            record_unsupported_extension_count = self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_unsupported_extension}" | count', relative_time_in_minutes)['records'][0]['map']['_count']
+            import pdb;pdb.set_trace()
+            source_name = result['records'][0]['map']['_sourcename']
+            source_host = result['records'][0]['map']['_sourcehost']
+            record_excluded_by_filter_count = int(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_excluded_by_filter}" | count', relative_time_in_minutes)['records'][0]['map']['_count'])
+            record_unsupported_extension_count = int(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_unsupported_extension}" | count', relative_time_in_minutes)['records'][0]['map']['_count'])
         except Exception as err:
             self.logger.info(f"Error in fetching sumo query results {err}")
 

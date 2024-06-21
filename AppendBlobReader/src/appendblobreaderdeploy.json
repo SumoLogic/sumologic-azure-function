@@ -444,7 +444,7 @@
             "properties": {
                 "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
                 "maximumElasticWorkerCount": 1,
-                "perSiteScaling": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
                 "targetWorkerSizeId": 0,
                 "reserved": false,
@@ -470,7 +470,7 @@
             "properties": {
                 "name": "[parameters('serverfarms_ConsumerPlan_name')]",
                 "maximumElasticWorkerCount": 1,
-                "perSiteScaling": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
                 "targetWorkerSizeId": 0,
                 "reserved": false,

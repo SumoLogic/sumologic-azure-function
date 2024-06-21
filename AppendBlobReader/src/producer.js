@@ -304,8 +304,7 @@ module.exports = async function (context, eventHubMessages) {
                 context.done();
             }
 
-        }
-        else {
+        } else {
             context.log(`eventHubMessages might not pertain to appendblob or files with supported extensions, Exit now!`);
             context.done();
         }

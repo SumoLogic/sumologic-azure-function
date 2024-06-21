@@ -289,11 +289,50 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     });
 }
 
-function setSourceCategory(serviceBusTask, options) {
+/**
+ * Truncates the given string if it exceeds 128 characters and creates a new string.
+ * If the string is within the limit, returns the original string.
+ * @param {string} data - The original data.
+ * @returns {string} - The new string, truncated if necessary.
+ */
+function checkAndTruncate(data) {
+    const maxLength = 128;
 
+    // Check if the string length exceeds the maximum length
+    if (data.length > maxLength) {
+        // Truncate the data, taking the first 60 characters, adding "..." in between, and taking the last 60 characters
+        return data.substring(0, 60) + "..." + data.substring(data.length - 60);
+    } else {
+        // If the data is within the limit, return the original data
+        return data;
+    }
+}
+
+
+/**
+ * @param {} servisBusTask
+ * @param {} options
+ *
+ * This functions is used to route the logs/metrics to custom source categories based on the serviceBusTask attributes and also to add other metadata.
+ * metadata.sourceName attribute sets the source name
+ * metadata.sourceHost attribute sets the source host
+ * metadata.sourceCategory attribute sets the source category
+ */
+function setSourceCategory(serviceBusTask, options) {
     options.metadata = options.metadata || {};
-    options.metadata["name"]= serviceBusTask.storageName + "/" + serviceBusTask.containerName + "/" + serviceBusTask.blobName;
-    // options.metadata["category"] = <custom source category>
+    // make sure to add custom fileds in HTTP source in sumologic portal: https://help.sumologic.com/docs/manage/fields/#collector-and-source-fields, otherwise these fileds will be dropped.
+    let customFields = {}; // { "containername": serviceBusTask.containerName, "storagename": serviceBusTask.storageName };
+    if (customFields) {
+        let customFieldsArr = []
+        Object.keys(customFields).map(function (key, index) {
+            customFieldsArr.push(key.toString() + "=" + customFields[key].toString());
+        });
+        options.metadata["sourceFields"] = customFieldsArr.join();
+    }
+    options.metadata["sourceHost"] = `${serviceBusTask.storageName}/${serviceBusTask.containerName}`
+    // context.log(serviceBusTask.blobName, serviceBusTask.storageName,serviceBusTask.containerName);
+    // options.metadata["sourceCategory"] = "custom_source_category";
+    options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 
 function servicebushandler(context, serviceBusTask) {

@@ -125,7 +125,7 @@
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]",
         "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
         "DLQProcessor_resourceId": "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
-        "blobreaderconsumer_respurceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]",
+        "blobreaderconsumer_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]",
         "BlobReader_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]",
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]",
         "TABLE_NAME": "FileOffsetMap",
@@ -140,7 +140,7 @@
             "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
             "dependsOn": [
                 "[variables('DLQProcessor_resourceId')]",
-                "[variables('blobreaderconsumer_respurceId')]"
+                "[variables('blobreaderconsumer_resourceId')]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -354,6 +354,7 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -389,7 +390,7 @@
                         },
                         {
                             "name": "WEBSITE_RUN_FROM_PACKAGE",
-                            "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskproducer4.1.0.zip"
+                            "value": 1
                         },
                         {
                             "name": "TABLE_NAME",
@@ -409,6 +410,20 @@
                     }
                 }
             },
+            "resources": [
+                {
+                  "type": "extensions",
+                  "apiVersion": "2021-02-01",
+                  "name": "ZipDeploy",
+                  "dependsOn": [
+                      "[variables('BlobReader_resourceId')]"
+                  ],
+                  "properties": {
+                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskproducer4.1.0.zip",
+                    "appOffline": true
+                  }
+                }
+            ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_BlobReaderPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
@@ -435,6 +450,7 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -479,7 +495,7 @@
                         },
                         {
                             "name": "WEBSITE_RUN_FROM_PACKAGE",
-                            "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskconsumer4.1.0.zip"
+                            "value": 1
                         }
                     ],
                     "cors": {
@@ -487,6 +503,20 @@
                     }
                 }
             },
+            "resources": [
+                {
+                  "type": "extensions",
+                  "apiVersion": "2021-02-01",
+                  "name": "ZipDeploy",
+                  "dependsOn": [
+                      "[variables('blobreaderconsumer_resourceId')]"
+                  ],
+                  "properties": {
+                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskconsumer4.1.0.zip",
+                    "appOffline": true
+                  }
+                }
+            ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
@@ -514,6 +544,7 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -553,7 +584,7 @@
                         },
                         {
                             "name": "WEBSITE_RUN_FROM_PACKAGE",
-                            "value": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/dlqprocessor4.1.0.zip"
+                            "value": 1
                         },
                         {
                             "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
@@ -569,6 +600,20 @@
                     }
                 }
             },
+            "resources": [
+                {
+                  "type": "extensions",
+                  "apiVersion": "2021-02-01",
+                  "name": "ZipDeploy",
+                  "dependsOn": [
+                      "[variables('DLQProcessor_resourceId')]"
+                  ],
+                  "properties": {
+                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/dlqprocessor4.1.0.zip",
+                    "appOffline": true
+                  }
+                }
+            ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_ConsumerPlan_name'))]",
                 "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",

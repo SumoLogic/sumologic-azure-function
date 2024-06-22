@@ -19,6 +19,15 @@ Each integration is structured in three folders
 * target/  - directory used by azure's github integration to fetch source code
 * tests/   - contains integration tests
 
+### Important Points
+* WEBSITE_CONTENTAZUREFILECONNECTIONSTRING is required for Consumption and Elastic Premium plan apps running on both Windows and Linux. Although we have included it dedicated plan as well in case users want to switch the plan. [docs](https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings#website_contentazurefileconnectionstring)
+* All the functions use Windows based plans because Linux based plans do not support source control. [docs](https://learn.microsoft.com/en-us/azure/azure-functions/functions-deployment-technologies?tabs=windows#deployment-technology-availability)
+* When using WEBSITE_RUN_FROM_PACKAGE = <URL>, Function apps running on Windows experience a slight increase in cold start time and you must also manually sync triggers after you publish an updated package. [docs](https://learn.microsoft.com/en-us/azure/azure-functions/run-functions-from-deployment-package#using-website_run_from_package--url)
+* When running your functions from a zip package file in Azure, only zip files are currently supported and files become read-only in the Azure portal, so update & rebuild them (using create_zip.sh) before deploying. [docs](https://learn.microsoft.com/en-us/azure/azure-functions/run-functions-from-deployment-package#general-considerations)
+* Currently the zip files contains all the packages, and Kudu assumes by default that deployments from zip files are ready to run and do not require additional build steps during deployment, such as `npm install`. This can be overridden by setting the SCM_DO_BUILD_DURING_DEPLOYMENT deployment setting to true. [docs](https://github.com/projectkudu/kudu/wiki/Deploying-from-a-zip-file-or-url)
+* You can scale dedicated plans and apps by changing the capacity and numberOfWorkers setting. [docs](https://learn.microsoft.com/en-us/azure/app-service/manage-scale-per-app#per-app-scaling-using-azure-resource-manager)
+* Function apps running on Version 1.x of the Azure Functions runtime will reach the end of life (EOL) for extended support on September 14, 2026.
+
 ## Release
 
 ### Releasing appdev package

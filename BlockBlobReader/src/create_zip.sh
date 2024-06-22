@@ -64,13 +64,13 @@ cd ../../
 
 echo "removing packagejson"
 
-rm producer_build/package-lock.json
-rm consumer_build/package-lock.json
-rm dlqprocessor_build/package-lock.json
+# rm producer_build/package-lock.json
+# rm consumer_build/package-lock.json
+# rm dlqprocessor_build/package-lock.json
 
-rm producer_build/package.json
-rm consumer_build/package.json
-rm dlqprocessor_build/package.json
+# rm producer_build/package.json
+# rm consumer_build/package.json
+# rm dlqprocessor_build/package.json
 
 if [ $? -eq 0 ]; then
    echo OK

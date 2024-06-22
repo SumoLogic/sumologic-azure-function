@@ -71,7 +71,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.logger.info("uploading file in another container outside filter prefix")
         test_container_name_excluded_by_filter = "anothercontainernotinprefix"
         line_not_present = "this line should not be present"
-        data_block = [[line_not_present]]
+        data_block = [line_not_present]
         self.create_container(test_container_name_excluded_by_filter)
         blocks = self.create_or_update_blockblob(test_container_name_excluded_by_filter,
                                                      self.test_filename_excluded_by_filter,
@@ -80,7 +80,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
     def upload_file_of_unknown_extension(self):
         self.logger.info("uploading file with unsupported extension")
         line_not_present = '<?xml version="1.0"?>'
-        data_block = [[line_not_present]]
+        data_block = [line_not_present]
         self.create_container(self.test_container_name)
         blocks = self.create_or_update_blockblob(self.test_container_name,
                                                      self.test_filename_unsupported_extension,
@@ -99,12 +99,12 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         time.sleep(300)
         app_insights = self.get_resource('Microsoft.Insights/components')
 
-        function_name = "BlobTaskProducer"
-        captured_output = self.fetchlogs(app_insights.name, function_name)
+        azurefunction = "BlobTaskProducer"
+        captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
-        # message = "FileOffSetMap Rows Created: 1 Existing Rows: 0 Failed: 0"
-        # self.assertTrue(self.filter_logs(captured_output, 'message', message),
-        #                 f"No '{message}' log line found in '{azurefunction}' function logs")
+        message = "Tasks Created:"
+        self.assertTrue(self.filter_logs(captured_output, 'message', message),
+                        f"No '{message}' log line found in '{azurefunction}' function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
                         f"Error messages found in '{azurefunction}' logs: {captured_output}")
@@ -112,18 +112,18 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-        function_name = "BlobTaskConsumer"
-        captured_output = self.fetchlogs(app_insights.name, function_name)
+        azurefunction = "BlobTaskConsumer"
+        captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
         successful_sent_message = "Successfully sent to Sumo, Exiting now."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
-                        f"No success message found in {function_name} azure function logs")
+                        f"No success message found in {azurefunction} azure function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         f"Error messages found in {function_name} azure function logs")
+                         f"Error messages found in {azurefunction} azure function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         f"Warning messages found in {function_name} azure function logs")
+                         f"Warning messages found in {azurefunction} azure function logs")
 
         self.logger.info("fetching mock data count from sumo")
         log_type = os.environ.get("LOG_TYPE", "json")

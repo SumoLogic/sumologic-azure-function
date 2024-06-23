@@ -30,7 +30,9 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
         # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"
-        cls.test_container_name = "testcontainer-%s" % (datetime_value)
+        cls.log_type = os.environ.get("LOG_TYPE", "blob")
+
+        cls.test_container_name = "testcontainer-%s" % (datetime_value) if cls.log_type != "json" else "insights-logs-networksecuritygroupflowevent"
         cls.test_filename_excluded_by_filter = "blockblob_test_filename_excluded_by_filter.blob"
         cls.test_filename_unsupported_extension = "blockblob_test.xml"
         # https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
@@ -87,10 +89,9 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                                                      data_block, [])
 
     def test_03_func_logs(self):
-        log_type = os.environ.get("LOG_TYPE", "log")
-        self.logger.info("inserting mock %s data in BlobStorage" % log_type)
-        if log_type in ("csv", "log",  "blob"):
-            self.insert_mock_logs_in_BlobStorage(log_type)
+        self.logger.info("inserting mock %s data in BlobStorage" % cls.log_type)
+        if cls.log_type in ("csv", "log",  "blob"):
+            self.insert_mock_logs_in_BlobStorage(cls.log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
 
@@ -126,7 +127,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                          f"Warning messages found in {azurefunction} azure function logs")
 
         self.logger.info("fetching mock data count from sumo")
-        log_type = os.environ.get("LOG_TYPE", "json")
+
         query = f'_sourceCategory="{self.source_category}" | count by _sourceName, _sourceHost'
         relative_time_in_minutes = 30
         expected_record_count = {
@@ -148,8 +149,8 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         except Exception as err:
             self.logger.info(f"Error in fetching sumo query results {err}")
 
-        self.assertTrue(record_count == expected_record_count.get(log_type),
-                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(log_type)} in sumo '{self.source_category}'")
+        self.assertTrue(record_count == expected_record_count.get(cls.log_type),
+                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(cls.log_type)} in sumo '{self.source_category}'")
 
         # Verify Filter Prefix field
         self.assertTrue(record_excluded_by_filter_count == 0,
@@ -159,14 +160,15 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                         f"block blob file's record count: {record_unsupported_extension_count}, logs with unsupported blob extension should not be ingested")
 
         # Verify with a very long append blob filename (1024 characters)
+        file_ext = f".{cls.log_type}"
         if len(self.test_filename) > 128:
-            expected_filename = self.test_filename[:60] + "..." + self.test_filename[-60:]
+            expected_filename = self.test_filename[:60] + "..." + self.test_filename[-(60-len(file_ext)):] + file_ext
         else:
             expected_filename = self.test_filename
 
         # Verify addition of _sourceCategory, _sourceHost, _sourceName and also additional metadata
-        self.assertTrue(source_name == f"{expected_filename}", f"_sourceName {source_name} metadata is incorrect")
-        self.assertTrue(source_host == f"{self.test_storageaccount_name}/{self.test_container_name}", f"_sourceHost {source_host} metadata is incorrect")
+        self.assertTrue(source_name == expected_filename, f"_sourceName: {source_name} expected_filename: {expected_filename} metadata is incorrect")
+        self.assertTrue(source_host == f"{self.test_storageaccount_name}/{self.test_container_name}", f"_sourceHost {source_host} expected_sourcehost: {self.test_storageaccount_name}/{self.test_container_name} metadata is incorrect")
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())

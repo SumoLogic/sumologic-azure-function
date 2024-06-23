@@ -139,7 +139,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
 
-        message = "Updated offset result"
+        message = "Successfully updated OffsetMap"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
 
@@ -188,8 +188,8 @@ class TestAppendBlobReader(BaseAppendBlobTest):
             expected_filename = self.test_filename
 
         # Verify addition of _sourceCategory, _sourceHost, _sourceName and also additional metadata
-        self.assertTrue(source_name == f"{expected_filename}", f"_sourceName {source_name} metadata is incorrect")
-        self.assertTrue(source_host == f"{self.test_storageaccount_name}/{self.test_container_name}", f"_sourceHost {source_host} metadata is incorrect")
+        self.assertTrue(source_name == expected_filename, f"_sourceName: {source_name} expected_filename: {expected_filename} metadata is incorrect")
+        self.assertTrue(source_host == f"{self.test_storageaccount_name}/{self.test_container_name}", f"_sourceHost {source_host} expected_sourcehost: {self.test_storageaccount_name}/{self.test_container_name} metadata is incorrect")
 
     # def test_05_upload_filename_with_utf16_chars_having_utf16_chars_in_deep_folder():
     #     # Verify with a filename with special characters

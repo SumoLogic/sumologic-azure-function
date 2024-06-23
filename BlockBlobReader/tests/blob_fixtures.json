@@ -1,1 +1,56 @@
-{"records":[{"time":"2023-05-15T10:08:26.1964863Z","systemId":"61171fa9-d0e7-44e4-8133-d6f4035bc533","macAddress":"002248340BBC","category":"NetworkSecurityGroupFlowEvent","resourceId":"/SUBSCRIPTIONS/C088DC46-D692-42AD-A4B6-9A542D28AD2A/RESOURCEGROUPS/CON-1774/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/AADDS-NSG","operationName":"NetworkSecurityGroupFlowEvents","properties":{"Version":2,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"002248340BBC","flowTuples":["1684145260,198.199.98.123,10.1.1.6,38095,7199,T,I,D,B,,,,","1684145262,162.142.125.180,10.1.1.6,10023,18061,T,I,D,B,,,,","1684145264,162.142.125.249,10.1.1.6,9303,33712,T,I,D,B,,,,","1684145267,146.59.233.75,10.1.1.6,33678,22,T,I,D,B,,,,","1684145275,167.94.145.28,10.1.1.6,39678,13337,T,I,D,B,,,,","1684145281,162.142.125.184,10.1.1.6,56860,9800,T,I,D,B,,,,","1684145290,79.124.62.78,10.1.1.6,53146,46367,T,I,D,B,,,,","1684145297,162.142.125.180,10.1.1.6,16879,10030,T,I,D,B,,,,","1684145297,193.106.192.189,10.1.1.6,35021,23,T,I,D,B,,,,","1684145300,94.102.61.42,10.1.1.6,46560,8426,T,I,D,B,,,,"]}]}]}}]}
+{
+    "records": [
+        {
+            "time": "2017-06-16T20:59:43.7340000Z",
+            "systemId": "abcdef01-2345-6789-0abc-def012345678",
+            "category": "NetworkSecurityGroupFlowEvent",
+            "resourceId": "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/MYRESOURCEGROUP/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/MYNSG",
+            "operationName": "NetworkSecurityGroupFlowEvents",
+            "properties": {
+                "Version": 1,
+                "flows": [
+                    {
+                        "rule": "DefaultRule_AllowInternetOutBound",
+                        "flows": [
+                            {
+                                "mac": "000D3A18077E",
+                                "flowTuples": [
+                                    "1497646722,10.0.0.4,168.62.32.14,44904,443,T,O,A",
+                                    "1497646722,10.0.0.4,52.240.48.24,45218,443,T,O,A",
+                                    "1497646725,10.0.0.4,168.62.32.14,44910,443,T,O,A",
+                                    "1497646725,10.0.0.4,52.240.48.24,45224,443,T,O,A",
+                                    "1497646728,10.0.0.4,168.62.32.14,44916,443,T,O,A",
+                                    "1497646728,10.0.0.4,52.240.48.24,45230,443,T,O,A",
+                                    "1497646732,10.0.0.4,168.62.32.14,44922,443,T,O,A",
+                                    "1497646732,10.0.0.4,52.240.48.24,45236,443,T,O,A"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "rule": "DefaultRule_DenyAllInBound",
+                        "flows": []
+                    },
+                    {
+                        "rule": "UserRule_ssh-rule",
+                        "flows": []
+                    },
+                    {
+                        "rule": "UserRule_web-rule",
+                        "flows": [
+                            {
+                                "mac": "000D3A18077E",
+                                "flowTuples": [
+                                    "1497646738,13.82.225.93,10.0.0.4,1180,80,T,I,A",
+                                    "1497646750,13.82.225.93,10.0.0.4,1184,80,T,I,A",
+                                    "1497646768,13.82.225.93,10.0.0.4,1181,80,T,I,A",
+                                    "1497646780,13.82.225.93,10.0.0.4,1336,80,T,I,A"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

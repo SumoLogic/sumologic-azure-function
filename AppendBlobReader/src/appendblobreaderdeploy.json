@@ -444,7 +444,7 @@
             "properties": {
                 "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
                 "maximumElasticWorkerCount": 1,
-                "perSiteScaling": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
                 "targetWorkerSizeId": 0,
                 "reserved": false,
@@ -470,7 +470,7 @@
             "properties": {
                 "name": "[parameters('serverfarms_ConsumerPlan_name')]",
                 "maximumElasticWorkerCount": 1,
-                "perSiteScaling": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
                 "targetWorkerSizeId": 0,
                 "reserved": false,
@@ -501,6 +501,7 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "alwaysOn": true,
                     "cors": {
                         "allowedOrigins": [ "https://portal.azure.com" ]
@@ -595,6 +596,7 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "alwaysOn": true,
                     "cors": {
                         "allowedOrigins": [ "https://portal.azure.com" ]
@@ -701,6 +703,7 @@
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "alwaysOn": true,
                     "cors": {
                         "allowedOrigins": [ "https://portal.azure.com" ]

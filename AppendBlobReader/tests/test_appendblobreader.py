@@ -10,6 +10,8 @@ from azure.storage.blob import AppendBlobService
 from azure.storage.blob.models import BlobBlock
 from azure.mgmt.storage import StorageManagementClient
 from azure.cosmosdb.table.tableservice import TableService
+from random import choices
+from string import ascii_uppercase, digits
 
 
 class TestAppendBlobReader(BaseAppendBlobTest):
@@ -27,9 +29,18 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
         cls.test_storage_res_group = "testsumosarg%s" % (test_datetime_value)
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
+        # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"
         cls.test_container_name = "testcontainer-%s" % (datetime_value)
-        cls.test_filename = "test.blob"
+        cls.test_filename_excluded_by_filter = "test_filename_excluded_by_filter.blob"
+        cls.test_filename_unsupported_extension = "test.xml"
+        # https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
+        # https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
+        # storageAccount 3-24 container 3-63 blobName 1-1024 maxDepth 63 if hierarchial namespace enabled
+        # Verify maximum length path of storage location
+        folder_depth = str.join('/', choices(ascii_uppercase+digits, k=62))
+        bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=(1024-10-len(folder_depth))))
+        cls.test_filename = f"{folder_depth}/test{bigrandomfilename}.blob"
         cls.event_subscription_name = "SUMOBRSubscription"
 
         cls.create_storage_account(cls.test_storageAccountRegion, cls.test_storage_res_group, cls.test_storageaccount_name)
@@ -53,15 +64,33 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         expected_resource_count = 12  # 10 + 2(microsoft.insights/autoscalesettings)
         self.check_resource_count(expected_resource_count)
 
+    def upload_file_in_another_container(self):
+        self.logger.info("uploading file in another container outside filter prefix")
+        test_container_name_excluded_by_filter = "anothercontainernotinprefix"
+
+        line_not_present = "this line should not be present"
+        chunk = "\n".join(line_not_present) + "\n"
+        self.create_container(test_container_name_excluded_by_filter)
+        self.block_blob_service.create_blob(test_container_name_excluded_by_filter, self.test_filename_excluded_by_filter)
+        self.block_blob_service.append_blob_from_text(test_container_name_excluded_by_filter, self.test_filename_excluded_by_filter, chunk, encoding='utf-8')
+
+    def upload_file_of_unknown_extension(self):
+        self.logger.info("uploading file with unsupported extension")
+        line_not_present = '<?xml version="1.0"?>'
+        chunk = "\n".join(line_not_present) + "\n"
+        self.create_container(self.test_container_name)
+        self.block_blob_service.create_blob(self.test_container_name, self.test_filename_unsupported_extension)
+        self.block_blob_service.append_blob_from_text(self.test_container_name, self.test_filename_unsupported_extension, chunk, encoding='utf-8')
+
     def test_03_func_logs(self):
         self.logger.info("inserting mock data in BlobStorage")
         self.upload_file_chunks_using_append_blobs()
-
+        self.upload_file_in_another_container()
+        self.upload_file_of_unknown_extension()
         time.sleep(600)
 
         app_insights = self.get_resource('Microsoft.Insights/components')
 
-        # Azure function: AppendBlobFileTracker
         azurefunction = "AppendBlobFileTracker"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
@@ -79,7 +108,6 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-        # Azure function: AppendBlobTaskProducer
         azurefunction = "AppendBlobTaskProducer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
@@ -103,18 +131,19 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-        # Azure function: AppendBlobTaskConsumer
         azurefunction = "AppendBlobTaskConsumer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
+        # Verify Debug Logs are created in Storage account for successful upload
         message = "All chunks successfully sent to sumo"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
 
-        message = "Updated offset result"
+        message = "Successfully updated OffsetMap"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
 
+        # Invalid Range when offset is more than the blob size
         message = "Offset is already at the end"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
                         f"No '{message}' log line found in '{azurefunction}' function logs")
@@ -125,19 +154,60 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
-    def test_04_sumo_query_record_count(self):
         self.logger.info("fetching mock data count from sumo")
-        query = f'_sourceCategory="{self.source_category}" | count'
+        query = f'_sourceCategory="{self.source_category}" | count by _sourceName, _sourceHost'
         relative_time_in_minutes = 30
         expected_record_count = 32768
-        result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
+        record_count = record_excluded_by_filter_count = record_unsupported_extension_count = None
+        source_host = source_name = ""
         #sample: {'warning': '', 'fields': [{'name': '_count', 'fieldType': 'int', 'keyField': False}], 'records': [{'map': {'_count': '32768'}}]}
         try:
+            result = self.fetch_sumo_query_results(query, relative_time_in_minutes)
             record_count = int(result['records'][0]['map']['_count'])
-        except Exception:
-            record_count = 0
+            source_name = result['records'][0]['map']['_sourcename']
+            source_host = result['records'][0]['map']['_sourcehost']
+            record_excluded_by_filter_count = len(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_excluded_by_filter}" | count', relative_time_in_minutes)['records'])
+            record_unsupported_extension_count = len(self.fetch_sumo_query_results(f'_sourceName="{self.test_filename_unsupported_extension}" | count', relative_time_in_minutes)['records'])
+        except Exception as err:
+            self.logger.info(f"Error in fetching sumo query results {err}")
+
+        # File should be successfully uploaded in Sumo logic without duplication
         self.assertTrue(record_count == expected_record_count,
                         f"append blob file's record count: {record_count} differs from expected count {expected_record_count} in sumo '{self.source_category}'")
+        # Verify Filter Prefix field
+        self.assertTrue(record_excluded_by_filter_count == 0,
+                        f"append blob file's record count: {record_excluded_by_filter_count}, logs outside container filter prefix should not be ingested")
+        # Verify unsupported file type
+        self.assertTrue(record_unsupported_extension_count == 0,
+                        f"append blob file's record count: {record_unsupported_extension_count}, logs with unsupported blob extension should not be ingested")
+
+        # Verify with a very long append blob filename (1024 characters)
+        if len(self.test_filename) > 128:
+            expected_filename = self.test_filename[:60] + "..." + self.test_filename[-60:]
+        else:
+            expected_filename = self.test_filename
+
+        # Verify addition of _sourceCategory, _sourceHost, _sourceName and also additional metadata
+        self.assertTrue(source_name == expected_filename, f"_sourceName: {source_name} expected_filename: {expected_filename} metadata is incorrect")
+        self.assertTrue(source_host == f"{self.test_storageaccount_name}/{self.test_container_name}", f"_sourceHost {source_host} expected_sourcehost: {self.test_storageaccount_name}/{self.test_container_name} metadata is incorrect")
+
+    # def test_05_upload_filename_with_utf16_chars_having_utf16_chars_in_deep_folder():
+    #     # Verify with a filename with special characters
+    #     # Verify maximum length path  of storage location
+    #     # Todo find out how to upload file with a prefix
+    #     self.logger.info("uploading file with non ascii chars and filename")
+    #     cls.test_filename_nonascii_chars = "nonascii.txt"
+    #     log_line = "log line with non ascii chars 汉字"
+    #     chunk = "\n".join(line_not_present) + "\n"
+    #     self.create_container(self.test_container_name)
+    #     self.block_blob_service.create_blob(test_container_name, cls.test_filename_nonascii_chars)
+    #     self.block_blob_service.append_blob_from_text(test_container_name, test_filename_nonascii_chars, chunk, encoding='utf-16')
+    #
+    #
+    # def test_06_deleted_file_entry_should_be_removed():
+    #     # delete the file
+    #     # trigger the producer function
+    #     # check the consumer logs
 
     @classmethod
     def get_blockblob_service(cls, resource_group, account_name):

@@ -143,7 +143,7 @@ SumoClient.prototype.flushBucketToSumo = function(metaKey) {
                         resolve(body);
                         // TODO: anything here?
                     } else {
-                        reject({'error':"statusCode: " + res.statusCode + + " statusMessage: " + res.statusMessage + " body: " + body,'res':null});
+                        reject({'error':"statusCode: " + res.statusCode + " statusMessage: " + res.statusMessage + " body: " + body, 'res':null});
                     }
                     // TODO: finalizeContext();
                 });

@@ -38,10 +38,6 @@
             "defaultValue": "[concat('SUMOBRSubscription', resourceGroup().name, uniqueString(resourceGroup().id))]",
             "type": "String"
         },
-        "eventGridSystemTopicName": {
-            "defaultValue": "[concat('SUMOBREventGridSystemTopic', uniqueString(resourceGroup().id))]",
-            "type": "String"
-        },
         "filterPrefix": {
             "defaultValue": "",
             "type": "String"
@@ -84,6 +80,24 @@
                 "description": "Enter the SUMO source endpoint"
             }
         },
+        "deployingAgainForSameStorageAccount": {
+            "type": "string",
+            "defaultValue": "no",
+            "allowedValues": [
+                "yes",
+                "no"
+            ],
+            "metadata": {
+                "description": "Choose 'yes' if you are deploying the ARM template again for the same storage account, else choose 'no'."
+            }
+        },
+        "eventGridSystemTopicName": {
+            "defaultValue": "[concat('SUMOBREventGridSystemTopic', uniqueString(resourceGroup().id))]",
+            "type": "String",
+            "metadata": {
+                "description": "If you are deploying template again for same storage account then provide the existing System Topic Name for the StorageAccount"
+            }
+        },
         "StorageAccountName": {
             "type": "String",
             "metadata": {
@@ -123,7 +137,7 @@
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]",
         "roleScope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('StorageAccountResourceGroupName'), '/providers/Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
         "DLQProcessor_resourceId": "[resourceId('Microsoft.Web/sites/', parameters('sites_DLQProcessor_name'))]",
-        "blobreaderconsumer_respurceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]",
+        "blobreaderconsumer_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_blobreaderconsumer_name'))]",
         "BlobReader_resourceId": "[resourceId(variables('resourceGroupName'),'Microsoft.Web/sites/', parameters('sites_BlobReader_name'))]",
         "eventhub_resourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('namespaces_BlobReaderNamespace_name'), parameters('eventhubs_blobreadereventhub_name'))]",
         "TABLE_NAME": "FileOffsetMap",
@@ -138,7 +152,7 @@
             "resourceGroup": "[parameters('StorageAccountResourceGroupName')]",
             "dependsOn": [
                 "[variables('DLQProcessor_resourceId')]",
-                "[variables('blobreaderconsumer_respurceId')]"
+                "[variables('blobreaderconsumer_resourceId')]"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -169,6 +183,7 @@
                         {
                             "type": "Microsoft.EventGrid/systemTopics",
                             "apiVersion": "2022-06-15",
+                            "condition": "[equals(parameters('deployingAgainForSameStorageAccount'), 'no')]",
                             "name": "[parameters('eventGridSystemTopicName')]",
                             "location": "[parameters('StorageAccountRegion')]",
                             "properties": {
@@ -294,10 +309,13 @@
             "location": "[parameters('location')]",
             "properties": {
                 "name": "[parameters('serverfarms_BlobReaderPlan_name')]",
-                "perSiteScaling": false,
-                "reserved": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
-                "targetWorkerSizeId": 0
+                "targetWorkerSizeId": 0,
+                "reserved": false,
+                "isSpot": false,
+                "isXenon": false,
+                "hyperV": false
             }
         },
         {
@@ -316,13 +334,17 @@
             "location": "[parameters('location')]",
             "properties": {
                 "name": "[parameters('serverfarms_ConsumerPlan_name')]",
-                "perSiteScaling": false,
-                "reserved": false,
+                "perSiteScaling": true,
                 "targetWorkerCount": 0,
-                "targetWorkerSizeId": 0
+                "targetWorkerSizeId": 0,
+                "reserved": false,
+                "isSpot": false,
+                "isXenon": false,
+                "hyperV": false
             }
         },
         {
+            "comments": "Generalized from resource: 'Microsoft.Web/sites/BlobReader'.",
             "type": "Microsoft.Web/sites",
             "kind": "functionapp",
             "name": "[parameters('sites_BlobReader_name')]",
@@ -340,9 +362,11 @@
                 "siteConfig": {
                     "ftpsState": "Disabled",
                     "alwaysOn": true,
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -436,9 +460,11 @@
                 "reserved": false,
                 "siteConfig": {
                     "ftpsState": "Disabled",
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -498,7 +524,7 @@
                     "type": "sourcecontrols",
                     "location": "[parameters('location')]",
                     "dependsOn": [
-                        "[variables('blobreaderconsumer_respurceId')]"
+                        "[variables('blobreaderconsumer_resourceId')]"
                     ],
                     "properties": {
                         "RepoUrl": "[parameters('sourceCodeRepositoryURL')]",
@@ -530,9 +556,11 @@
                 "reserved": false,
                 "siteConfig": {
                     "ftpsState": "Disabled",
+                    "use32BitWorkerProcess": false,
                     "http20Enabled": true,
                     "minTlsVersion": "1.2",
                     "scmMinTlsVersion": "1.2",
+                    "netFrameworkVersion": "v6.0",
                     "appSettings": [
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -636,7 +664,7 @@
             "location": "[parameters('location')]",
             "properties": {
                 "messageRetentionInDays": 7,
-                "partitionCount": 2,
+                "partitionCount": 1,
                 "status": "Active"
             },
             "dependsOn": [

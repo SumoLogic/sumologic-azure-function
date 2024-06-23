@@ -318,11 +318,7 @@ function getDateDifferenceInMinutes(date_a, date_b) {
  */
 function getTasksForUnlockedFiles(context) {
 
-    var maxIngestionDelayPerFile = 5;
-    let MS_PER_MINUTE = 60*1000;
-    var dateVal = new Date(new Date() - maxIngestionDelayPerFile*MS_PER_MINUTE);
-    // fetching unlocked files which were not enqueued in last 5 minutes
-    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0} and ( not (lastEnqueLockTime gt '') or lastEnqueLockTime le '${dateVal.toISOString()}')`
+    var existingFileQuery = `done eq ${false} and blobType eq '${'AppendBlob'}' and offset ge ${0}`
     return new Promise(function (resolve, reject) {
         return queryFiles(existingFileQuery, context).then(function (allentities) {
             var newFiletasks = [];

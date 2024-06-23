@@ -25,13 +25,15 @@ class BaseBlockBlobTest(BaseTest):
             template_data = json.load(template_file_fd)
 
         template_data["parameters"]["SumoEndpointURL"]["defaultValue"] = self.sumo_endpoint_url
-        template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
-        template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
+        if "sourceCodeBranch" in template_data["parameters"]:
+            template_data["parameters"]["sourceCodeBranch"]["defaultValue"] = self.branch_name
+            template_data["parameters"]["sourceCodeRepositoryURL"]["defaultValue"] = self.repo_name
         template_data["parameters"]["StorageAccountName"]["defaultValue"] = self.test_storageaccount_name
         template_data["parameters"]["StorageAccountResourceGroupName"]["defaultValue"] = self.test_storage_res_group
         template_data["parameters"]["StorageAccountRegion"]["defaultValue"] = self.test_storageAccountRegion
         template_data["parameters"]["location"]["defaultValue"] = self.resourcegroup_location
-
+        template_data["parameters"]["deployingAgainForSameStorageAccount"]["defaultValue"] = 'no'
+        template_data["parameters"]["filterPrefix"]["defaultValue"] = f"/blobServices/default/containers/{self.test_container_name}/"
         return template_data
 
     @classmethod

@@ -89,9 +89,9 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                                                      data_block, [])
 
     def test_03_func_logs(self):
-        self.logger.info("inserting mock %s data in BlobStorage" % cls.log_type)
-        if cls.log_type in ("csv", "log",  "blob"):
-            self.insert_mock_logs_in_BlobStorage(cls.log_type)
+        self.logger.info("inserting mock %s data in BlobStorage" % self.log_type)
+        if self.log_type in ("csv", "log",  "blob"):
+            self.insert_mock_logs_in_BlobStorage(self.log_type)
         else:
             self.insert_mock_json_in_BlobStorage()
 
@@ -149,8 +149,8 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         except Exception as err:
             self.logger.info(f"Error in fetching sumo query results {err}")
 
-        self.assertTrue(record_count == expected_record_count.get(cls.log_type),
-                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(cls.log_type)} in sumo '{self.source_category}'")
+        self.assertTrue(record_count == expected_record_count.get(self.log_type),
+                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(self.log_type)} in sumo '{self.source_category}'")
 
         # Verify Filter Prefix field
         self.assertTrue(record_excluded_by_filter_count == 0,
@@ -160,7 +160,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                         f"block blob file's record count: {record_unsupported_extension_count}, logs with unsupported blob extension should not be ingested")
 
         # Verify with a very long append blob filename (1024 characters)
-        file_ext = f".{cls.log_type}"
+        file_ext = f".{self.log_type}"
         if len(self.test_filename) > 128:
             expected_filename = self.test_filename[:60] + "..." + self.test_filename[-(60-len(file_ext)):] + file_ext
         else:

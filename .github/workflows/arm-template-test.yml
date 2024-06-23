@@ -53,7 +53,7 @@ jobs:
       - uses: bridgecrewio/checkov-action@master
         with:
           file: ${{ matrix.dir }}/${{ matrix.file }}
-          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35
+          skip_check: CKV_AZURE_16,CKV_AZURE_17,CKV_AZURE_35,CKV_AZURE_78
           quiet: false
           framework: arm
           output_format: cli

@@ -5,12 +5,14 @@
 var sumoHttp = require('./sumoclient');
 var { ContainerClient } = require("@azure/storage-blob");
 var { DefaultAzureCredential } = require("@azure/identity");
+const { TableClient } = require("@azure/data-tables");
 var { AbortController } = require("@azure/abort-controller");
 var { ServiceBusClient } = require("@azure/service-bus");
 var DEFAULT_CSV_SEPARATOR = ",";
 var MAX_CHUNK_SIZE = 1024;
 var JSON_BLOB_HEAD_BYTES = 12;
 var JSON_BLOB_TAIL_BYTES = 2;
+const azureTableClient = TableClient.fromConnectionString(process.env.AzureWebJobsStorage, "FileOffsetMap");
 
 function csvToArray(strData, strDelimiter) {
     strDelimiter = (strDelimiter || ",");
@@ -116,11 +118,109 @@ function csvHandler(context,msgtext, headers) {
     return messageArray;
 }
 
-function nsgLogsHandler(context,msg) {
+/*
+    return index of first time when pattern matches the string
+ */
+function regexIndexOf(string, regex, startpos) {
+    var indexOf = string.substring(startpos || 0).search(regex);
+    return (indexOf >= 0) ? (indexOf + (startpos || 0)) : indexOf;
+}
+
+/*
+    return index of last time when pattern matches the string
+ */
+function regexLastIndexOf(string, regex, startpos) {
+    // https://stackoverflow.com/questions/19445994/javascript-string-search-for-regex-starting-at-the-end-of-the-string
+    var stringToWorkWith = string.substring(startpos, string.length);
+    var match = stringToWorkWith.match(regex);
+    return match ? string.lastIndexOf(match.slice(-1)) : -1;
+}
+
+/*
+    returns array of json by removing unparseable prefix and suffix in data
+ */
+function getParseableJsonArray(data, context) {
+
+    let logRegex = '\{\\s*\"time\"\:'; // starting regex for nsg logs
+    let defaultEncoding = "utf8";
+    let orginalDatalength = data.length;
+    // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.
+    // return -1 if not found
+    let firstIdx = regexIndexOf(data, logRegex);
+    let lastIndex = regexLastIndexOf(data, logRegex, firstIdx + 1);
+
+    // data.substring method extracts the characters in a string between "start" and "end", not including "end" itself.
+    let prefix = data.substring(0, firstIdx);
+    // in case only one time string
+    if (lastIndex === -1 && data.length > 0) {
+        lastIndex = data.length;
+    }
+    let suffix = data.substring(lastIndex, data.length);
+    if (suffix.length > 0) {
+        try {
+            JSON.parse(suffix.trim());
+            lastIndex = data.length;
+        } catch (error) {
+            context.log.error(`Failed to parse the JSON last chunk. Ignoring suffix: ${suffix.trim()}, error: ${error}`);
+        }
+    }
+
+    // ideally ignoredprefixLen should always be 0. it will be dropped for files which are updated
+    context.log.verbose(`Ignoring log prefix length: ${Buffer.byteLength(prefix, defaultEncoding)} suffix length: ${Buffer.byteLength(data.substring(lastIndex, data.length), defaultEncoding)}`);
+
+    // data with both prefix and suffix removed
+    data = data.substring(firstIdx, lastIndex);
+    let newOffset = Buffer.byteLength(prefix + data, defaultEncoding);
+    data = data.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+
+    try {
+        var jsonArray = JSON.parse("[" + data + "]");
+        context.log.verbose(`Successfully parsed Json! datalength: ${data.length} orginalDatalength: ${orginalDatalength} newOffset: ${newOffset}`)
+        return [jsonArray, newOffset];
+    } catch(error) {
+        context.log.error(`Failed to parse the JSON after removing prefix/suffix  Error: ${error} firstIdx: ${firstIdx} lastIndex: ${lastIndex} prefix: ${prefix} datastart: ${data.substring(0,10)} dataend: ${data.substring(data.length-10,data.length)} orginalDatalength: ${orginalDatalength}`);
+        return [[data], newOffset];
+    }
+}
+
+async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Todo: this should be atomic update if other request decreases offset it shouldn't allow
+            context.log.verbose("Attempting to update offset row: %s from: %d to: %d", serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
+            let entity = {
+                offset: { type: "Int64", value: String(newOffset) },
+                // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
+                partitionKey: serviceBusTask.containerName,
+                rowKey: serviceBusTask.rowKey,
+                blobName: serviceBusTask.blobName,
+                containerName: serviceBusTask.containerName,
+                storageName: serviceBusTask.storageName,
+            }
+            var updateResult = await azureTableClient.updateEntity(entity, "Merge");
+            context.log.verbose("Updated offset result: %s row: %s from: %d to: %d", JSON.stringify(updateResult), serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
+            resolve();
+        } catch (error) {
+            context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask.rowKey: ${serviceBusTask.rowKey}, newOffset: ${offset}`)
+            resolve()
+        }
+    });
+}
+
+
+async function nsgLogsHandler(context, msg, serviceBusTask) {
 
     var jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
-    jsonArray = JSON.parse("[" + msg + "]");
+
+    try {
+        jsonArray = JSON.parse("[" + msg + "]");
+    } catch(err) {
+        let response = getParseableJson(msg, context, serviceBusTask);
+        jsonArray = response[0];
+        await setAppendBlobOffset(context, serviceBusTask, response[1]);
+    }
+
     var eventsArr = [];
     jsonArray.forEach(function (record) {
         version = record.properties.Version;
@@ -253,13 +353,13 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         file_ext = "nsg";
     }
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
-        return getData(serviceBusTask, blobService, context).then(function (msg) {
+        return getData(serviceBusTask, blobService, context).then(async function (msg) {
             context.log("Sucessfully downloaded blob %s %d %d", serviceBusTask.blobName, serviceBusTask.startByte, serviceBusTask.endByte);
             var messageArray;
             if (file_ext === "csv") {
                 return getcsvHeader(serviceBusTask.containerName, serviceBusTask.blobName, blobService, context).then(function (headers) {
                     context.log("Received headers %d", headers.length);
-                    messageArray = msghandler[file_ext](context,msg, headers);
+                    messageArray = csvHandler(context,msg, headers);
                     // context.log("Transformed data %s", JSON.stringify(messageArray));
                     messageArray.forEach(function (msg) {
                         sumoClient.addData(msg);
@@ -270,7 +370,11 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     context.done(err);
                 });
             } else {
-                messageArray = msghandler[file_ext](context,msg);
+                if (file_ext == "nsg") {
+                    messageArray = await nsgLogsHandler(context, msg, serviceBusTask);
+                } else {
+                    messageArray = msghandler[file_ext](context,msg);
+                }
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);
                 });

@@ -124,6 +124,15 @@ function getNewTask(currentoffset,sortedcontentlengths,metadata){
             lastoffset = endByte;
         }
     }
+    if (tasks.length === 0 && sortedcontentlengths.length > 0  && endByte < currentoffset) {
+        // in NSG Flow logs sometimes file gets rewritten, hence starting the file from the beginning
+        task = Object.assign({
+            startByte: 0,
+            endByte: endByte
+        }, metadata);
+        tasks.push(task);
+        lastoffset = endByte;
+    }
     return [tasks,lastoffset];
 }
 
@@ -142,7 +151,7 @@ async function createTasksForBlob(partitionKey, rowKey, sortedcontentlengths, co
     }
     var currentoffset = retrievedResponse.statusCode === 404 ? -1 : Number(retrievedResponse.entity.offset);
     var currentEtag = retrievedResponse.statusCode === 404 ? null : retrievedResponse.entity.etag;
-    var [tasks,lastoffset] = getNewTask(currentoffset,sortedcontentlengths,metadata);
+    var [tasks,lastoffset] = getNewTask(currentoffset, sortedcontentlengths, metadata);
 
     if (tasks.length > 0) { // modify offset only when it's been changed
         var entity = getEntity(metadata, lastoffset, currentEtag);

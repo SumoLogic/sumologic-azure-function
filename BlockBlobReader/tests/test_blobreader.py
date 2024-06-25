@@ -116,7 +116,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         azurefunction = "BlobTaskConsumer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
-        successful_sent_message = "Successfully sent to Sumo"
+        successful_sent_message = "Successfully sent to Sumo, Exiting now."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
                         f"No success message found in {azurefunction} azure function logs")
 

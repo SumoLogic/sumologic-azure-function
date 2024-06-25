@@ -228,7 +228,8 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         return blocks
 
     def get_json_data(self):
-        json_data = json.load(open("blob_fixtures.json"))["records"]
+        with open("blob_fixtures.json") as fp:
+            json_data = json.load(fp)["records"]
         return [json_data[:2], json_data[2:5], json_data[5:7], json_data[7:]]
 
     def insert_empty_json(self, container_name, file_name):

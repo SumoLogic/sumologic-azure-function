@@ -116,7 +116,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         azurefunction = "BlobTaskConsumer"
         captured_output = self.fetchlogs(app_insights.name, azurefunction)
 
-        successful_sent_message = "Successfully sent to Sumo, Exiting now."
+        successful_sent_message = "Successfully sent to Sumo"
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
                         f"No success message found in {azurefunction} azure function logs")
 
@@ -228,7 +228,8 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         return blocks
 
     def get_json_data(self):
-        json_data = json.load(open("blob_fixtures.json"))["records"]
+        with open("blob_fixtures.json") as fp:
+            json_data = json.load(fp)["records"]
         return [json_data[:2], json_data[2:5], json_data[5:7], json_data[7:]]
 
     def insert_empty_json(self, container_name, file_name):

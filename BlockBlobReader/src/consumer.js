@@ -170,43 +170,50 @@ function getParseableJsonArray(data, context) {
 
     // data with both prefix and suffix removed
     data = data.substring(firstIdx, lastIndex);
-    let newOffset = Buffer.byteLength(prefix + data, defaultEncoding);
+    let dataLenParsed = Buffer.byteLength(prefix + data, defaultEncoding);
     data = data.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
 
     try {
         var jsonArray = JSON.parse("[" + data + "]");
-        context.log.verbose(`Successfully parsed Json! datalength: ${data.length} orginalDatalength: ${orginalDatalength} newOffset: ${newOffset}`)
-        return [jsonArray, newOffset];
+        context.log.verbose(`Successfully parsed Json! datalength: ${data.length} orginalDatalength: ${orginalDatalength} dataLenParsed: ${dataLenParsed}`)
+        return [jsonArray, dataLenParsed, true];
     } catch(error) {
-        context.log.error(`Failed to parse the JSON after removing prefix/suffix  Error: ${error} firstIdx: ${firstIdx} lastIndex: ${lastIndex} prefix: ${prefix} datastart: ${data.substring(0,10)} dataend: ${data.substring(data.length-10,data.length)} orginalDatalength: ${orginalDatalength}`);
-        return [[data], newOffset];
+        context.log.error(`Failed to parse the JSON after removing prefix/suffix  Error: ${error} firstIdx: ${firstIdx} lastIndex: ${lastIndex} prefix: ${prefix} datastart: ${data.substring(0,10)} dataend: ${data.substring(data.length-10,data.length)} orginalDatalength: ${orginalDatalength} dataLenParsed: ${dataLenParsed}`);
+        return [[data], dataLenParsed, false];
     }
 }
 
-async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // Todo: this should be atomic update if other request decreases offset it shouldn't allow
-            context.log.verbose("Attempting to update offset row: %s from: %d to: %d", serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
-            let entity = {
-                offset: { type: "Int64", value: String(newOffset) },
-                // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
-                partitionKey: serviceBusTask.containerName,
-                rowKey: serviceBusTask.rowKey,
-                blobName: serviceBusTask.blobName,
-                containerName: serviceBusTask.containerName,
-                storageName: serviceBusTask.storageName,
-            }
-            var updateResult = await azureTableClient.updateEntity(entity, "Merge");
-            context.log.verbose("Updated offset result: %s row: %s from: %d to: %d", JSON.stringify(updateResult), serviceBusTask.rowKey, serviceBusTask.startByte, newOffset);
-            resolve();
-        } catch (error) {
-            context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  serviceBusTask.rowKey: ${serviceBusTask.rowKey}, newOffset: ${offset}`)
-            resolve()
-        }
-    });
+function getRowKey(metadata) {
+    var storageName =  metadata.url.split("//").pop().split(".")[0];
+    var arr = metadata.url.split('/').slice(3);
+    var keyArr = [storageName];
+    Array.prototype.push.apply(keyArr, arr);
+    // key cannot be greater than 1KB or 1024 bytes;
+    var rowKey = keyArr.join("-");
+    return rowKey.substr(0,Math.min(1024, rowKey.length)).replace(/^-+|-+$/g, '');
 }
 
+async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
+
+    try {
+        let rowKey = getRowKey(serviceBusTask);
+        // Todo: this should be atomic update if other request decreases offset it shouldn't allow
+        context.log.verbose("Attempting to update offset row: %s from: %d to: %d", rowKey, serviceBusTask.startByte, newOffset);
+        let entity = {
+            offset: { type: "Int64", value: String(newOffset) },
+            // In a scenario where the entity could have been deleted (archived) by appendblob because of large queueing time so to avoid error in insertOrMerge Entity we include rest of the fields like storageName,containerName etc.
+            partitionKey: serviceBusTask.containerName,
+            rowKey: rowKey,
+            blobName: serviceBusTask.blobName,
+            containerName: serviceBusTask.containerName,
+            storageName: serviceBusTask.storageName
+        }
+        var updateResult = await azureTableClient.updateEntity(entity, "Merge");
+        context.log.verbose("Updated offset result: %s row: %s from: %d to: %d", JSON.stringify(updateResult), rowKey, serviceBusTask.startByte, newOffset);
+    } catch (error) {
+        context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  rowKey: ${rowKey}, newOffset: ${newOffset}`)
+    }
+}
 
 async function nsgLogsHandler(context, msg, serviceBusTask) {
 
@@ -216,19 +223,26 @@ async function nsgLogsHandler(context, msg, serviceBusTask) {
     try {
         jsonArray = JSON.parse("[" + msg + "]");
     } catch(err) {
-        let response = getParseableJson(msg, context, serviceBusTask);
+        let response = getParseableJsonArray(msg, context, serviceBusTask);
         jsonArray = response[0];
-        await setAppendBlobOffset(context, serviceBusTask, response[1]);
+        let is_success = response[2];
+        let newOffset = response[1] + serviceBusTask.startByte;
+        if (is_success) {
+            await setAppendBlobOffset(context, serviceBusTask, newOffset);
+        } else {
+            return jsonArray;
+        }
+
     }
 
     var eventsArr = [];
     jsonArray.forEach(function (record) {
-        version = record.properties.Version;
+        let version = record.properties.Version;
         record.properties.flows.forEach(function (rule) {
             rule.flows.forEach(function (flow) {
                 flow.flowTuples.forEach(function (tuple) {
-                    col = tuple.split(",");
-                    event = {
+                    let col = tuple.split(",");
+                    let event = {
                         time: col[0], // this should be epoch time
                         sys_id: record.systemId,
                         category: record.category,
@@ -279,7 +293,7 @@ function jsonHandler(context,msg) {
 function blobHandler(context,msg) {
     // it's assumed that .blob files contains json separated by \n
     //https://docs.microsoft.com/en-us/azure/application-insights/app-insights-export-telemetry
-    
+
     var jsonArray = [];
     msg = msg.replace(/\0/g, '');
     msg = msg.replace(/(\r?\n|\r)/g, ",");
@@ -338,7 +352,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         context.done();
         return;
     }
-    if (file_ext === "json" & serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent") {
+    if ((file_ext === "json") && (serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent")) {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
         if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
             context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
@@ -347,8 +361,6 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
         if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
             serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
-        } else {
-            serviceBusTask.startByte -= 1; //to remove comma before json object
         }
         file_ext = "nsg";
     }
@@ -386,7 +398,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
             context.log.error("Error in messageHandler: blob file doesn't exist " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
             context.done()
         } else {
-            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte);
+            context.log.error("Error in messageHandler: Failed to send blob " + serviceBusTask.blobName + " " + serviceBusTask.startByte + " " +serviceBusTask.endByte + " err: " + err);
             context.done(err);
         }
 
@@ -451,20 +463,18 @@ function servicebushandler(context, serviceBusTask) {
     };
     setSourceCategory(serviceBusTask, options);
     function failureHandler(msgArray, ctx) {
-        ctx.log("ServiceBus Task: ", serviceBusTask)
-        ctx.log.error("Failed to send to Sumo");
+        ctx.log.error(`Failed to send to Sumo`);
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
             ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
         }
     }
     function successHandler(ctx) {
         if (sumoClient.messagesAttempted === sumoClient.messagesReceived) {
-            ctx.log("ServiceBus Task: ", serviceBusTask)
             if (sumoClient.messagesFailed > 0) {
-                ctx.log.error('Failed to send few messages to Sumo')
+                ctx.log.error(`Failed to send few messages to Sumo`)
                 ctx.done("TaskConsumer failedmessages: " + sumoClient.messagesFailed);
             } else {
-                ctx.log('Successfully sent to Sumo, Exiting now.');
+                ctx.log(`Successfully sent to Sumo, Exiting now.`);
                 ctx.done();
             }
         }
@@ -561,6 +571,16 @@ async function timetriggerhandler(context, timetrigger) {
     }
 
 module.exports = function (context, triggerData) {
+    // triggerData = {
+    //     "blobName": "blob_fixtures.json",
+    //     "containerName": "insights-logs-networksecuritygroupflowevent",
+    //     "endByte": 2617,
+    //     "resourceGroupName": "testsumosa250624004409",
+    //     "startByte": 0,
+    //     "storageName": "testsa250624004409",
+    //     "subscriptionId": "c088dc46-d692-42ad-a4b6-9a542d28ad2a",
+    //     "url": "https://testsa250624004409.blob.core.windows.net/insights-logs-networksecuritygroupflowevent/blob_fixtures.json"
+    // };
     if (triggerData.isPastDue === undefined) {
         servicebushandler(context, triggerData);
     } else {

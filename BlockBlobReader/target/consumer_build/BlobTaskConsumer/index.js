@@ -497,6 +497,7 @@ async function timetriggerhandler(context, timetrigger) {
     }catch(err){
         context.log.error("Failed to create service bus client and receiver");
         context.done(err);
+        return;
     }
     try {
         var messages = await queueReceiver.receiveMessages(1, {
@@ -541,23 +542,19 @@ async function timetriggerhandler(context, timetrigger) {
                     ctx.log('Successfully sent to Sumo, Exiting now.');
                     try{
                         await queueReceiver.completeMessage(messages[0]);
-                    }catch(err){
-                        await queueReceiver.close();
-                        await sbClient.close();
-                        if (!err) {
-                            ctx.log("sent and deleted");
-                            ctx.done();
-                        } else {
-                            ctx.log.verbose("Messages Sent but failed delete from DeadLetterQueue");
-                            ctx.done(err);
-                        }
+                        ctx.log("Successfully deleted message from DLQ.");
+                    } catch(err){
+                        ctx.log.error(`Failed to delete message from DLQ. error: ${error}`);
                     }
+                    await queueReceiver.close();
+                    await sbClient.close();
+                    ctx.done();
                 }
             }
         }
         sumoClient = new sumoHttp.SumoClient(options, context, failureHandler, successHandler);
         messageHandler(serviceBusTask, context, sumoClient);
-      }catch(error){
+      } catch(error){
         await queueReceiver.close();
         await sbClient.close();
         if (typeof error === 'string' && new RegExp("\\b" + "No messages" + "\\b", "gi").test(error)) {

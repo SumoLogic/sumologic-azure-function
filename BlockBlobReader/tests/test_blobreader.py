@@ -193,7 +193,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             "subscriptionId": self.subscription_id,
             "url": f"https:{self.test_storageaccount_name}.blob.core.windows.net/{self.test_container_name}/{test_filename}"
         }
-        self.logger.info("Ingesting into servicebus DLQ")
+        self.logger.info("Ingesting message into servicebus DLQ", triggerData)
         SERVICE_BUS_NAMESPACE = self.get_resource_name("SUMOBRTaskQNS", "Microsoft.ServiceBus/namespaces")
         SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE = f"{SERVICE_BUS_NAMESPACE}.servicebus.windows.net"
         SERVICE_BUS_QUEUE_NAME = "blobrangetaskqueue"
@@ -202,19 +202,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         with servicebus_client:
             sender = servicebus_client.get_queue_sender(queue_name=SERVICE_BUS_QUEUE_NAME)
             with sender:
-                sender.send_messages(ServiceBusMessage(json.dumps(triggerData), time_to_live=timedelta(seconds=1)))
-
-            # with receiver:
-            #     num_dlq_messages = 0
-            #     received_msgs = receiver.receive_messages(max_message_count=10, max_wait_time=60)
-            #     for msg in received_msgs:
-            #         receiver.dead_letter_message(
-            #             msg,
-            #             reason="SomeProcessingError",
-            #             error_description="Testing DLQTaskConsumer function",
-            #         )
-            #         num_dlq_messages += 1
-            #     print("Number of DLQ messages ingested: ", num_dlq_messages)
+                sender.send_messages(ServiceBusMessage(json.dumps(triggerData)))
 
     def change_sumo_endpoint(self):
         self.logger.info("Changing sumo logic endpoint")
@@ -222,12 +210,13 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         FunctionAppWebsiteName = self.get_resource_name("SUMOBRTaskConsumer", "Microsoft.Web/sites")
         response = website_client.web_apps.list_application_settings(resource_group_name=self.resource_group_name,name=FunctionAppWebsiteName)
         current_properties = response.properties
-        current_properties["SumoLogEndpoint"] = current_properties["SumoLogEndpoint"] + "donotwork"
+        current_properties["SumoLogEndpoint"] = current_properties["SumoLogEndpoint"].replace("==","")
         response = website_client.web_apps.update_application_settings(resource_group_name=self.resource_group_name,app_settings={"properties": current_properties}, name=FunctionAppWebsiteName)
 
     def subtest_DLQ_func_logs(self):
 
         self.change_sumo_endpoint()
+        time.sleep(300)  # wait for settings change to reflect
         self.upload_message_in_service_bus()
         time.sleep(300)  # after 5 minutes DLQ function gets triggered
         app_insights = self.get_resource('Microsoft.Insights/components')

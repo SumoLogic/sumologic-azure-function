@@ -361,6 +361,8 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
         if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
             serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
+        } else {
+            serviceBusTask.startByte -= 1; //to remove comma before json object
         }
         file_ext = "nsg";
     }

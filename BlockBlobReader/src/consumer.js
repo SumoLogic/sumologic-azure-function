@@ -354,13 +354,15 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     }
     if ((file_ext === "json") && (serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent")) {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
-        if (serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
+        if ((serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) || (serviceBusTask.endByte == serviceBusTask.startByte)) {
             context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
             return;
         }
         serviceBusTask.endByte -= JSON_BLOB_TAIL_BYTES;
-        if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES) {
+        if (serviceBusTask.startByte <= JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) {
             serviceBusTask.startByte = JSON_BLOB_HEAD_BYTES;
+        } else {
+            serviceBusTask.startByte -= 1; //to remove comma before json object
         }
         file_ext = "nsg";
     }

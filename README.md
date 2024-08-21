@@ -40,17 +40,6 @@ Each integration is structured in three folders
  
      git push origin v<major.minor.patch>
 
-## Security Fixes
-  package-lock.json can be created using below command
-
-     npm install --package-lock
-
-  Fix the security dependencies by running below command
-
-     npm audit fix
-
-
-
 ### TLS 1.2 Requirement
 
 Sumo Logic only accepts connections from clients using TLS version 1.2 or greater. To utilize the content of this repo, ensure that it's running in an execution environment that is configured to use TLS 1.2 or greater.

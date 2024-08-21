@@ -33,7 +33,7 @@ This command copies required files in `BlockBlobReader/target` directory
 
 Integrations tests are in `BlockBlobReader/tests` folder and unit tests are in `sumo-function-utils/tests` folder
 
-### Run Unit Test
+### Run Integration Tests
 
 Integrations tests are in `BlockBlobReader/tests` folder and unit tests are in sumo-`function-utils/tests` folder
 
@@ -53,3 +53,15 @@ export SUMO_DEPLOYMENT=`Enter one of the allowed values au, ca, de, eu, fed, in,
 Execute below command under `BlockBlobReader/tests` directory
 
 `python test_blobreader.py`
+
+## Security Fixes
+
+  package-lock.json can be created using below command
+
+     npm install --package-lock
+
+  Fix the security dependencies by running below command
+
+     npm audit fix
+
+

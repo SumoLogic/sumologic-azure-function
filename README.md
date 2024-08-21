@@ -40,6 +40,16 @@ Each integration is structured in three folders
  
      git push origin v<major.minor.patch>
 
+## Security Fixes
+  package-lock.json can be created using below command
+
+     npm install --package-lock
+
+  Fix the security dependencies by running below command
+
+     npm audit fix
+
+
 
 ### TLS 1.2 Requirement
 

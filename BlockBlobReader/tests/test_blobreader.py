@@ -144,7 +144,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         expected_record_count = {
             "blob": 15,
             "log": 10,
-            "json": 10,
+            "json": 120,
             "csv": 12
         }
         record_count = record_excluded_by_filter_count = record_unsupported_extension_count = None

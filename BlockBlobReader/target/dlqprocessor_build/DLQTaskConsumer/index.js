@@ -141,7 +141,7 @@ function regexLastIndexOf(string, regex, startpos) {
  */
 function getParseableJsonArray(data, context) {
 
-    let logRegex = '\{\\s*\"time\"\:'; // starting regex for nsg logs
+    let logRegex = '{\\s*\"time\"\:'; // starting regex for nsg logs
     let defaultEncoding = "utf8";
     let orginalDatalength = data.length;
     // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.

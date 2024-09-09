@@ -183,7 +183,9 @@ class TestAppendBlobReader(BaseAppendBlobTest):
                         f"append blob file's record count: {record_unsupported_extension_count}, logs with unsupported blob extension should not be ingested")
 
         # Verify with a very long append blob filename (1024 characters)
-        if len(self.test_filename) > 128:
+        # _sourceCategory, _sourceHost, _sourceName have this limit
+        maxMetadataLength = 1024
+        if len(self.test_filename) > maxMetadataLength:
             expected_filename = self.test_filename[:60] + "..." + self.test_filename[-60:]
         else:
             expected_filename = self.test_filename

@@ -93,7 +93,9 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
     def get_full_testlog_file_name(self):
         # Verify with a very long append blob filename (1024 characters)
         file_ext = f".{self.log_type}"
-        if len(self.test_filename) > 128:
+        # _sourceCategory, _sourceHost, _sourceName have this limit
+        maxMetadataLength = 1024
+        if len(self.test_filename) > maxMetadataLength:
             expected_filename = self.test_filename[:60] + "..." + self.test_filename[-(60-len(file_ext)):] + file_ext
         else:
             expected_filename = self.test_filename

@@ -264,7 +264,7 @@ async function appendBlobStreamMessageHandlerv2(context, serviceBusTask) {
  * @returns {string} - The new string, truncated if necessary.
  */
 function checkAndTruncate(data) {
-    const maxLength = 128;
+    const maxLength = 1024;
 
     // Check if the string length exceeds the maximum length
     if (data.length > maxLength) {
@@ -297,9 +297,9 @@ function setSourceCategory(serviceBusTask, options) {
         });
         options.metadata["sourceFields"] = customFieldsArr.join();
     }
-    options.metadata["sourceHost"] = `${serviceBusTask.storageName}/${serviceBusTask.containerName}`
+    options.metadata["sourceHost"] = checkAndTruncate(`${serviceBusTask.storageName}/${serviceBusTask.containerName}`);
     // context.log(serviceBusTask.blobName, serviceBusTask.storageName,serviceBusTask.containerName);
-    // options.metadata["sourceCategory"] = "custom_source_category";
+    // options.metadata["sourceCategory"] = checkAndTruncate("custom_source_category");
     options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);
 }
 

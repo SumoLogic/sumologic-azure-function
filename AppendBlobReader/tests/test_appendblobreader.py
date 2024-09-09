@@ -83,6 +83,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.block_blob_service.append_blob_from_text(self.test_container_name, self.test_filename_unsupported_extension, chunk, encoding='utf-8')
 
     def test_03_func_logs(self):
+        time.sleep(120)  # waiting for language runtime to be available
         self.logger.info("inserting mock data in BlobStorage")
         self.upload_file_chunks_using_append_blobs()
         self.upload_file_in_another_container()

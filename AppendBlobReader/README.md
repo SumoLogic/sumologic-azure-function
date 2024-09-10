@@ -31,7 +31,7 @@ Make all the code changes in `AppendBlobReader/src` directory, once all the chan
 
 This command copies required files in `AppendBlobReader/target` directory
 
-### Run Unit Test
+### Run Integrations Test
 
 Integrations tests are in `AppendBlobReader/tests` folder and unit tests are in sumo-`function-utils/tests` folder
 
@@ -50,3 +50,23 @@ export SUMO_DEPLOYMENT=`Enter one of the allowed values au, ca, de, eu, fed, in,
 Execute below command under `AppendBlobReader/tests` directory
 
 `python test_appendblobreader.py`
+
+### Run Unit Tests
+
+To run unit tests, first install test dependencies and then run the tests using below commands
+
+ `npm install`
+
+ `npm test`
+
+## Security Fixes
+
+  package-lock.json can be created using below command
+
+     npm install --package-lock
+
+  Fix the security dependencies by running below command
+
+     npm audit fix
+
+

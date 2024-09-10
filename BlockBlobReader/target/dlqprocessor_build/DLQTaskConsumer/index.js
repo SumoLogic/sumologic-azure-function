@@ -141,7 +141,7 @@ function regexLastIndexOf(string, regex, startpos) {
  */
 function getParseableJsonArray(data, context) {
 
-    let logRegex = '\{\\s*\"time\"\:'; // starting regex for nsg logs
+    let logRegex = '{\\s*\"time\"\:'; // starting regex for nsg logs
     let defaultEncoding = "utf8";
     let orginalDatalength = data.length;
     // If the byte sequence in the buffer data is not valid according to the provided encoding, then it is replaced by the default replacement character i.e. U+FFFD.
@@ -414,7 +414,8 @@ function messageHandler(serviceBusTask, context, sumoClient) {
  * @returns {string} - The new string, truncated if necessary.
  */
 function checkAndTruncate(data) {
-    const maxLength = 128;
+
+    const maxLength = 1024;
 
     // Check if the string length exceeds the maximum length
     if (data.length > maxLength) {
@@ -437,6 +438,7 @@ function checkAndTruncate(data) {
  * metadata.sourceCategory attribute sets the source category
  */
 function setSourceCategory(serviceBusTask, options) {
+
     options.metadata = options.metadata || {};
     // make sure to add custom fileds in HTTP source in sumologic portal: https://help.sumologic.com/docs/manage/fields/#collector-and-source-fields, otherwise these fileds will be dropped.
     let customFields = {}; // { "containername": serviceBusTask.containerName, "storagename": serviceBusTask.storageName };
@@ -447,7 +449,7 @@ function setSourceCategory(serviceBusTask, options) {
         });
         options.metadata["sourceFields"] = customFieldsArr.join();
     }
-    options.metadata["sourceHost"] = `${serviceBusTask.storageName}/${serviceBusTask.containerName}`
+    options.metadata["sourceHost"] = checkAndTruncate(`${serviceBusTask.storageName}/${serviceBusTask.containerName}`);
     // context.log(serviceBusTask.blobName, serviceBusTask.storageName,serviceBusTask.containerName);
     // options.metadata["sourceCategory"] = "custom_source_category";
     options.metadata["sourceName"] = checkAndTruncate(serviceBusTask.blobName);

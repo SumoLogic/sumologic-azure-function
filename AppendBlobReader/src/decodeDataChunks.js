@@ -24,7 +24,7 @@ function getBoundaryRegex(serviceBusTask) {
     // https://stackoverflow.com/questions/31969913/why-does-this-regexp-exec-cause-an-infinite-loop
     var file_ext = String(serviceBusTask.blobName).split(".").pop();
     if (file_ext === "json" || file_ext === "blob") {
-        logRegex = '\{\\s*\"';
+        logRegex = '{\\s*\"';
     }
     // uncomment and use the snippet below for overriding boundary regex for your log files
     // if (serviceBusTask.storageName === "<your storageAccountName>" || serviceBusTask.containerName === "<your containerName>" ) {

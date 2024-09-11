@@ -195,8 +195,9 @@ function getRowKey(metadata) {
 
 async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
 
+    let rowKey = "";
     try {
-        let rowKey = getRowKey(serviceBusTask);
+        rowKey = getRowKey(serviceBusTask);
         // Todo: this should be atomic update if other request decreases offset it shouldn't allow
         context.log.verbose("Attempting to update offset row: %s from: %d to: %d", rowKey, serviceBusTask.startByte, newOffset);
         let entity = {
@@ -208,7 +209,7 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
             containerName: serviceBusTask.containerName,
             storageName: serviceBusTask.storageName
         }
-        var updateResult = await azureTableClient.updateEntity(entity, "Merge");
+        let updateResult = await azureTableClient.updateEntity(entity, "Merge");
         context.log.verbose("Updated offset result: %s row: %s from: %d to: %d", JSON.stringify(updateResult), rowKey, serviceBusTask.startByte, newOffset);
     } catch (error) {
         context.log.error(`Error - Failed to update OffsetMap table, error: ${JSON.stringify(error)},  rowKey: ${rowKey}, newOffset: ${newOffset}`)

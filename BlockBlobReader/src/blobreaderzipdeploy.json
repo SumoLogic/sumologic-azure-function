@@ -419,7 +419,7 @@
                       "[variables('BlobReader_resourceId')]"
                   ],
                   "properties": {
-                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskproducer4.1.2.zip",
+                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskproducer4.1.4.zip",
                     "appOffline": true
                   }
                 }
@@ -512,7 +512,7 @@
                       "[variables('blobreaderconsumer_resourceId')]"
                   ],
                   "properties": {
-                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskconsumer4.1.2.zip",
+                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/taskconsumer4.1.4.zip",
                     "appOffline": true
                   }
                 }
@@ -609,7 +609,7 @@
                       "[variables('DLQProcessor_resourceId')]"
                   ],
                   "properties": {
-                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/dlqprocessor4.1.2.zip",
+                    "packageUri": "https://appdev-cloudformation-templates.s3.amazonaws.com/AzureBlobReader/dlqprocessor4.1.4.zip",
                     "appOffline": true
                   }
                 }

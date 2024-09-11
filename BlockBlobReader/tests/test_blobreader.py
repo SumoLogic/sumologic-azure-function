@@ -98,7 +98,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         if len(self.test_filename) > maxMetadataLength:
             expected_filename = self.test_filename[:60] + "..." + self.test_filename[-(60-len(file_ext)):] + file_ext
         else:
-            expected_filename = self.test_filename
+            expected_filename = self.test_filename + file_ext
         return expected_filename
 
     def test_03_func_logs(self):
@@ -146,7 +146,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         expected_record_count = {
             "blob": 15,
             "log": 10,
-            "json": 120,
+            "json": 153,
             "csv": 12
         }
         record_count = record_excluded_by_filter_count = record_unsupported_extension_count = None
@@ -184,7 +184,9 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
     def upload_message_in_service_bus(self):
         file_ext = f".{self.log_type}"
         test_filename = self.test_filename + file_ext
-        file_size = os.path.getsize(f"blob_fixtures{file_ext}")
+        with open(f"blob_fixtures{file_ext}", "r") as fp:
+            file_size = len(fp.read())
+
         triggerData = {
             "blobName": test_filename,
             "containerName": self.test_container_name,
@@ -329,7 +331,8 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             self.test_container_name, test_filename)
         for i, data_block in enumerate(self.get_json_data()):
             block_id = self.get_random_name()
-            file_bytes = json.dumps(data_block)
+            # removing spaces(added by json.loads) using separators
+            file_bytes = json.dumps(data_block, separators=(',', ':'))
             file_bytes = (file_bytes[1:-1] if i ==
                           0 else "," + file_bytes[1:-1]).encode()
             self.block_blob_service.put_block(

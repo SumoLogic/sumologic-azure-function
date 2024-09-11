@@ -64,4 +64,11 @@ Execute below command under `BlockBlobReader/tests` directory
 
      npm audit fix
 
+## Publishing the zip
+
+1. export the AWS_PROFILE
+1. Update the tag in src/create_zip.sh file
+1. Run the script
+
+   `sh create_zip.sh` 
 

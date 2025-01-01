@@ -32,16 +32,18 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
         # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"
-        cls.log_type = os.environ.get("LOG_TYPE", "blob")
+        cls.FIXTURE_FILE = os.environ.get("FIXTURE_FILE", "blob_fixtures.json")
+        cls.log_type = cls.FIXTURE_FILE.split(".")[-1]
 
-        cls.test_container_name = "testcontainer-%s" % (datetime_value) if cls.log_type != "json" else "insights-logs-networksecuritygroupflowevent"
+        cls.test_container_name = cls.get_test_container_name()
         cls.test_filename_excluded_by_filter = "blockblob_test_filename_excluded_by_filter.blob"
         cls.test_filename_unsupported_extension = "blockblob_test.xml"
         # https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
         # https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
         # storageAccount 3-24 container 3-63 blobName 1-1024 maxDepth 63 if hierarchial namespace enabled
         # Verify maximum length path of storage location
-        folder_depth = str.join('/', choices(ascii_uppercase+digits, k=62))
+        cls.MAX_FOLDER_DEPTH = int(os.environ.get("MAX_FOLDER_DEPTH", 62))
+        folder_depth = str.join('/', choices(ascii_uppercase+digits, k=cls.MAX_FOLDER_DEPTH))
         bigrandomfilename = str.join('', choices(ascii_uppercase+digits, k=(1024-10-len(folder_depth))))
         # extension is appended later
         cls.test_filename = f"{folder_depth}/test{bigrandomfilename}"
@@ -60,6 +62,15 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
         cls.create_resource_group(
             cls.resourcegroup_location, cls.resource_group_name)
+
+    @classmethod
+    def get_test_container_name(cls):
+        if cls.log_type != "json":
+            return "testcontainer-%s" % (datetime_value)
+        elif cls.FIXTURE_FILE == "blob_fixtures.json":
+            return "insights-logs-networksecuritygroupflowevent"
+        else:
+            return "insights-logs-flowlogflowevent"
 
     def test_01_pipeline(self):
         self.deploy_template()
@@ -102,7 +113,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         return expected_filename
 
     def test_03_func_logs(self):
-        self.logger.info("inserting mock %s data in BlobStorage" % self.log_type)
+        self.logger.info("inserting mock %s data in BlobStorage" % self.FIXTURE_FILE)
         if self.log_type in ("csv", "log",  "blob"):
             self.insert_mock_logs_in_BlobStorage(self.log_type)
         else:
@@ -134,20 +145,23 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                         f"No success message found in {azurefunction} azure function logs")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         f"Error messages found in {azurefunction} azure function logs")
+                         f"Error messages found in {azurefunction} azure function logs:  {captured_output}")
 
         self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         f"Warning messages found in {azurefunction} azure function logs")
+                         f"Warning messages found in {azurefunction} azure function logs:  {captured_output}")
 
         self.logger.info("fetching mock data count from sumo")
 
         query = f'_sourceCategory="{self.source_category}" | count by _sourceName, _sourceHost'
         relative_time_in_minutes = 30
         expected_record_count = {
-            "blob": 15,
-            "log": 10,
-            "json": 153,
-            "csv": 12
+            "blob_fixtures.blob": 15,
+            "blob_fixtures.log": 10,
+            "blob_fixtures.json": 153,
+            "blob_fixtures_subnetflowlogs.json": 68,
+            "blob_fixtures_vnetflowlogs.json": 166,
+            "blob_fixtures_networkinterfaceflowlogs.json": 98,
+            "blob_fixtures.csv": 12
         }
         record_count = record_excluded_by_filter_count = record_unsupported_extension_count = None
         source_host = source_name = ""
@@ -162,8 +176,8 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         except Exception as err:
             self.logger.info(f"Error in fetching sumo query results {err}")
 
-        self.assertTrue(record_count == expected_record_count.get(self.log_type),
-                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(self.log_type)} in sumo '{self.source_category}'")
+        self.assertTrue(record_count == expected_record_count.get(self.FIXTURE_FILE),
+                        f"block blob file's record count: {record_count} differs from expected count {expected_record_count.get(self.FIXTURE_FILE)} in sumo '{self.source_category}'")
 
         # Verify Filter Prefix field
         self.assertTrue(record_excluded_by_filter_count == 0,
@@ -184,7 +198,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
     def upload_message_in_service_bus(self):
         file_ext = f".{self.log_type}"
         test_filename = self.test_filename + file_ext
-        with open(f"blob_fixtures{file_ext}", "r") as fp:
+        with open(self.FIXTURE_FILE, "r") as fp:
             file_size = len(fp.read())
 
         triggerData = {
@@ -243,11 +257,14 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_dlq_delete_message),
                         f"No success delete dlq message found in {azurefunction} azure function logs")
 
-        self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '3'),
-                         f"Error messages found in {azurefunction} azure function logs")
+        error_messages = self.filter_logs(captured_output, 'severityLevel', '3')
+        self.assertFalse(error_messages,
+                         f"Error messages found in {azurefunction} azure function logs: {error_messages}")
 
-        self.assertFalse(self.filter_logs(captured_output, 'severityLevel', '2'),
-                         f"Warning messages found in {azurefunction} azure function logs")
+        warning_messages = self.filter_logs(captured_output, 'severityLevel', '2')
+        self.assertFalse(warning_messages,
+                         f"Warning messages found in {azurefunction} azure function logs: {warning_messages}")
+
 
     def get_random_name(self, length=32):
         return str(uuid.uuid4())
@@ -307,7 +324,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         return blocks
 
     def get_json_data(self):
-        with open("blob_fixtures.json") as fp:
+        with open(self.FIXTURE_FILE) as fp:
             json_data = json.load(fp)["records"]
         return [json_data[:2], json_data[2:5], json_data[5:7], json_data[7:]]
 
@@ -344,7 +361,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
     def get_csv_data(self):
         all_lines = []
-        with open("blob_fixtures.csv") as logfile:
+        with open(self.FIXTURE_FILE) as logfile:
             all_lines = logfile.readlines()
         return [all_lines[:2], all_lines[2:5], all_lines[5:7]] + self.get_chunks(all_lines[7:], 2)
 
@@ -353,13 +370,13 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
     def get_log_data(self):
         all_lines = []
-        with open("blob_fixtures.log") as logfile:
+        with open(self.FIXTURE_FILE) as logfile:
             all_lines = logfile.readlines()
         return [all_lines[:2], all_lines[2:5], all_lines[5:7], all_lines[7:]]
 
     def get_blob_formatted_data(self):
         all_lines = []
-        with open("blob_fixtures.blob") as logfile:
+        with open(self.FIXTURE_FILE) as logfile:
             all_lines = logfile.readlines()
         return [all_lines[:2], all_lines[2:5], all_lines[5:7]] + self.get_chunks(all_lines[7:], 2)
 

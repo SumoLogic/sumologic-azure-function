@@ -80,7 +80,7 @@ else
 fi
 
 echo "creating zip"
-version="4.1.4"
+version="4.1.5"
 producer_zip_file="taskproducer$version.zip"
 consumer_zip_file="taskconsumer$version.zip"
 dlqprocessor_zip_file="dlqprocessor$version.zip"

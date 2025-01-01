@@ -24,3 +24,15 @@ This command copies required files in two directories logs_build(used for activi
 
 Integrations tests are in EventHubs/tests folder and unit tests are in sumo-function-utils/tests folder
 
+Modify the run_integration_test.sh file with below parameters
+```console
+
+AZURE_SUBSCRIPTION_ID=`<Your azure subscription id, to obtain it refer docs https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-azure-subscription>`
+AZURE_CLIENT_ID=`Your application id which you can get after registering application. Refer https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#register-an-application`
+AZURE_CLIENT_SECRET=`Generate client secret by referring docs https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#add-credentials`
+AZURE_TENANT_ID=`You tenant id, to obtain it refer docs https://learn.microsoft.com/en-us/azure/azure-portal/get-subscription-tenant-id#find-your-microsoft-entra-tenant`
+AZURE_DEFAULT_REGION=`eastus`
+SUMO_ACCESS_ID=`<Generate access id and access key https://help.sumologic.com/docs/manage/security/access-keys/#create-your-access-key>`
+SUMO_ACCESS_KEY=`<Generate access id and access key https://help.sumologic.com/docs/manage/security/access-keys/#create-your-access-key>`
+SUMO_DEPLOYMENT=`Enter one of the allowed values au, ca, de, eu, fed, in, jp, us1 or us2. Visit https://help.sumologic.com/APIs/General-API-Information/Sumo-Logic-Endpoints-and-Firewall-Security`
+```

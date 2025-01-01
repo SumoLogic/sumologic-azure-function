@@ -218,7 +218,7 @@ async function setAppendBlobOffset(context, serviceBusTask, newOffset) {
 
 async function nsgLogsHandler(context, msg, serviceBusTask) {
 
-    var jsonArray = [];
+    let jsonArray = [];
     msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
 
     try {
@@ -236,7 +236,7 @@ async function nsgLogsHandler(context, msg, serviceBusTask) {
 
     }
 
-    var eventsArr = [];
+    let eventsArr = [];
     jsonArray.forEach(function (record) {
         let version = record.properties.Version;
         record.properties.flows.forEach(function (rule) {
@@ -281,6 +281,66 @@ async function nsgLogsHandler(context, msg, serviceBusTask) {
     });
     return eventsArr;
 }
+
+async function networkFlowLogsHandler(context, msg, serviceBusTask) {
+
+    let jsonArray = [];
+    msg = msg.trim().replace(/(^,)|(,$)/g, ""); //removing trailing spaces,newlines and leftover commas
+
+    try {
+        jsonArray = JSON.parse("[" + msg + "]");
+    } catch(err) {
+        let response = getParseableJsonArray(msg, context, serviceBusTask);
+        jsonArray = response[0];
+        let is_success = response[2];
+        let newOffset = response[1] + serviceBusTask.startByte;
+        if (is_success) {
+            await setAppendBlobOffset(context, serviceBusTask, newOffset);
+        } else {
+            return jsonArray;
+        }
+
+    }
+    // Format: https://learn.microsoft.com/en-us/azure/network-watcher/vnet-flow-logs-overview#log-format
+    let eventsArr = [];
+    jsonArray.forEach(function (record) {
+        record.flowRecords.flows.forEach(function (acl) {
+            acl.flowGroups.forEach(function (rule) {
+                rule.flowTuples.forEach(function (tuple) {
+                    let col = tuple.split(",");
+                    let event = {
+                        time: col[0], // Time stamp of when the flow occurred, in UNIX epoch format.
+                        flowLogGUID: record.flowLogGUID,
+                        category: record.category,
+                        flow_log_resource_id: record.flowLogResourceID,
+                        target_resource_id: record.targetResourceID,
+                        event_name: record.operationName,
+                        acl_id: acl.aclID,
+                        rule_name: rule.rule,
+                        mac: record.macAddress,
+                        src_ip: col[1],
+                        dest_IP: col[2],
+                        src_port: col[3],
+                        dest_port: col[4],
+                        protocol: col[5],
+                        flow_direction: col[6],
+                        flow_state: (col[7] === "" || col[7] === undefined) ?  null : col[7],
+                        flow_encryption_status: (col[8] === "" || col[8] === undefined) ?  null : col[8],
+                        num_packets_sent_src_to_dest: (col[9] === "" || col[9] === undefined) ?  null : col[9],
+                        bytes_sent_src_to_dest: (col[10] === "" || col[10] === undefined) ?  null : col[10],
+                        num_packets_sent_dest_to_src: (col[11] === "" || col[11] === undefined) ?  null : col[11],
+                        bytes_sent_dest_to_src: (col[12] === "" || col[12] === undefined) ?  null : col[12],
+                        version: record.flowLogVersion
+
+                    }
+                    eventsArr.push(event);
+                });
+            });
+        });
+    });
+    return eventsArr;
+}
+
 
 function jsonHandler(context,msg) {
     // it's assumed that json is well formed {},{}
@@ -347,13 +407,13 @@ function messageHandler(serviceBusTask, context, sumoClient) {
     if (file_ext == serviceBusTask.blobName) {
         file_ext = "log";
     }
-    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler};
+    var msghandler = {"log": logHandler, "csv": csvHandler, "json": jsonHandler, "blob": blobHandler, "nsg": nsgLogsHandler, "vnetflowlogs": networkFlowLogsHandler};
     if (!(file_ext in msghandler)) {
         context.log.error("Error in messageHandler: Unknown file extension - " + file_ext + " for blob: " + serviceBusTask.blobName);
         context.done();
         return;
     }
-    if ((file_ext === "json") && (serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent")) {
+    if ((file_ext === "json") && (serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent" || serviceBusTask.containerName === "insights-logs-flowlogflowevent")) {
         // because in json first block and last block remain as it is and azure service adds new block in 2nd last pos
         if ((serviceBusTask.endByte < JSON_BLOB_HEAD_BYTES + JSON_BLOB_TAIL_BYTES) || (serviceBusTask.endByte == serviceBusTask.startByte)) {
             context.done(); //rejecting first commit when no data is there data will always be atleast HEAD_BYTES+DATA_BYTES+TAIL_BYTES
@@ -365,7 +425,7 @@ function messageHandler(serviceBusTask, context, sumoClient) {
         } else {
             serviceBusTask.startByte -= 1; //to remove comma before json object
         }
-        file_ext = "nsg";
+        file_ext = serviceBusTask.containerName === "insights-logs-networksecuritygroupflowevent" ? "nsg" : "vnetflowlogs";
     }
     getBlockBlobService(context, serviceBusTask).then(function (blobService) {
         return getData(serviceBusTask, blobService, context).then(async function (msg) {
@@ -385,10 +445,10 @@ function messageHandler(serviceBusTask, context, sumoClient) {
                     context.done(err);
                 });
             } else {
-                if (file_ext == "nsg") {
-                    messageArray = await nsgLogsHandler(context, msg, serviceBusTask);
+                if (file_ext === "nsg" || file_ext === "vnetflowlogs") {
+                    messageArray = await msghandler[file_ext](context, msg, serviceBusTask);
                 } else {
-                    messageArray = msghandler[file_ext](context,msg);
+                    messageArray = msghandler[file_ext](context, msg);
                 }
                 messageArray.forEach(function (msg) {
                     sumoClient.addData(msg);

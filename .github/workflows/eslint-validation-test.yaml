@@ -1,8 +1,8 @@
-name: "Syntax validation tests"
+name: "ESLint validation tests"
 on: [workflow_dispatch, pull_request]
 
 jobs:
-  node-syntax-test:
+  eslint-validation-test:
     runs-on: ubuntu-latest
     strategy:
       matrix: 
@@ -25,6 +25,8 @@ jobs:
         with:
           node-version: 20
       
-      - working-directory: ${{ matrix.dir }}
+      - name: Run ESLint
+        working-directory: ${{ matrix.dir }}
         run: |
-          find ./ -name *.js | xargs node -c
+          npm init @eslint/config@latest
+          eslint . --ext .js,.jsx,.ts,.tsx

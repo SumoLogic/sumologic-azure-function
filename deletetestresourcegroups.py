@@ -27,8 +27,6 @@ credentials = ClientSecretCredential(
 )
 location = str(config['AZURE_DEFAULT_REGION'])
 
-print("creating credentials", subscription_id)
-
 resource_client = ResourceManagementClient(credentials, subscription_id)
 
 

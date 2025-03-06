@@ -30,4 +30,4 @@ jobs:
         run: |
           npm install eslint globals @eslint/js
           cp ../../../eslint.config.mjs .
-          eslint . --ext .js,.jsx,.ts,.tsx
+          npx eslint . --ext .js

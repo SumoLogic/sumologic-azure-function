@@ -376,7 +376,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~18"
+                            "value": "~20"
                         },
                         {
                             "name": "Project",
@@ -503,7 +503,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~18"
+                            "value": "~20"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",
@@ -594,7 +594,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~18"
+                            "value": "~20"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",

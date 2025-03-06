@@ -26,7 +26,11 @@ jobs:
           node-version: 20
       
       - name: Run ESLint
+        run: |
+          npm install -g eslint globals @eslint/js
+
+      - name: Run ESLint
         working-directory: ${{ matrix.dir }}
         run: |
-          npm init @eslint/config@latest
+          cp ../../../eslint.config.mjs .
           eslint . --ext .js,.jsx,.ts,.tsx

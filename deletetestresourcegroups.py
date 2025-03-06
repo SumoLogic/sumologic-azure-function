@@ -7,14 +7,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from sumologic import SumoLogic
 
 config = {
-    "AZURE_SUBSCRIPTION_ID": "",
-    "AZURE_CLIENT_ID": "",
-    "AZURE_CLIENT_SECRET": "",
-    "AZURE_TENANT_ID": "",
-    "AZURE_DEFAULT_REGION": "",
-    "SUMO_ACCESS_ID": "",
-    "SUMO_ACCESS_KEY": "",
-    "SUMO_DEPLOYMENT": "us1"
+    "AZURE_SUBSCRIPTION_ID": os.environ.get("AZURE_SUBSCRIPTION_ID"),
+    "AZURE_CLIENT_ID": os.environ.get("AZURE_CLIENT_ID"),
+    "AZURE_CLIENT_SECRET": os.environ.get("AZURE_CLIENT_SECRET"),
+    "AZURE_TENANT_ID": os.environ.get("AZURE_TENANT_ID"),
+    "AZURE_DEFAULT_REGION": os.environ.get("AZURE_DEFAULT_REGION"),
+    "SUMO_ACCESS_ID": os.environ.get("SUMO_ACCESS_ID"),
+    "SUMO_ACCESS_KEY": os.environ.get("SUMO_ACCESS_KEY"),
+    "SUMO_DEPLOYMENT": os.environ.get("SUMO_DEPLOYMENT")
 }
 
 # config_file = os.path.expanduser("~/.azure/azure_credentials.json")

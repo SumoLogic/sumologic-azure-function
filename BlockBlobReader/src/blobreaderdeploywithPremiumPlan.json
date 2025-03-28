@@ -251,8 +251,8 @@
             "comments": "Generalized from resource: 'Microsoft.ServiceBus/namespaces/blobreadertaskqueue'.",
             "type": "Microsoft.ServiceBus/namespaces",
             "sku": {
-                "name": "Standard",
-                "tier": "Standard"
+                "name": "Premium",
+                "tier": "Premium"
             },
             "name": "[parameters('namespaces_blobreadertaskqueue_name')]",
             "apiVersion": "2022-10-01-preview",

@@ -1,4 +1,4 @@
-requests==2.32.2
+requests==2.32.4
 azure-monitor-query==1.2.0
 azure-identity==1.16.1
 azure-core==1.29.6

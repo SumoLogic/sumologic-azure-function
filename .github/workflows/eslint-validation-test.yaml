@@ -13,6 +13,8 @@ jobs:
           - dir: 'AppendBlobReader/target/producer_build'
           - dir: 'AppendBlobReader/target/appendblob_producer_build'
           - dir: 'AppendBlobReader/target/consumer_build'
+          - dir: 'AppendBlobReader/target/consumer_build'
+          - dir: 'AppendBlobReader/target/consumer_build'
           - dir: 'EventHubs/target/metrics_build'
     steps:
       - name: Checkout code

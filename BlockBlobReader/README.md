@@ -51,6 +51,13 @@ SUMO_ACCESS_KEY=`<Generate access id and access key https://help.sumologic.com/d
 SUMO_DEPLOYMENT=`Enter one of the allowed values au, ca, de, eu, fed, in, jp, us1 or us2. Visit https://help.sumologic.com/APIs/General-API-Information/Sumo-Logic-Endpoints-and-Firewall-Security`
 ```
 
+Additional prerequisite for BlockBlob integration test:
+The service principal used in AZURE_CLIENT_ID/AZURE_CLIENT_SECRET must have Azure RBAC permission to send messages to Service Bus queue during DLQ validation.
+
+Required role:
+
+Azure Service Bus Data Sender (minimum)
+(or Azure Service Bus Data Owner)
 
 Execute below command under `BlockBlobReader/tests` directory
 

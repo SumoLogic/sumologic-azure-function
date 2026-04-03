@@ -7,8 +7,5 @@
     "@azure/storage-blob": "^12.13.0",
     "@azure/data-tables": "^13.2.2",
     "encoding": "^0.1.13"
-  },
-  "overrides": {
-    "fast-xml-parser": "^5.5.9"
   }
 }

@@ -1,8 +1,5 @@
 {
   "dependencies": {
     "@azure/data-tables": "^13.2.2"
-  },
-  "overrides": {
-    "fast-xml-parser": "^5.5.9"
   }
 }

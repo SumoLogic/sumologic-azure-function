@@ -3,8 +3,5 @@
     "@azure/storage-blob": "^12.17.0",
     "@azure/identity": "^4.2.1",
     "@azure/data-tables": "^13.2.2"
-  },
-  "overrides": {
-    "fast-xml-parser": "^5.5.9"
   }
 }

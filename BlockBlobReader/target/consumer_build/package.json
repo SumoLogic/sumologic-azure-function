@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@azure/abort-controller": "^1.1.0",
     "@azure/arm-storage": "^18.1.0",

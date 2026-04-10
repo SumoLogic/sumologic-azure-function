@@ -1,7 +1,7 @@
 requests==2.32.4
 azure-monitor-query==1.2.0
 azure-identity==1.16.1
-azure-core==1.29.6
+azure-core==1.38.0
 azure-mgmt-resource==23.0.1
 azure-mgmt-eventhub==11.0.0
 azure-eventhub==5.11.5

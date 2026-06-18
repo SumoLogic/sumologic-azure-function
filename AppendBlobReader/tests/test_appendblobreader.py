@@ -61,7 +61,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.create_offset_table(self.offsetmap_table_name)  # now this gets created automatically
 
     def test_02_resource_count(self):
-        expected_resource_count = 12  # 10 + 2(microsoft.insights/autoscalesettings)
+        expected_resource_count = 13  # 10 + 2(microsoft.insights/autoscalesettings) + 1(microsoft.insights/actiongroups)
         self.check_resource_count(expected_resource_count)
 
     def upload_file_in_another_container(self):

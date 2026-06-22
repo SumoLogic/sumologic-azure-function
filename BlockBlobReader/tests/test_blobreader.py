@@ -79,7 +79,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.create_offset_table(self.offsetmap_table_name)
 
     def test_02_resource_count(self):
-        expected_resource_count = 10
+        expected_resource_count = 11  # 10 + 1(microsoft.insights/actiongroups)
         self.check_resource_count(expected_resource_count)
 
     def upload_file_in_another_container(self):

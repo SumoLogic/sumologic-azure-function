@@ -10,6 +10,7 @@ export SUMO_ACCESS_ID=""
 export SUMO_ACCESS_KEY=""
 export SUMO_DEPLOYMENT="us1"
 export TEMPLATE_NAME="appendblobreaderdeploy.json"
-python test_appendblobreader.py
+export TEST_STORAGE_RESOURCE_GROUP="sumo-appendblob-integration-test-do-not-delete"
+python3 test_appendblobreader.py
 # For deleting leftover resources in case of failures
 # python ~/git/sumologic-azure-function/deletetestresourcegroups.py

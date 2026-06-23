@@ -10,6 +10,7 @@ export SUMO_ACCESS_ID=""
 export SUMO_ACCESS_KEY=""
 export SUMO_DEPLOYMENT="us1"
 export TEMPLATE_NAME="blobreaderdeploy.json"
+export TEST_STORAGE_RESOURCE_GROUP="sumo-blockblob-integration-test-do-not-delete"
 # export FIXTURE_FILE="blob_fixtures.json"
 export FIXTURE_FILE="blob_fixtures_vnetflowlogs.json"
 # export FIXTURE_FILE="blob_fixtures_subnetflowlogs.json"
@@ -17,5 +18,5 @@ export FIXTURE_FILE="blob_fixtures_vnetflowlogs.json"
 export MAX_FOLDER_DEPTH=1
 # export TEMPLATE_NAME="blobreaderdeploywithPremiumPlan.json"
 # export TEMPLATE_NAME="blobreaderzipdeploy.json"
-python test_blobreader.py
+python3 test_blobreader.py
 # python ~/git/sumologic-azure-function/deletetestresourcegroups.py

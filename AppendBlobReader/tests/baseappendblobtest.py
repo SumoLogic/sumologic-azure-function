@@ -13,8 +13,14 @@ class BaseAppendBlobTest(BaseTest):
     @classmethod
     def tearDownClass(cls):
         super(BaseAppendBlobTest, cls).tearDownClass()
-        if cls.resource_group_exists(cls.test_storage_res_group) and BaseTest.allTestsPassed:
-            cls.delete_resource_group(cls.test_storage_res_group)
+        if BaseTest.allTestsPassed:
+            cls.delete_storage_account(cls.test_storage_res_group, cls.test_storageaccount_name)
+
+    @classmethod
+    def delete_storage_account(cls, resource_group_name, account_name):
+        storage_client = StorageManagementClient(cls.azure_credential, cls.subscription_id)
+        storage_client.storage_accounts.delete(resource_group_name, account_name)
+        cls.logger.info(f"deleted Storage account: {account_name}")
 
     def _parse_template(self):
         template_path = os.path.join(os.path.abspath('..'), 'src',

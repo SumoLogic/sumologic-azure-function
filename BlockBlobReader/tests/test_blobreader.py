@@ -28,7 +28,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
 
         # create new test resource group and test storage account
         test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
-        cls.test_storage_res_group = "testsumosa%s" % (test_datetime_value)
+        cls.test_storage_res_group = os.environ.get("TEST_STORAGE_RESOURCE_GROUP", "sumo-blockblob-test-storage")
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
         # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"

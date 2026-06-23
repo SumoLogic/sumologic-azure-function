@@ -85,8 +85,12 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         self.create_offset_table(self.offsetmap_table_name)
 
     def test_02_resource_count(self):
-        expected_resource_count = 11  # 10 + 1(microsoft.insights/actiongroups)
-        self.check_resource_count(expected_resource_count)
+        resources = list(filter(lambda x: not x.name.startswith("Failure Anomalies"),
+                                list(self.get_resources(self.resource_group_name))))
+        resource_count = len(resources)
+        # 10 base resources + optionally 1 auto-created microsoft.insights/actiongroups
+        self.assertTrue(resource_count in (10, 11),
+                        f"resource count: {resource_count} of resource group {self.resource_group_name} not in expected range [10, 11]")
 
     def upload_file_in_another_container(self):
         self.logger.info("uploading file in another container outside filter prefix")

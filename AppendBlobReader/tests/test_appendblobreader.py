@@ -27,7 +27,7 @@ class TestAppendBlobReader(BaseAppendBlobTest):
 
         # create new test resource group and test storage account
         test_datetime_value = current_time.strftime("%d%m%y%H%M%S")
-        cls.test_storage_res_group = "testsumosarg%s" % (test_datetime_value)
+        cls.test_storage_res_group = os.environ.get("TEST_STORAGE_RESOURCE_GROUP", "sumo-appendblob-integration-test-do-not-delete")
         cls.test_storageaccount_name = "testsa%s" % (test_datetime_value)
         # Verify when Test Storage Account and template deployment are in different regions
         cls.test_storageAccountRegion = "Central US"
@@ -61,8 +61,12 @@ class TestAppendBlobReader(BaseAppendBlobTest):
         self.create_offset_table(self.offsetmap_table_name)  # now this gets created automatically
 
     def test_02_resource_count(self):
-        expected_resource_count = 12  # 10 + 2(microsoft.insights/autoscalesettings)
-        self.check_resource_count(expected_resource_count)
+        resources = list(filter(lambda x: not x.name.startswith("Failure Anomalies"),
+                                list(self.get_resources(self.resource_group_name))))
+        resource_count = len(resources)
+        # 12 base resources + optionally 1 auto-created microsoft.insights/actiongroups
+        self.assertTrue(resource_count in (12, 13),
+                        f"resource count: {resource_count} of resource group {self.resource_group_name} not in expected range [12, 13]")
 
     def upload_file_in_another_container(self):
         self.logger.info("uploading file in another container outside filter prefix")

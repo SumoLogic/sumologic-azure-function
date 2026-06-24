@@ -520,6 +520,10 @@
                             "value": "AppendBlobReader/target/producer_build/"
                         },
                         {
+                            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+                            "value": "600"
+                        },
+                        {
                             "name": "WEBSITE_CONTENTSHARE",
                             "value": "[toLower(parameters('sites_BlobReader_name'))]"
                         },
@@ -617,6 +621,10 @@
                         {
                             "name": "Project",
                             "value": "AppendBlobReader/target/appendblob_producer_build/"
+                        },
+                        {
+                            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+                            "value": "600"
                         },
                         {
                             "name": "WEBSITE_CONTENTSHARE",
@@ -724,6 +732,10 @@
                         {
                             "name": "Project",
                             "value": "AppendBlobReader/target/consumer_build/"
+                        },
+                        {
+                            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+                            "value": "600"
                         },
                         {
                             "name": "WEBSITE_CONTENTSHARE",

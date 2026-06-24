@@ -383,6 +383,10 @@
                             "value": "BlockBlobReader/target/producer_build/"
                         },
                         {
+                            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+                            "value": "600"
+                        },
+                        {
                             "name": "AzureWebJobsStorage",
                             "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccounts_blobreaderaea3_name'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_blobreaderaea3_name')), '2023-01-01').keys[0].value)]"
                         },
@@ -471,6 +475,10 @@
                         {
                             "name": "Project",
                             "value": "BlockBlobReader/target/consumer_build/"
+                        },
+                        {
+                            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+                            "value": "600"
                         },
                         {
                             "name": "AzureWebJobsStorage",
@@ -567,6 +575,10 @@
                         {
                             "name": "Project",
                             "value": "BlockBlobReader/target/dlqprocessor_build/"
+                        },
+                        {
+                            "name": "SCM_COMMAND_IDLE_TIMEOUT",
+                            "value": "600"
                         },
                         {
                             "name": "AzureWebJobsStorage",

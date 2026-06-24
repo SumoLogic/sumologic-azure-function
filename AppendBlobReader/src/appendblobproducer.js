@@ -134,6 +134,10 @@ function queryFiles(tableQuery, context) {
             }
             return resolve(allentities);
         } catch (error) {
+            if (error.statusCode === 404 && JSON.stringify(error).includes("TableNotFound")) {
+                context.log("FileOffsetMap table does not exist yet, skipping poll.");
+                return resolve([]);
+            }
             context.log.error(`Error while fetching queryFiles: ${JSON.stringify(error)}`);
             return reject(error);
         }

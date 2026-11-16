@@ -17,6 +17,9 @@ from string import ascii_uppercase, digits
 
 class TestBlobReaderFlow(BaseBlockBlobTest):
 
+    # set by test_01 once source control deployments finish; logs are only checked after this
+    deployments_completed_at = None
+
     @classmethod
     def setUpClass(cls):
         current_time = datetime.now()
@@ -81,8 +84,38 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
             else:
                 raise
         self.assertTrue(self.resource_group_exists(self.resource_group_name))
+        # Kudu keeps running npm install after ARM returns; functions only work once it finishes
+        TestBlobReaderFlow.deployments_completed_at = self.wait_for_function_app_deployments()
         self.table_service = self.get_table_service()
         self.create_offset_table(self.offsetmap_table_name)
+
+    def wait_for_function_app_deployments(self, timeout_in_minutes=30, poll_interval_in_seconds=30):
+        # Deployment status values: 4 = succeeded, 3 = failed, anything else = still running
+        website_client = WebSiteManagementClient(credential=self.azure_credential, subscription_id=self.subscription_id)
+        app_names = [site.name for site in website_client.web_apps.list_by_resource_group(self.resource_group_name)]
+        resynced = set()
+        deadline = datetime.utcnow() + timedelta(minutes=timeout_in_minutes)
+        while True:
+            pending = []
+            for app_name in app_names:
+                deployments = list(website_client.web_apps.list_deployments(self.resource_group_name, app_name))
+                active = [d for d in deployments if d.active] or deployments
+                status = active[0].status if active else None
+                if status == 4:
+                    continue
+                if status == 3 and app_name not in resynced:
+                    self.logger.warning(f"source control deployment failed for {app_name}, retrying once")
+                    website_client.web_apps.sync_repository(self.resource_group_name, app_name)
+                    resynced.add(app_name)
+                pending.append(f"{app_name}={status}")
+            if not pending:
+                completed_at = datetime.utcnow()
+                self.logger.info(f"source control deployments completed for {app_names} at {completed_at}")
+                return completed_at
+            if datetime.utcnow() > deadline:
+                raise Exception(f"source control deployments not completed after {timeout_in_minutes} minutes: {pending}")
+            self.logger.info(f"waiting for source control deployments: {pending}")
+            time.sleep(poll_interval_in_seconds)
 
     def test_02_resource_count(self):
         resources = list(filter(lambda x: not x.name.startswith("Failure Anomalies"),
@@ -135,7 +168,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         app_insights = self.get_resource('Microsoft.Insights/components')
 
         azurefunction = "BlobTaskProducer"
-        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+        captured_output = self.fetchlogs(app_insights.name, azurefunction, since=self.deployments_completed_at)
 
         message = "Tasks Created:"
         self.assertTrue(self.filter_logs(captured_output, 'message', message),
@@ -148,7 +181,7 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
                         f"Warning messages found in '{azurefunction}' logs: {captured_output}")
 
         azurefunction = "BlobTaskConsumer"
-        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+        captured_output = self.fetchlogs(app_insights.name, azurefunction, since=self.deployments_completed_at)
 
         successful_sent_message = "Successfully sent to Sumo, Exiting now."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),
@@ -250,14 +283,14 @@ class TestBlobReaderFlow(BaseBlockBlobTest):
         app_insights = self.get_resource('Microsoft.Insights/components')
 
         azurefunction = "BlobTaskConsumer"
-        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+        captured_output = self.fetchlogs(app_insights.name, azurefunction, since=self.deployments_completed_at)
 
         retry_error_message = "Retry error:"
         self.assertTrue(self.filter_logs(captured_output, 'message', retry_error_message),
                         f"No retry message found in {azurefunction} azure function logs")
 
         azurefunction = "DLQTaskConsumer"
-        captured_output = self.fetchlogs(app_insights.name, azurefunction)
+        captured_output = self.fetchlogs(app_insights.name, azurefunction, since=self.deployments_completed_at)
 
         successful_sent_message = "Successfully sent to Sumo, Exiting now."
         self.assertTrue(self.filter_logs(captured_output, 'message', successful_sent_message),

@@ -274,7 +274,7 @@
                 "name": "Standard_LRS",
                 "tier": "Standard"
             },
-            "kind": "Storage",
+            "kind": "StorageV2",
             "name": "[parameters('storageAccounts_blobreaderaea3_name')]",
             "apiVersion": "2023-01-01",
             "location": "[parameters('location')]",

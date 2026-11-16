@@ -521,7 +521,7 @@
                         },
                         {
                             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-                            "value": "600"
+                            "value": "1200"
                         },
                         {
                             "name": "WEBSITE_CONTENTSHARE",
@@ -624,7 +624,7 @@
                         },
                         {
                             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-                            "value": "600"
+                            "value": "1200"
                         },
                         {
                             "name": "WEBSITE_CONTENTSHARE",
@@ -735,7 +735,7 @@
                         },
                         {
                             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-                            "value": "600"
+                            "value": "1200"
                         },
                         {
                             "name": "WEBSITE_CONTENTSHARE",

@@ -384,7 +384,7 @@
                         },
                         {
                             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-                            "value": "1200"
+                            "value": "600"
                         },
                         {
                             "name": "AzureWebJobsStorage",
@@ -478,7 +478,7 @@
                         },
                         {
                             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-                            "value": "1200"
+                            "value": "600"
                         },
                         {
                             "name": "AzureWebJobsStorage",
@@ -578,7 +578,7 @@
                         },
                         {
                             "name": "SCM_COMMAND_IDLE_TIMEOUT",
-                            "value": "1200"
+                            "value": "600"
                         },
                         {
                             "name": "AzureWebJobsStorage",

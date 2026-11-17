@@ -268,7 +268,7 @@
                 "name": "Standard_LRS",
                 "tier": "Standard"
             },
-            "kind": "Storage",
+            "kind": "StorageV2",
             "name": "[parameters('storageAccounts_blobreaderaea3_name')]",
             "apiVersion": "2023-01-01",
             "location": "[parameters('location')]",
@@ -378,7 +378,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~22"
+                            "value": "~24"
                         },
                         {
                             "name": "Project",
@@ -513,7 +513,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~22"
+                            "value": "~24"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",
@@ -608,7 +608,7 @@
                         },
                         {
                             "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                            "value": "~22"
+                            "value": "~24"
                         },
                         {
                             "name": "FUNCTION_APP_EDIT_MODE",

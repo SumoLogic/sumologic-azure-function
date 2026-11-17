@@ -1,6 +1,6 @@
 {
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "dependencies": {
     "@azure/data-tables": "^13.2.1",

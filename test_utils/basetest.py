@@ -229,11 +229,14 @@ class BaseTest(unittest.TestCase):
             collector_id, {"source": {"id": source_id}})
         cls.logger.info("deleted source")
 
-    def fetchlogs(self, app_insights, function_name):
+    def fetchlogs(self, app_insights, function_name, since=None):
         result = []
         try:
             client = LogsQueryClient(self.azure_credential)
-            query = f"app('{app_insights}').traces | where operation_Name == '{function_name}' | project operation_Id, timestamp, message, severityLevel"
+            query = f"app('{app_insights}').traces | where operation_Name == '{function_name}'"
+            if since:
+                query += f" | where timestamp > datetime({since.strftime('%Y-%m-%dT%H:%M:%SZ')})"
+            query += " | project operation_Id, timestamp, message, severityLevel"
             response = client.query_workspace(
                 self.get_Workspace_Id(), query, timespan=timedelta(hours=1))
 
